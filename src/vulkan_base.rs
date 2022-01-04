@@ -1,0 +1,469 @@
+use winit::{
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    platform::run_return::EventLoopExtRunReturn,
+    window::WindowBuilder,
+};
+
+use ash::extensions::ext::DebugUtils;
+use ash::extensions::khr::Surface;
+use ash::extensions::khr::Swapchain;
+use ash::{vk, Device, Entry};
+
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::ffi::CStr;
+use std::os::raw::c_char;
+
+// Simple offset_of macro akin to C++ offsetof
+#[macro_export]
+macro_rules! offset_of {
+    ($base:path, $field:ident) => {{
+        #[allow(unused_unsafe)]
+        unsafe {
+            let b: $base = mem::zeroed();
+            (&b.$field as *const _ as isize) - (&b as *const _ as isize)
+        }
+    }};
+}
+
+unsafe extern "system" fn vulkan_debug_callback(
+    message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
+    message_type: vk::DebugUtilsMessageTypeFlagsEXT,
+    p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
+    _user_data: *mut std::os::raw::c_void,
+) -> vk::Bool32 {
+    let callback_data = *p_callback_data;
+    let message_id_number: i32 = callback_data.message_id_number as i32;
+
+    let message_id_name = if callback_data.p_message_id_name.is_null() {
+        Cow::from("")
+    } else {
+        CStr::from_ptr(callback_data.p_message_id_name).to_string_lossy()
+    };
+
+    let message = if callback_data.p_message.is_null() {
+        Cow::from("")
+    } else {
+        CStr::from_ptr(callback_data.p_message).to_string_lossy()
+    };
+
+    println!(
+        "{:?}:\n{:?} [{} ({})] : {}\n",
+        message_severity,
+        message_type,
+        message_id_name,
+        &message_id_number.to_string(),
+        message,
+    );
+
+    vk::FALSE
+}
+
+pub fn find_memory_type_index(
+    memory_req: &vk::MemoryRequirements,
+    memory_prop: &vk::PhysicalDeviceMemoryProperties,
+    flags: vk::MemoryPropertyFlags,
+) -> Option<u32> {
+    memory_prop.memory_types[..memory_prop.memory_type_count as _]
+        .iter()
+        .enumerate()
+        .find(|(index, memory_type)| {
+            (1 << index) & memory_req.memory_type_bits != 0
+                && memory_type.property_flags & flags == flags
+        })
+        .map(|(index, _memory_type)| index as _)
+}
+
+pub struct VulkanBase {
+    window: winit::window::Window,
+    event_loop: RefCell<winit::event_loop::EventLoop<()>>,
+    pub device: ash::Device,
+    pub device_memory_properties: vk::PhysicalDeviceMemoryProperties,
+    pub present_queue: vk::Queue,
+    command_pool: vk::CommandPool,
+    pub setup_command_buffer: vk::CommandBuffer,
+    pub draw_command_buffer: vk::CommandBuffer,
+    present_images: Vec<vk::Image>,
+    pub present_image_views: Vec<vk::ImageView>,
+    pub present_complete_semaphore: vk::Semaphore,
+    pub rendering_complete_semaphore: vk::Semaphore,
+    pub surface_format: vk::SurfaceFormatKHR,
+    pub surface_resolution: vk::Extent2D,
+    pub swapchain: vk::SwapchainKHR,
+    pub swapchain_loader: ash::extensions::khr::Swapchain,
+    pub draw_commands_reuse_fence: vk::Fence,
+}
+
+impl VulkanBase {
+    pub fn new(width: u32, height: u32) -> VulkanBase {
+        let entry = ash::Entry::linked();
+
+        let (window, event_loop) = VulkanBase::create_window(width, height);
+        let instance = VulkanBase::create_instance(&entry, &window);
+        VulkanBase::create_debug_utils(&entry, &instance);
+
+        let (surface, surface_loader) = VulkanBase::create_surface(&entry, &instance, &window);
+        let (device, physical_device, present_queue, queue_family_index) =
+            VulkanBase::create_device(&entry, &instance, surface, &surface_loader);
+        let (swapchain, swapchain_loader, surface_format, surface_resolution) =
+            VulkanBase::create_swapchain(
+                &instance,
+                physical_device,
+                &device,
+                surface,
+                &surface_loader,
+            );
+        let (command_pool, setup_command_buffer, draw_command_buffer) =
+            VulkanBase::create_command_buffers(&device, queue_family_index);
+        let (present_images, present_image_views) = VulkanBase::setup_swapchain_images(
+            &device,
+            swapchain,
+            &swapchain_loader,
+            surface_format,
+        );
+        let (present_complete_semaphore, rendering_complete_semaphore) =
+            VulkanBase::create_semaphores(&device);
+
+        let device_memory_properties =
+            unsafe { instance.get_physical_device_memory_properties(physical_device) };
+
+        let fence_create_info =
+            vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+
+        let draw_commands_reuse_fence = unsafe {
+            device
+                .create_fence(&fence_create_info, None)
+                .expect("Create fence failed.")
+        };
+
+        VulkanBase {
+            window,
+            event_loop: RefCell::new(event_loop),
+            device,
+            device_memory_properties,
+            present_queue,
+            command_pool,
+            setup_command_buffer,
+            draw_command_buffer,
+            present_images,
+            present_image_views,
+            present_complete_semaphore,
+            rendering_complete_semaphore,
+            surface_format,
+            surface_resolution,
+            swapchain,
+            swapchain_loader,
+            draw_commands_reuse_fence,
+        }
+    }
+
+    fn create_window(
+        width: u32,
+        height: u32,
+    ) -> (winit::window::Window, winit::event_loop::EventLoop<()>) {
+        let event_loop = EventLoop::new();
+        let window = WindowBuilder::new()
+            .with_title("vulkan-rust-test")
+            .with_inner_size(winit::dpi::LogicalSize::new(
+                f64::from(width),
+                f64::from(height),
+            ))
+            .build(&event_loop)
+            .expect("Failed to create window");
+
+        (window, event_loop)
+    }
+
+    fn create_instance(entry: &ash::Entry, window: &winit::window::Window) -> ash::Instance {
+        let app_name = CStr::from_bytes_with_nul(b"vulkan-rust-test\0").unwrap();
+        let layer_names = [CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap()];
+        let layer_names_raw: Vec<*const c_char> = layer_names
+            .iter()
+            .map(|raw_name| raw_name.as_ptr())
+            .collect();
+
+        let surface_extensions = ash_window::enumerate_required_extensions(&window).unwrap();
+        let mut extension_names_raw: Vec<*const c_char> =
+            surface_extensions.iter().map(|ext| ext.as_ptr()).collect();
+        extension_names_raw.push(DebugUtils::name().as_ptr());
+
+        let app_info = vk::ApplicationInfo::builder()
+            .application_name(app_name)
+            .application_version(0)
+            .engine_name(app_name)
+            .engine_version(0)
+            .api_version(vk::make_api_version(0, 1, 0, 0));
+
+        let create_info = vk::InstanceCreateInfo::builder()
+            .application_info(&app_info)
+            .enabled_layer_names(&layer_names_raw)
+            .enabled_extension_names(&extension_names_raw);
+
+        let instance = unsafe {
+            entry
+                .create_instance(&create_info, None)
+                .expect("Failed to create Vulkan instance")
+        };
+
+        instance
+    }
+
+    fn create_debug_utils(entry: &ash::Entry, instance: &ash::Instance) {
+        let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+            .message_severity(
+                vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
+                    | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+                    | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
+                //vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE,
+            )
+            .message_type(
+                vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                    | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                    | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+            )
+            .pfn_user_callback(Some(vulkan_debug_callback));
+
+        let debug_utils_loader = DebugUtils::new(&entry, &instance);
+        let debug_call_back = unsafe {
+            debug_utils_loader
+                .create_debug_utils_messenger(&debug_info, None)
+                .unwrap();
+        };
+    }
+
+    fn create_surface(
+        entry: &ash::Entry,
+        instance: &ash::Instance,
+        window: &winit::window::Window,
+    ) -> (vk::SurfaceKHR, Surface) {
+        let surface =
+            unsafe { ash_window::create_surface(&entry, &instance, &window, None).unwrap() };
+        let surface_loader = Surface::new(&entry, &instance);
+
+        (surface, surface_loader)
+    }
+
+    fn create_device(
+        entry: &ash::Entry,
+        instance: &ash::Instance,
+        surface: vk::SurfaceKHR,
+        surface_loader: &Surface,
+    ) -> (ash::Device, vk::PhysicalDevice, vk::Queue, u32) {
+        unsafe {
+            let physical_devices = instance
+                .enumerate_physical_devices()
+                .expect("Error enumerating physical devices");
+
+            // Note: assume single physical device
+            let physical_device = physical_devices[0];
+            // let device_properties = instance.get_physical_device_properties(selected_physical_device);
+
+            let queue_family_properties =
+                instance.get_physical_device_queue_family_properties(physical_device);
+            let queue_family_index = queue_family_properties
+                .iter()
+                .position(|info| info.queue_flags.contains(vk::QueueFlags::GRAPHICS))
+                .expect("Did not find any matching graphics queue");
+            let queue_family_index = queue_family_index as u32;
+            surface_loader
+                .get_physical_device_surface_support(physical_device, queue_family_index, surface)
+                .expect("Presentation of the queue family not supported by the surface");
+
+            let device_extension_names_raw = [Swapchain::name().as_ptr()];
+            let device_features = vk::PhysicalDeviceFeatures {
+                shader_clip_distance: 1,
+                ..Default::default()
+            };
+
+            let queue_priorities = [1.0];
+            let queue_info = vk::DeviceQueueCreateInfo::builder()
+                .queue_family_index(queue_family_index)
+                .queue_priorities(&queue_priorities);
+
+            let device_create_info = vk::DeviceCreateInfo::builder()
+                .queue_create_infos(std::slice::from_ref(&queue_info))
+                .enabled_extension_names(&device_extension_names_raw)
+                .enabled_features(&device_features);
+
+            let device: Device = instance
+                .create_device(physical_device, &device_create_info, None)
+                .expect("Failed to create logical Vulkan device");
+
+            let present_queue = device.get_device_queue(queue_family_index, 0);
+
+            (device, physical_device, present_queue, queue_family_index)
+        }
+    }
+
+    fn create_swapchain(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        device: &ash::Device,
+        surface: vk::SurfaceKHR,
+        surface_loader: &Surface,
+    ) -> (
+        vk::SwapchainKHR,
+        Swapchain,
+        vk::SurfaceFormatKHR,
+        vk::Extent2D,
+    ) {
+        unsafe {
+            let surface_format = surface_loader
+                .get_physical_device_surface_formats(physical_device, surface)
+                .expect("Error getting device surface formats")[0];
+
+            let surface_capabilities = surface_loader
+                .get_physical_device_surface_capabilities(physical_device, surface)
+                .expect("Error getting device surface capabilities");
+
+            println!("{:#?}", surface_format);
+            println!("{:#?}", surface_capabilities);
+
+            let desired_image_count = surface_capabilities.min_image_count + 1;
+            let surface_resolution = surface_capabilities.current_extent;
+            let desired_transform = vk::SurfaceTransformFlagsKHR::IDENTITY;
+
+            let present_modes = surface_loader
+                .get_physical_device_surface_present_modes(physical_device, surface)
+                .expect("Error getting present modes");
+            let present_mode = present_modes
+                .iter()
+                .cloned()
+                .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
+                .expect("Did not find expected present mode");
+
+            println!("{:#?}", present_modes);
+            println!("{:#?}", present_mode);
+
+            let swapchain_loader = Swapchain::new(&instance, &device);
+
+            let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
+                .surface(surface)
+                .min_image_count(desired_image_count)
+                .image_color_space(surface_format.color_space)
+                .image_format(surface_format.format)
+                .image_extent(surface_resolution)
+                .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+                .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
+                .pre_transform(desired_transform)
+                .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+                .present_mode(present_mode)
+                .clipped(true)
+                .image_array_layers(1);
+
+            let swapchain = swapchain_loader
+                .create_swapchain(&swapchain_create_info, None)
+                .unwrap();
+
+            (
+                swapchain,
+                swapchain_loader,
+                surface_format,
+                surface_resolution,
+            )
+        }
+    }
+
+    fn create_command_buffers(
+        device: &ash::Device,
+        queue_family_index: u32,
+    ) -> (vk::CommandPool, vk::CommandBuffer, vk::CommandBuffer) {
+        let pool_create_info = vk::CommandPoolCreateInfo::builder()
+            .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
+            .queue_family_index(queue_family_index);
+
+        let pool = unsafe {
+            device
+                .create_command_pool(&pool_create_info, None)
+                .expect("Failed to create command pool")
+        };
+
+        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
+            .command_buffer_count(2)
+            .command_pool(pool)
+            .level(vk::CommandBufferLevel::PRIMARY);
+
+        let command_buffers = unsafe {
+            device
+                .allocate_command_buffers(&command_buffer_allocate_info)
+                .expect("Failed to allocate command buffer")
+        };
+
+        (pool, command_buffers[0], command_buffers[1])
+    }
+
+    fn setup_swapchain_images(
+        device: &ash::Device,
+        swapchain: vk::SwapchainKHR,
+        swapchain_loader: &Swapchain,
+        surface_format: vk::SurfaceFormatKHR,
+    ) -> (Vec<vk::Image>, Vec<vk::ImageView>) {
+        unsafe {
+            let present_images = swapchain_loader
+                .get_swapchain_images(swapchain)
+                .expect("Error getting swapchain images");
+
+            let present_image_views: Vec<vk::ImageView> = present_images
+                .iter()
+                .map(|&image| {
+                    let create_view_info = vk::ImageViewCreateInfo::builder()
+                        .view_type(vk::ImageViewType::TYPE_2D)
+                        .format(surface_format.format)
+                        .components(vk::ComponentMapping {
+                            r: vk::ComponentSwizzle::R,
+                            g: vk::ComponentSwizzle::G,
+                            b: vk::ComponentSwizzle::B,
+                            a: vk::ComponentSwizzle::A,
+                        })
+                        .subresource_range(vk::ImageSubresourceRange {
+                            aspect_mask: vk::ImageAspectFlags::COLOR,
+                            base_mip_level: 0,
+                            level_count: 1,
+                            base_array_layer: 0,
+                            layer_count: 1,
+                        })
+                        .image(image);
+                    device.create_image_view(&create_view_info, None).unwrap()
+                })
+                .collect();
+
+            // Todo: create depth image
+
+            (present_images, present_image_views)
+        }
+    }
+
+    fn create_semaphores(device: &ash::Device) -> (vk::Semaphore, vk::Semaphore) {
+        unsafe {
+            let semaphore_create_info = vk::SemaphoreCreateInfo::default();
+
+            let present_complete_semaphore = device
+                .create_semaphore(&semaphore_create_info, None)
+                .expect("Error creating semaphore");
+            let rendering_complete_semaphore = device
+                .create_semaphore(&semaphore_create_info, None)
+                .expect("Error creating semaphore");
+
+            (present_complete_semaphore, rendering_complete_semaphore)
+        }
+    }
+
+    pub fn run<F: Fn()>(&self, user_function: F) {
+        self.event_loop
+            .borrow_mut()
+            .run_return(|event, _, control_flow| {
+                *control_flow = ControlFlow::Wait;
+
+                user_function();
+
+                match event {
+                    Event::WindowEvent {
+                        event: WindowEvent::CloseRequested,
+                        window_id,
+                    } if window_id == self.window.id() => *control_flow = ControlFlow::Exit,
+                    _ => (),
+                }
+            });
+    }
+}
