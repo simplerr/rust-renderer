@@ -8,7 +8,7 @@ use winit::{
 use ash::extensions::ext::DebugUtils;
 use ash::extensions::khr::Surface;
 use ash::extensions::khr::Swapchain;
-use ash::{vk, Device, Entry};
+use ash::{vk, Device};
 
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -81,10 +81,10 @@ pub struct VulkanBase {
     pub device: ash::Device,
     pub device_memory_properties: vk::PhysicalDeviceMemoryProperties,
     pub present_queue: vk::Queue,
-    command_pool: vk::CommandPool,
+    _command_pool: vk::CommandPool,
     pub setup_command_buffer: vk::CommandBuffer,
     pub draw_command_buffer: vk::CommandBuffer,
-    present_images: Vec<vk::Image>,
+    _present_images: Vec<vk::Image>,
     pub present_image_views: Vec<vk::ImageView>,
     pub present_complete_semaphore: vk::Semaphore,
     pub rendering_complete_semaphore: vk::Semaphore,
@@ -93,6 +93,7 @@ pub struct VulkanBase {
     pub swapchain: vk::SwapchainKHR,
     pub swapchain_loader: ash::extensions::khr::Swapchain,
     pub draw_commands_reuse_fence: vk::Fence,
+    pub debug_callback: vk::DebugUtilsMessengerEXT,
 }
 
 impl VulkanBase {
@@ -101,11 +102,11 @@ impl VulkanBase {
 
         let (window, event_loop) = VulkanBase::create_window(width, height);
         let instance = VulkanBase::create_instance(&entry, &window);
-        VulkanBase::create_debug_utils(&entry, &instance);
+        let debug_callback = VulkanBase::create_debug_utils(&entry, &instance);
 
         let (surface, surface_loader) = VulkanBase::create_surface(&entry, &instance, &window);
         let (device, physical_device, present_queue, queue_family_index) =
-            VulkanBase::create_device(&entry, &instance, surface, &surface_loader);
+            VulkanBase::create_device(&instance, surface, &surface_loader);
         let (swapchain, swapchain_loader, surface_format, surface_resolution) =
             VulkanBase::create_swapchain(
                 &instance,
@@ -114,9 +115,9 @@ impl VulkanBase {
                 surface,
                 &surface_loader,
             );
-        let (command_pool, setup_command_buffer, draw_command_buffer) =
+        let (_command_pool, setup_command_buffer, draw_command_buffer) =
             VulkanBase::create_command_buffers(&device, queue_family_index);
-        let (present_images, present_image_views) = VulkanBase::setup_swapchain_images(
+        let (_present_images, present_image_views) = VulkanBase::setup_swapchain_images(
             &device,
             swapchain,
             &swapchain_loader,
@@ -143,10 +144,10 @@ impl VulkanBase {
             device,
             device_memory_properties,
             present_queue,
-            command_pool,
+            _command_pool,
             setup_command_buffer,
             draw_command_buffer,
-            present_images,
+            _present_images,
             present_image_views,
             present_complete_semaphore,
             rendering_complete_semaphore,
@@ -155,6 +156,7 @@ impl VulkanBase {
             swapchain,
             swapchain_loader,
             draw_commands_reuse_fence,
+            debug_callback,
         }
     }
 
@@ -209,7 +211,8 @@ impl VulkanBase {
         instance
     }
 
-    fn create_debug_utils(entry: &ash::Entry, instance: &ash::Instance) {
+    fn create_debug_utils(entry: &ash::Entry, instance: &ash::Instance)
+        -> vk::DebugUtilsMessengerEXT {
         let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
             .message_severity(
                 vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
@@ -225,11 +228,13 @@ impl VulkanBase {
             .pfn_user_callback(Some(vulkan_debug_callback));
 
         let debug_utils_loader = DebugUtils::new(&entry, &instance);
-        let debug_call_back = unsafe {
+        let debug_callback = unsafe {
             debug_utils_loader
                 .create_debug_utils_messenger(&debug_info, None)
-                .unwrap();
+                .unwrap()
         };
+
+        debug_callback
     }
 
     fn create_surface(
@@ -245,7 +250,6 @@ impl VulkanBase {
     }
 
     fn create_device(
-        entry: &ash::Entry,
         instance: &ash::Instance,
         surface: vk::SurfaceKHR,
         surface_loader: &Surface,

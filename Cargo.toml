@@ -1,5 +1,5 @@
 [package]
-name = "vulkan-rust-test"
+name = "rust-renderer"
 version = "0.1.0"
 edition = "2021"
 
