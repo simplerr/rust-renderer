@@ -453,6 +453,62 @@ impl VulkanBase {
         }
     }
 
+    pub fn prepare_frame(&self) -> u32 {
+        unsafe {
+            let (present_index, _) = self
+                .swapchain_loader
+                .acquire_next_image(
+                    self.swapchain,
+                    std::u64::MAX,
+                    self.present_complete_semaphore,
+                    vk::Fence::null(),
+                )
+                .expect("Error acquiring next swapchain image");
+
+            present_index
+        }
+    }
+
+    pub fn present_frame(&self, present_index: u32) {
+        unsafe {
+            let wait_semaphores = [self.rendering_complete_semaphore];
+            let swapchains = [self.swapchain];
+            let image_indices = [present_index];
+            let present_info = vk::PresentInfoKHR::builder()
+                .wait_semaphores(&wait_semaphores)
+                .swapchains(&swapchains)
+                .image_indices(&image_indices);
+
+            self.swapchain_loader
+                .queue_present(self.present_queue, &present_info)
+                .unwrap();
+        }
+    }
+
+    pub fn submit_commands(&self) {
+        unsafe {
+            let command_buffers = vec![self.draw_command_buffer];
+            let wait_mask = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+            let wait_semaphores = [self.present_complete_semaphore];
+            let signal_semaphores = [self.rendering_complete_semaphore];
+
+            let submit_info = vk::SubmitInfo::builder()
+                .wait_semaphores(&wait_semaphores)
+                .signal_semaphores(&signal_semaphores)
+                .wait_dst_stage_mask(&wait_mask)
+                .command_buffers(&command_buffers);
+
+            self.device
+                .queue_submit(
+                    self.present_queue,
+                    &[submit_info.build()],
+                    self.draw_commands_reuse_fence,
+                )
+                .expect("Queue submit failed.");
+        }
+    }
+
+
     pub fn run<F: Fn()>(&self, user_function: F) {
         self.event_loop
             .borrow_mut()

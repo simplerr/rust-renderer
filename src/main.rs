@@ -325,64 +325,6 @@ impl Application {
         graphic_pipeline
     }
 
-    fn prepare_frame(&self) -> u32 {
-        unsafe {
-            let (present_index, _) = self
-                .base
-                .swapchain_loader
-                .acquire_next_image(
-                    self.base.swapchain,
-                    std::u64::MAX,
-                    self.base.present_complete_semaphore,
-                    vk::Fence::null(),
-                )
-                .expect("Error acquiring next swapchain image");
-
-            present_index
-        }
-    }
-
-    fn present_frame(&self, present_index: u32) {
-        unsafe {
-            let wait_semaphores = [self.base.rendering_complete_semaphore];
-            let swapchains = [self.base.swapchain];
-            let image_indices = [present_index];
-            let present_info = vk::PresentInfoKHR::builder()
-                .wait_semaphores(&wait_semaphores)
-                .swapchains(&swapchains)
-                .image_indices(&image_indices);
-
-            self.base
-                .swapchain_loader
-                .queue_present(self.base.present_queue, &present_info)
-                .unwrap();
-        }
-    }
-
-    fn submit_commands(&self) {
-        unsafe {
-            let command_buffers = vec![self.base.draw_command_buffer];
-            let wait_mask = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-            let wait_semaphores = [self.base.present_complete_semaphore];
-            let signal_semaphores = [self.base.rendering_complete_semaphore];
-
-            let submit_info = vk::SubmitInfo::builder()
-                .wait_semaphores(&wait_semaphores)
-                .signal_semaphores(&signal_semaphores)
-                .wait_dst_stage_mask(&wait_mask)
-                .command_buffers(&command_buffers);
-
-            self.base
-                .device
-                .queue_submit(
-                    self.base.present_queue,
-                    &[submit_info.build()],
-                    self.base.draw_commands_reuse_fence,
-                )
-                .expect("Queue submit failed.");
-        }
-    }
-
     fn record_commands<F: FnOnce(&ash::Device, vk::CommandBuffer)>(
         device: &ash::Device,
         command_buffer: vk::CommandBuffer,
@@ -422,7 +364,7 @@ impl Application {
 
     fn run(&self) {
         self.base.run(|| unsafe {
-            let present_index = self.prepare_frame();
+            let present_index = self.base.prepare_frame();
 
             Application::record_commands(
                 &self.base.device,
@@ -505,8 +447,8 @@ impl Application {
                 },
             );
 
-            self.submit_commands();
-            self.present_frame(present_index);
+            self.base.submit_commands();
+            self.base.present_frame(present_index);
         });
     }
 }
