@@ -4,24 +4,19 @@ use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
 
-mod vulkan_base;
-mod buffer;
-mod primitive;
-
-use vulkan_base::*;
-use primitive::*;
+use utopian;
 
 struct Application {
-    base: VulkanBase,
+    base: utopian::VulkanBase,
     renderpass: vk::RenderPass,
     framebuffers: Vec<vk::Framebuffer>,
     pipeline: vk::Pipeline,
-    primitive: Primitive,
+    primitive: utopian::Primitive,
 }
 
 impl Application {
     fn new() -> Application {
-        let base = VulkanBase::new(1200, 800);
+        let base = utopian::VulkanBase::new(1200, 800);
 
         let renderpass = Application::create_renderpass(&base);
         let framebuffers = Application::create_framebuffers(&base, &renderpass);
@@ -29,21 +24,21 @@ impl Application {
         let indices = vec![0u32, 1, 2];
 
         let vertices = vec![
-            Vertex {
+            utopian::Vertex {
                 pos: [-1.0, 1.0, 0.0, 1.0],
                 color: [0.0, 1.0, 0.0, 1.0],
             },
-            Vertex {
+            utopian::Vertex {
                 pos: [1.0, 1.0, 0.0, 1.0],
                 color: [0.0, 0.0, 1.0, 1.0],
             },
-            Vertex {
+            utopian::Vertex {
                 pos: [0.0, -1.0, 0.0, 1.0],
                 color: [1.0, 0.0, 0.0, 1.0],
             },
         ];
 
-        let primitive = Primitive::new(
+        let primitive = utopian::Primitive::new(
             &base.device,
             base.device_memory_properties,
             indices,
@@ -78,7 +73,7 @@ impl Application {
         }
     }
 
-    fn create_renderpass(base: &VulkanBase) -> vk::RenderPass {
+    fn create_renderpass(base: &utopian::vulkan_base::VulkanBase) -> vk::RenderPass {
         let renderpass_attachments = [
             vk::AttachmentDescription {
                 format: base.surface_format.format,
@@ -133,7 +128,7 @@ impl Application {
         renderpass
     }
 
-    fn create_framebuffers(base: &VulkanBase, renderpass: &vk::RenderPass) -> Vec<vk::Framebuffer> {
+    fn create_framebuffers(base: &utopian::vulkan_base::VulkanBase, renderpass: &vk::RenderPass) -> Vec<vk::Framebuffer> {
         let framebuffers: Vec<vk::Framebuffer> = base
             .present_image_views
             .iter()
@@ -209,7 +204,7 @@ impl Application {
         ];
         let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
             binding: 0,
-            stride: mem::size_of::<Vertex>() as u32,
+            stride: mem::size_of::<utopian::Vertex>() as u32,
             input_rate: vk::VertexInputRate::VERTEX,
         }];
         let vertex_input_attribute_descriptions = [
@@ -217,13 +212,13 @@ impl Application {
                 location: 0,
                 binding: 0,
                 format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, pos) as u32,
+                offset: utopian::offset_of!(utopian::Vertex, pos) as u32,
             },
             vk::VertexInputAttributeDescription {
                 location: 1,
                 binding: 0,
                 format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, color) as u32,
+                offset: utopian::offset_of!(utopian::Vertex, color) as u32,
             },
         ];
 

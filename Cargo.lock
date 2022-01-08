@@ -576,6 +576,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "prototype"
+version = "0.1.0"
+dependencies = [
+ "ash",
+ "ash-window",
+ "utopian",
+ "winit",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -622,15 +632,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8383f39639269cde97d255a32bdb68c047337295414940c68bdd30c2e13203ff"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "rust-renderer"
-version = "0.1.0"
-dependencies = [
- "ash",
- "ash-window",
- "winit",
 ]
 
 [[package]]
@@ -727,6 +728,15 @@ name = "unicode-xid"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
+
+[[package]]
+name = "utopian"
+version = "0.1.0"
+dependencies = [
+ "ash",
+ "ash-window",
+ "winit",
+]
 
 [[package]]
 name = "version_check"

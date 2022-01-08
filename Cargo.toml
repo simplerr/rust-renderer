@@ -1,11 +1,6 @@
-[package]
-name = "rust-renderer"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "utopian",
+    "prototype",
+]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-winit = "0.26.0"
-ash = { version = "0.35.0", features = ["linked", "debug"]}
-ash-window = "0.9"
