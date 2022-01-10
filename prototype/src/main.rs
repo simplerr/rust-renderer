@@ -1,8 +1,11 @@
 use ash::util::*;
 use ash::vk;
 use std::io::Cursor;
+use std::fs;
 
 use utopian;
+use shaderc;
+use rspirv_reflect;
 
 struct Application {
     base: utopian::VulkanBase,
@@ -44,8 +47,11 @@ impl Application {
         );
 
         // Todo: understand Cursor
-        let vertex_spv_file = Cursor::new(&include_bytes!("../shaders/triangle/vert.spv")[..]);
-        let fragment_spv_file = Cursor::new(&include_bytes!("../shaders/triangle/frag.spv")[..]);
+        let vertex_spv_file = Application::compile_glsl_shader("prototype/shaders/triangle/triangle.vert");
+        let vertex_spv_file = Cursor::new(vertex_spv_file.as_binary_u8());
+
+        let fragment_spv_file = Application::compile_glsl_shader("prototype/shaders/triangle/triangle.frag");
+        let fragment_spv_file = Cursor::new(fragment_spv_file.as_binary_u8());
 
         let vertex_shader_module = Application::create_shader_module(vertex_spv_file, &base.device);
         let fragment_shader_module =
@@ -69,6 +75,50 @@ impl Application {
             pipeline,
             primitive,
         }
+    }
+
+    fn compile_glsl_shader(path: &str) -> shaderc::CompilationArtifact {
+        let source = &fs::read_to_string(path).expect("Error reading shader file")[..];
+
+        let shader_kind = if path.ends_with(".vert") {
+            shaderc::ShaderKind::Vertex
+        }
+        else if path.ends_with(".frag") {
+            shaderc::ShaderKind::Fragment
+        }
+        else {
+            panic!("Unsupported shader extension");
+        };
+
+        let mut compiler = shaderc::Compiler::new().unwrap();
+        let mut options = shaderc::CompileOptions::new().unwrap();
+        options.add_macro_definition("EP", Some("main"));
+        let binary_result = compiler.compile_into_spirv(
+            source, shader_kind,
+            "shader.glsl", "main", Some(&options)).unwrap();
+
+        assert_eq!(Some(&0x07230203), binary_result.as_binary().first());
+
+        let text_result = compiler.compile_into_spirv_assembly(
+            source, shader_kind,
+            "shader.glsl", "main", Some(&options)).unwrap();
+
+        assert!(text_result.as_text().starts_with("; SPIR-V\n"));
+
+        println!("{}", text_result.as_text());
+
+        let reflection = rspirv_reflect::Reflection::new_from_spirv(binary_result.as_binary_u8())
+            .expect("Shader reflection failed!");
+
+        // Test reflection
+        let descriptor_sets = reflection.get_descriptor_sets();
+        //let push_constants = reflection.get_push_constant_range().unwrap().unwrap();
+
+        println!("{:#?}", descriptor_sets);
+        // println!("{:#?}", push_constants.size);
+        // println!("{:#?}", push_constants.offset);
+
+        binary_result
     }
 
     fn create_renderpass(base: &utopian::vulkan_base::VulkanBase) -> vk::RenderPass {
