@@ -1,11 +1,6 @@
-use ash::util::*;
 use ash::vk;
-use std::io::Cursor;
-use std::fs;
 
 use utopian;
-use shaderc;
-use rspirv_reflect;
 
 struct Application {
     base: utopian::VulkanBase,
@@ -13,6 +8,10 @@ struct Application {
     framebuffers: Vec<vk::Framebuffer>,
     pipeline: utopian::Pipeline,
     primitive: utopian::Primitive,
+    descriptor_set: vk::DescriptorSet,      // testing
+    descriptor_set_frag: vk::DescriptorSet, // testing
+    binding1: utopian::shader::Binding,     // testing
+    binding2: utopian::shader::Binding,     // testing
 }
 
 impl Application {
@@ -46,26 +45,59 @@ impl Application {
             vertices,
         );
 
-        // Todo: understand Cursor
-        let vertex_spv_file = Application::compile_glsl_shader("prototype/shaders/triangle/triangle.vert");
-        let vertex_spv_file = Cursor::new(vertex_spv_file.as_binary_u8());
-
-        let fragment_spv_file = Application::compile_glsl_shader("prototype/shaders/triangle/triangle.frag");
-        let fragment_spv_file = Cursor::new(fragment_spv_file.as_binary_u8());
-
-        let vertex_shader_module = Application::create_shader_module(vertex_spv_file, &base.device);
-        let fragment_shader_module =
-            Application::create_shader_module(fragment_spv_file, &base.device);
-
-        let pipeline_layout = Application::create_pipeline_layout(&base.device);
-
         let pipeline = utopian::Pipeline::new(
             &base.device,
-            vertex_shader_module,
-            fragment_shader_module,
+            "prototype/shaders/triangle/triangle.vert",
+            "prototype/shaders/triangle/triangle.frag",
             renderpass,
-            pipeline_layout,
             base.surface_resolution,
+        );
+
+        let binding1 = pipeline.reflection.get_binding("test1");
+        let binding2 = pipeline.reflection.get_binding("test_frag");
+
+        println!("set: {} binding: {}", binding1.set, binding1.binding);
+        println!("set: {} binding: {}", binding2.set, binding2.binding);
+
+        let descriptor_set = Application::create_descriptor_set(
+            &base.device,
+            pipeline.descriptor_set_layouts[binding1.set as usize],
+        );
+
+        let descriptor_set_frag = Application::create_descriptor_set(
+            &base.device,
+            pipeline.descriptor_set_layouts[binding2.set as usize],
+        );
+
+        let uniform_data = [1.0f32, 0.0, 0.0, 1.0];
+        let uniform_buffer = utopian::Buffer::new(
+            &base.device,
+            base.device_memory_properties,
+            &uniform_data,
+            std::mem::size_of_val(&uniform_data) as u64,
+            vk::BufferUsageFlags::UNIFORM_BUFFER,
+        );
+
+        let uniform_data_frag = [0.0f32, 1.0, 0.0, 1.0];
+        let uniform_buffer_frag = utopian::Buffer::new(
+            &base.device,
+            base.device_memory_properties,
+            &uniform_data_frag,
+            std::mem::size_of_val(&uniform_data) as u64,
+            vk::BufferUsageFlags::UNIFORM_BUFFER,
+        );
+
+        Application::write_descriptor_set(
+            &base.device,
+            descriptor_set,
+            &uniform_buffer,
+            binding1.binding,
+        );
+        Application::write_descriptor_set(
+            &base.device,
+            descriptor_set_frag,
+            &uniform_buffer_frag,
+            binding2.binding,
         );
 
         Application {
@@ -74,51 +106,71 @@ impl Application {
             framebuffers,
             pipeline,
             primitive,
+            descriptor_set,
+            descriptor_set_frag,
+            binding1,
+            binding2,
         }
     }
 
-    fn compile_glsl_shader(path: &str) -> shaderc::CompilationArtifact {
-        let source = &fs::read_to_string(path).expect("Error reading shader file")[..];
+    fn create_descriptor_set(
+        device: &ash::Device,
+        descriptor_set_layout: vk::DescriptorSetLayout,
+    ) -> vk::DescriptorSet {
+        // Needs descriptor set layout
 
-        let shader_kind = if path.ends_with(".vert") {
-            shaderc::ShaderKind::Vertex
-        }
-        else if path.ends_with(".frag") {
-            shaderc::ShaderKind::Fragment
-        }
-        else {
-            panic!("Unsupported shader extension");
+        let descriptor_pool_sizes = [vk::DescriptorPoolSize::builder()
+            .ty(vk::DescriptorType::UNIFORM_BUFFER)
+            .descriptor_count(1)
+            .build()];
+
+        let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
+            .pool_sizes(&descriptor_pool_sizes)
+            .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET)
+            .max_sets(descriptor_pool_sizes.len() as u32);
+
+        let descriptor_pool = unsafe {
+            device
+                .create_descriptor_pool(&descriptor_pool_info, None)
+                .expect("Error creating descriptor pool")
         };
 
-        let mut compiler = shaderc::Compiler::new().unwrap();
-        let mut options = shaderc::CompileOptions::new().unwrap();
-        options.add_macro_definition("EP", Some("main"));
-        let binary_result = compiler.compile_into_spirv(
-            source, shader_kind,
-            "shader.glsl", "main", Some(&options)).unwrap();
+        let descriptor_alloc_info = vk::DescriptorSetAllocateInfo::builder()
+            .descriptor_pool(descriptor_pool)
+            .set_layouts(&[descriptor_set_layout])
+            .build();
 
-        assert_eq!(Some(&0x07230203), binary_result.as_binary().first());
+        let descriptor_sets = unsafe {
+            device
+                .allocate_descriptor_sets(&descriptor_alloc_info)
+                .expect("Error allocating descriptor sets")
+        };
 
-        let text_result = compiler.compile_into_spirv_assembly(
-            source, shader_kind,
-            "shader.glsl", "main", Some(&options)).unwrap();
+        println!("num allocations: {}", descriptor_sets.len());
 
-        assert!(text_result.as_text().starts_with("; SPIR-V\n"));
+        descriptor_sets[0]
+    }
 
-        println!("{}", text_result.as_text());
+    fn write_descriptor_set(
+        device: &ash::Device,
+        descriptor_set: vk::DescriptorSet,
+        buffer: &utopian::Buffer,
+        dst_binding: u32,
+    ) {
+        let buffer_info = vk::DescriptorBufferInfo::builder()
+            .offset(0)
+            .range(buffer.size)
+            .buffer(buffer.buffer)
+            .build();
 
-        let reflection = rspirv_reflect::Reflection::new_from_spirv(binary_result.as_binary_u8())
-            .expect("Shader reflection failed!");
+        let descriptor_writes = vk::WriteDescriptorSet::builder()
+            .dst_set(descriptor_set)
+            .dst_binding(dst_binding)
+            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER) // todo
+            .buffer_info(&[buffer_info])
+            .build();
 
-        // Test reflection
-        let descriptor_sets = reflection.get_descriptor_sets();
-        //let push_constants = reflection.get_push_constant_range().unwrap().unwrap();
-
-        println!("{:#?}", descriptor_sets);
-        // println!("{:#?}", push_constants.size);
-        // println!("{:#?}", push_constants.offset);
-
-        binary_result
+        unsafe { device.update_descriptor_sets(&[descriptor_writes], &[]) };
     }
 
     fn create_renderpass(base: &utopian::vulkan_base::VulkanBase) -> vk::RenderPass {
@@ -176,7 +228,10 @@ impl Application {
         renderpass
     }
 
-    fn create_framebuffers(base: &utopian::vulkan_base::VulkanBase, renderpass: vk::RenderPass) -> Vec<vk::Framebuffer> {
+    fn create_framebuffers(
+        base: &utopian::vulkan_base::VulkanBase,
+        renderpass: vk::RenderPass,
+    ) -> Vec<vk::Framebuffer> {
         let framebuffers: Vec<vk::Framebuffer> = base
             .present_image_views
             .iter()
@@ -199,31 +254,6 @@ impl Application {
             .collect();
 
         framebuffers
-    }
-
-    fn create_shader_module(mut spv_file: Cursor<&[u8]>, device: &ash::Device) -> vk::ShaderModule {
-        let shader_code = read_spv(&mut spv_file).expect("Failed to read shader spv file");
-        let shader_info = vk::ShaderModuleCreateInfo::builder().code(&shader_code);
-
-        let shader_module = unsafe {
-            device
-                .create_shader_module(&shader_info, None)
-                .expect("Error creating shader module")
-        };
-
-        shader_module
-    }
-
-    fn create_pipeline_layout(device: &ash::Device) -> vk::PipelineLayout {
-        let layout_create_info = vk::PipelineLayoutCreateInfo::default();
-
-        let pipeline_layout = unsafe {
-            device
-                .create_pipeline_layout(&layout_create_info, None)
-                .expect("Error creating pipeline layout")
-        };
-
-        pipeline_layout
     }
 
     fn record_commands<F: FnOnce(&ash::Device, vk::CommandBuffer)>(
@@ -323,6 +353,38 @@ impl Application {
 
                     device.cmd_set_viewport(command_buffer, 0, &viewports);
                     device.cmd_set_scissor(command_buffer, 0, &scissors);
+
+                    let push_data = [1.0f32, 0.5, 0.2, 1.0];
+
+                    device.cmd_push_constants(
+                        command_buffer,
+                        self.pipeline.pipeline_layout,
+                        vk::ShaderStageFlags::ALL,
+                        0,
+                        std::slice::from_raw_parts(
+                            push_data.as_ptr() as *const u8,
+                            std::mem::size_of_val(&push_data),
+                        ),
+                    );
+
+                    device.cmd_bind_descriptor_sets(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.pipeline.pipeline_layout,
+                        self.binding1.set,
+                        &[self.descriptor_set],
+                        &[],
+                    );
+
+                    device.cmd_bind_descriptor_sets(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.pipeline.pipeline_layout,
+                        self.binding2.set,
+                        &[self.descriptor_set_frag],
+                        &[],
+                    );
+
                     device.cmd_bind_vertex_buffers(
                         command_buffer,
                         0,
@@ -361,4 +423,3 @@ fn main() {
 
     println!("End!");
 }
-

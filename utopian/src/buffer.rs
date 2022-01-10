@@ -7,6 +7,7 @@ use crate::vulkan_base::*;
 pub struct Buffer {
     pub buffer: vk::Buffer,
     pub device_memory: vk::DeviceMemory,
+    pub size: u64,
 }
 
 impl Buffer {
@@ -14,7 +15,7 @@ impl Buffer {
         device: &ash::Device,
         device_memory_properties: vk::PhysicalDeviceMemoryProperties,
         data: &[T],
-        size: u64,
+        size: u64, // todo: get rid of this
         usage_flags: vk::BufferUsageFlags,
     ) -> Buffer {
         unsafe {
@@ -69,8 +70,8 @@ impl Buffer {
             Buffer {
                 buffer,
                 device_memory,
+                size,
             }
         }
     }
 }
-

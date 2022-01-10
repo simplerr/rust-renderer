@@ -211,8 +211,10 @@ impl VulkanBase {
         instance
     }
 
-    fn create_debug_utils(entry: &ash::Entry, instance: &ash::Instance)
-        -> vk::DebugUtilsMessengerEXT {
+    fn create_debug_utils(
+        entry: &ash::Entry,
+        instance: &ash::Instance,
+    ) -> vk::DebugUtilsMessengerEXT {
         let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
             .message_severity(
                 vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
@@ -507,7 +509,6 @@ impl VulkanBase {
                 .expect("Queue submit failed.");
         }
     }
-
 
     pub fn run<F: Fn()>(&self, user_function: F) {
         self.event_loop

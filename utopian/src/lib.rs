@@ -1,11 +1,11 @@
 pub mod buffer;
-pub mod primitive;
 pub mod pipeline;
+pub mod primitive;
+pub mod shader;
 pub mod vulkan_base;
 
-pub use vulkan_base::VulkanBase;
 pub use buffer::Buffer;
+pub use pipeline::Pipeline;
 pub use primitive::Primitive;
 pub use primitive::Vertex;
-pub use pipeline::Pipeline;
-
+pub use vulkan_base::VulkanBase;

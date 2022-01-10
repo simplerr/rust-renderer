@@ -4,3 +4,5 @@ members = [
     "prototype",
 ]
 
+[patch.crates-io]
+rspirv-reflect = { path = "../rspirv-reflect" }

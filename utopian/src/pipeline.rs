@@ -1,5 +1,6 @@
 use ash::vk;
 use std::ffi::CStr;
+use std::io::Cursor;
 use std::mem;
 
 use crate::offset_of;
@@ -7,17 +8,37 @@ use crate::*;
 
 pub struct Pipeline {
     pub handle: vk::Pipeline,
+    pub pipeline_layout: vk::PipelineLayout,
+    pub descriptor_set_layouts: Vec<vk::DescriptorSetLayout>,
+    pub reflection: shader::Reflection,
 }
 
 impl Pipeline {
     pub fn new(
         device: &ash::Device,
-        vertex_shader_module: vk::ShaderModule,
-        fragment_shader_module: vk::ShaderModule,
+        vertex_shader_path: &str,
+        fragment_shader_path: &str,
         renderpass: vk::RenderPass,
-        pipeline_layout: vk::PipelineLayout,
         surface_resolution: vk::Extent2D,
     ) -> Pipeline {
+        // Todo: understand Cursor
+        let vertex_spv_file = shader::compile_glsl_shader(vertex_shader_path);
+        let fragment_spv_file = shader::compile_glsl_shader(fragment_shader_path);
+
+        let vertex_spv_file = vertex_spv_file.as_binary_u8();
+        let fragment_spv_file = fragment_spv_file.as_binary_u8();
+
+        let reflection = shader::Reflection::new(&[vertex_spv_file, fragment_spv_file]);
+
+        let (pipeline_layout, descriptor_set_layouts, _) =
+            shader::create_layouts_from_reflection(device, &reflection);
+
+        let vertex_spv_file = Cursor::new(vertex_spv_file);
+        let fragment_spv_file = Cursor::new(fragment_spv_file);
+
+        let vertex_shader_module = shader::create_shader_module(vertex_spv_file, device);
+        let fragment_shader_module = shader::create_shader_module(fragment_spv_file, device);
+
         let shader_entry_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
         let shader_stage_create_infos = [
             vk::PipelineShaderStageCreateInfo {
@@ -34,6 +55,7 @@ impl Pipeline {
                 ..Default::default()
             },
         ];
+
         let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
             binding: 0,
             stride: mem::size_of::<Vertex>() as u32,
@@ -151,7 +173,9 @@ impl Pipeline {
 
         Pipeline {
             handle: graphic_pipeline,
+            pipeline_layout,
+            descriptor_set_layouts,
+            reflection,
         }
     }
 }
-

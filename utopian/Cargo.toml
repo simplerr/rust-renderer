@@ -9,3 +9,6 @@ edition = "2021"
 winit = "0.26.0"
 ash = { version = "0.35.0", features = ["linked", "debug"]}
 ash-window = "0.9"
+shaderc = "0.7.3"
+rspirv-reflect = "0.6.0"
+

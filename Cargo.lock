@@ -683,8 +683,6 @@ dependencies = [
 [[package]]
 name = "rspirv-reflect"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6528e61ce32ae142242bc7c5c150963df62fed7e3b63786a88d1326dc6ceb3d"
 dependencies = [
  "rspirv",
  "thiserror",
@@ -821,6 +819,8 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "ash-window",
+ "rspirv-reflect",
+ "shaderc",
  "winit",
 ]
 
