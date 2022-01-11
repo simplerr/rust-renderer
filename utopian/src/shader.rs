@@ -145,7 +145,6 @@ pub fn create_layouts_from_reflection(
                 descriptor_set
                     .iter()
                     .map(|(binding, descriptor_info)| {
-                        println!("{:?}", descriptor_info.name);
                         let descriptor_type = match descriptor_info.ty {
                             rspirv_reflect::DescriptorType::COMBINED_IMAGE_SAMPLER => {
                                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER

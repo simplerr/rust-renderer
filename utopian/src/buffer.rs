@@ -65,8 +65,6 @@ impl Buffer {
                 .bind_buffer_memory(buffer, device_memory, 0)
                 .expect("Failed to bind device memory to buffer");
 
-            println!("size: {}, usage: {:#?}", size, usage_flags);
-
             Buffer {
                 buffer,
                 device_memory,

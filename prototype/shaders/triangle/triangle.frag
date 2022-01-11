@@ -21,8 +21,8 @@ layout (std140, set = 5, binding = 100) uniform UBO_test_frag
 } test_frag;
 
 void main() {
+    out_color = test_frag.color;
     out_color = in_color;
     out_color = test1.color;
-    out_color = test_frag.color;
 }
 

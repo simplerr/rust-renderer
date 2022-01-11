@@ -13,15 +13,15 @@ layout (std140, set = 0, binding = 0) uniform UBO_test1
    vec4 color;
 } test1;
 
-/* layout (std140, set = 0, binding = 20) uniform UBO_test2 */
-/* { */
-/*    vec4 color; */
-/* } test2; */
-/**/
-/* layout(std430, set = 0, binding = 21) buffer CounterSSBO */
-/* { */
-/*    uint vertexCount; */
-/* } counterSSBO; */
+layout (std140, set = 0, binding = 1) uniform UBO_test2
+{
+   vec4 color;
+} test2;
+
+layout(std430, set = 0, binding = 21) buffer CounterSSBO
+{
+   uint vertexCount;
+} counterSSBO;
 
 layout (std140, set = 1, binding = 0) uniform UBO_camera
 {

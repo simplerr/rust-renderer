@@ -56,9 +56,6 @@ impl Application {
         let binding1 = pipeline.reflection.get_binding("test1");
         let binding2 = pipeline.reflection.get_binding("test_frag");
 
-        println!("set: {} binding: {}", binding1.set, binding1.binding);
-        println!("set: {} binding: {}", binding2.set, binding2.binding);
-
         let descriptor_set = Application::create_descriptor_set(
             &base.device,
             pipeline.descriptor_set_layouts[binding1.set as usize],
@@ -145,8 +142,6 @@ impl Application {
                 .allocate_descriptor_sets(&descriptor_alloc_info)
                 .expect("Error allocating descriptor sets")
         };
-
-        println!("num allocations: {}", descriptor_sets.len());
 
         descriptor_sets[0]
     }

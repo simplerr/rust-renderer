@@ -323,9 +323,6 @@ impl VulkanBase {
                 .get_physical_device_surface_capabilities(physical_device, surface)
                 .expect("Error getting device surface capabilities");
 
-            println!("{:#?}", surface_format);
-            println!("{:#?}", surface_capabilities);
-
             let desired_image_count = surface_capabilities.min_image_count + 1;
             let surface_resolution = surface_capabilities.current_extent;
             let desired_transform = vk::SurfaceTransformFlagsKHR::IDENTITY;
@@ -338,9 +335,6 @@ impl VulkanBase {
                 .cloned()
                 .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
                 .expect("Did not find expected present mode");
-
-            println!("{:#?}", present_modes);
-            println!("{:#?}", present_mode);
 
             let swapchain_loader = Swapchain::new(&instance, &device);
 
