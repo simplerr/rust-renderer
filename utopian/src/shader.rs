@@ -9,11 +9,13 @@ use rspirv_reflect;
 use shaderc;
 
 type DescriptorSetMap = BTreeMap<u32, BTreeMap<u32, rspirv_reflect::DescriptorInfo>>;
+pub type BindingMap = BTreeMap<String, Binding>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Binding {
     pub set: u32,
     pub binding: u32,
+    pub info: rspirv_reflect::DescriptorInfo,
 }
 
 pub struct Reflection {
@@ -73,6 +75,7 @@ impl Reflection {
                             Binding {
                                 set: *set_key,
                                 binding: *binding_key,
+                                info: binding_val.clone(),
                             },
                         ))
                     })
@@ -90,9 +93,22 @@ impl Reflection {
         }
     }
 
+    pub fn get_set_mappings(&self, set: u32) -> BindingMap {
+        self.binding_mappings
+            .iter()
+            .filter_map(|(key, val)| {
+                if val.set == set {
+                    Some((key.clone(), val.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect::<BindingMap>()
+    }
+
     pub fn get_binding(&self, name: &str) -> Binding {
         match self.binding_mappings.get(name) {
-            Some(binding) => *binding,
+            Some(binding) => binding.clone(),
             None => panic!("Binding with \"{}\" name not available", name),
         }
     }

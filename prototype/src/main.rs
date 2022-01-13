@@ -8,10 +8,10 @@ struct Application {
     framebuffers: Vec<vk::Framebuffer>,
     pipeline: utopian::Pipeline,
     primitive: utopian::Primitive,
-    descriptor_set: vk::DescriptorSet,      // testing
-    descriptor_set_frag: vk::DescriptorSet, // testing
-    binding1: utopian::shader::Binding,     // testing
-    binding2: utopian::shader::Binding,     // testing
+    descriptor_set: utopian::DescriptorSet,      // testing
+    descriptor_set_frag: utopian::DescriptorSet, // testing
+    binding1: utopian::shader::Binding,          // testing
+    binding2: utopian::shader::Binding,          // testing
 }
 
 impl Application {
@@ -56,14 +56,16 @@ impl Application {
         let binding1 = pipeline.reflection.get_binding("test1");
         let binding2 = pipeline.reflection.get_binding("test_frag");
 
-        let descriptor_set = Application::create_descriptor_set(
+        let descriptor_set = utopian::DescriptorSet::new(
             &base.device,
             pipeline.descriptor_set_layouts[binding1.set as usize],
+            pipeline.reflection.get_set_mappings(binding1.set),
         );
 
-        let descriptor_set_frag = Application::create_descriptor_set(
+        let descriptor_set_frag = utopian::DescriptorSet::new(
             &base.device,
             pipeline.descriptor_set_layouts[binding2.set as usize],
+            pipeline.reflection.get_set_mappings(binding2.set),
         );
 
         let uniform_data = [1.0f32, 0.0, 0.0, 1.0];
@@ -84,17 +86,16 @@ impl Application {
             vk::BufferUsageFlags::UNIFORM_BUFFER,
         );
 
-        Application::write_descriptor_set(
+        descriptor_set.write_uniform_buffer(&base.device, "test1".to_string(), &uniform_buffer);
+        descriptor_set.write_uniform_buffer(
             &base.device,
-            descriptor_set,
-            &uniform_buffer,
-            binding1.binding,
-        );
-        Application::write_descriptor_set(
-            &base.device,
-            descriptor_set_frag,
+            "test2".to_string(),
             &uniform_buffer_frag,
-            binding2.binding,
+        );
+        descriptor_set_frag.write_uniform_buffer(
+            &base.device,
+            "test_frag".to_string(),
+            &uniform_buffer_frag,
         );
 
         Application {
@@ -108,64 +109,6 @@ impl Application {
             binding1,
             binding2,
         }
-    }
-
-    fn create_descriptor_set(
-        device: &ash::Device,
-        descriptor_set_layout: vk::DescriptorSetLayout,
-    ) -> vk::DescriptorSet {
-        // Needs descriptor set layout
-
-        let descriptor_pool_sizes = [vk::DescriptorPoolSize::builder()
-            .ty(vk::DescriptorType::UNIFORM_BUFFER)
-            .descriptor_count(1)
-            .build()];
-
-        let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
-            .pool_sizes(&descriptor_pool_sizes)
-            .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET)
-            .max_sets(descriptor_pool_sizes.len() as u32);
-
-        let descriptor_pool = unsafe {
-            device
-                .create_descriptor_pool(&descriptor_pool_info, None)
-                .expect("Error creating descriptor pool")
-        };
-
-        let descriptor_alloc_info = vk::DescriptorSetAllocateInfo::builder()
-            .descriptor_pool(descriptor_pool)
-            .set_layouts(&[descriptor_set_layout])
-            .build();
-
-        let descriptor_sets = unsafe {
-            device
-                .allocate_descriptor_sets(&descriptor_alloc_info)
-                .expect("Error allocating descriptor sets")
-        };
-
-        descriptor_sets[0]
-    }
-
-    fn write_descriptor_set(
-        device: &ash::Device,
-        descriptor_set: vk::DescriptorSet,
-        buffer: &utopian::Buffer,
-        dst_binding: u32,
-    ) {
-        let buffer_info = vk::DescriptorBufferInfo::builder()
-            .offset(0)
-            .range(buffer.size)
-            .buffer(buffer.buffer)
-            .build();
-
-        let descriptor_writes = vk::WriteDescriptorSet::builder()
-            .dst_set(descriptor_set)
-            .dst_binding(dst_binding)
-            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER) // todo
-            .buffer_info(&[buffer_info])
-            .build();
-
-        unsafe { device.update_descriptor_sets(&[descriptor_writes], &[]) };
     }
 
     fn create_renderpass(base: &utopian::vulkan_base::VulkanBase) -> vk::RenderPass {
@@ -367,7 +310,7 @@ impl Application {
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline.pipeline_layout,
                         self.binding1.set,
-                        &[self.descriptor_set],
+                        &[self.descriptor_set.handle],
                         &[],
                     );
 
@@ -376,7 +319,7 @@ impl Application {
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline.pipeline_layout,
                         self.binding2.set,
-                        &[self.descriptor_set_frag],
+                        &[self.descriptor_set_frag.handle],
                         &[],
                     );
 
