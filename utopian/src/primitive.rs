@@ -1,13 +1,14 @@
 use ash::vk;
+use glam::{Vec2, Vec3, Vec4};
 
 use crate::buffer::*;
 use crate::device::*;
 
 #[derive(Clone, Debug, Copy)]
 pub struct Vertex {
-    pub pos: [f32; 4],
-    pub color: [f32; 4],
-    pub uv: [f32; 2],
+    pub pos: Vec3,
+    pub color: Vec4,
+    pub uv: Vec2,
 }
 
 pub struct Primitive {

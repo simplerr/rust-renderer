@@ -3,7 +3,7 @@
 #extension GL_ARB_shading_language_420pack : enable
 #extension GL_GOOGLE_include_directive : enable
 
-layout (location = 0) in vec4 pos;
+layout (location = 0) in vec3 pos;
 layout (location = 1) in vec2 uv;
 layout (location = 2) in vec4 color;
 
@@ -55,5 +55,5 @@ void main() {
     //out_color = camera.eyePos;
     //out_color = test1.color;
     //out_color = pushConsts.color;
-    gl_Position = pos;
+    gl_Position = vec4(pos, 1.0);
 }

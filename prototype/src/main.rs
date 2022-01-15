@@ -1,4 +1,5 @@
 use ash::vk;
+use glam::{Vec2, Vec3, Vec4};
 
 use utopian;
 
@@ -25,24 +26,24 @@ impl Application {
 
         let vertices = vec![
             utopian::Vertex {
-                pos: [-1.0, -1.0, 0.0, 1.0],
-                uv: [0.0, 0.0],
-                color: [1.0, 0.0, 0.0, 1.0],
+                pos: Vec3::new(-1.0, -1.0, 0.0),
+                uv: Vec2::new(0.0, 0.0),
+                color: Vec4::new(1.0, 0.0, 0.0, 1.0),
             },
             utopian::Vertex {
-                pos: [-1.0, 1.0, 0.0, 1.0],
-                uv: [0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
+                pos: Vec3::new(-1.0, 1.0, 0.0),
+                uv: Vec2::new(0.0, 1.0),
+                color: Vec4::new(1.0, 0.0, 0.0, 1.0),
             },
             utopian::Vertex {
-                pos: [1.0, 1.0, 0.0, 1.0],
-                uv: [1.0, 1.0],
-                color: [0.0, 1.0, 0.0, 1.0],
+                pos: Vec3::new(1.0, 1.0, 0.0),
+                uv: Vec2::new(1.0, 1.0),
+                color: Vec4::new(0.0, 1.0, 0.0, 1.0),
             },
             utopian::Vertex {
-                pos: [1.0, -1.0, 0.0, 1.0],
-                uv: [1.0, 0.0],
-                color: [0.0, 1.0, 0.0, 1.0],
+                pos: Vec3::new(1.0, -1.0, 0.0),
+                uv: Vec2::new(1.0, 0.0),
+                color: Vec4::new(0.0, 1.0, 0.0, 1.0),
             },
         ];
 
