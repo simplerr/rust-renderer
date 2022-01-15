@@ -38,15 +38,10 @@ impl Application {
             },
         ];
 
-        let primitive = utopian::Primitive::new(
-            &base.device,
-            base.device_memory_properties,
-            indices,
-            vertices,
-        );
+        let primitive = utopian::Primitive::new(&base.device, indices, vertices);
 
         let pipeline = utopian::Pipeline::new(
-            &base.device,
+            &base.device.handle,
             "prototype/shaders/triangle/triangle.vert",
             "prototype/shaders/triangle/triangle.frag",
             renderpass,
@@ -71,7 +66,6 @@ impl Application {
         let uniform_data = [1.0f32, 0.0, 0.0, 1.0];
         let uniform_buffer = utopian::Buffer::new(
             &base.device,
-            base.device_memory_properties,
             &uniform_data,
             std::mem::size_of_val(&uniform_data) as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
@@ -80,7 +74,6 @@ impl Application {
         let uniform_data_frag = [0.0f32, 1.0, 0.0, 1.0];
         let uniform_buffer_frag = utopian::Buffer::new(
             &base.device,
-            base.device_memory_properties,
             &uniform_data_frag,
             std::mem::size_of_val(&uniform_data) as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
@@ -97,6 +90,12 @@ impl Application {
             "test_frag".to_string(),
             &uniform_buffer_frag,
         );
+
+        // let texture = utopian::Texture::new(
+        //     &base.device,
+        //     base.setup_command_buffer,
+        //     "prototype/data/rust.png",
+        // );
 
         Application {
             base,
@@ -159,6 +158,7 @@ impl Application {
 
         let renderpass = unsafe {
             base.device
+                .handle
                 .create_render_pass(&renderpass_create_info, None)
                 .expect("Failed to create renderpass")
         };
@@ -185,6 +185,7 @@ impl Application {
 
                 unsafe {
                     base.device
+                        .handle
                         .create_framebuffer(&frame_buffer_create_info, None)
                         .unwrap()
                 }
@@ -236,7 +237,7 @@ impl Application {
             let present_index = self.base.prepare_frame();
 
             Application::record_commands(
-                &self.base.device,
+                &self.base.device.handle,
                 self.base.draw_command_buffer,
                 self.base.draw_commands_reuse_fence,
                 |device, command_buffer| {

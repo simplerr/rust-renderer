@@ -2,7 +2,8 @@ use ash::util::*;
 use ash::vk;
 use std::mem::align_of;
 
-use crate::vulkan_base::*;
+use crate::device::*;
+use crate::image::*;
 
 pub struct Buffer {
     pub buffer: vk::Buffer,
@@ -12,8 +13,7 @@ pub struct Buffer {
 
 impl Buffer {
     pub fn new<T: Copy>(
-        device: &ash::Device,
-        device_memory_properties: vk::PhysicalDeviceMemoryProperties,
+        device: &Device,
         data: &[T],
         size: u64, // todo: get rid of this
         usage_flags: vk::BufferUsageFlags,
@@ -25,16 +25,17 @@ impl Buffer {
                 .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
             let buffer = device
+                .handle
                 .create_buffer(&buffer_info, None)
                 .expect("Failed to create buffer");
 
-            let buffer_memory_req = device.get_buffer_memory_requirements(buffer);
-            let buffer_memory_index = find_memory_type_index(
-                &buffer_memory_req,
-                &device_memory_properties,
-                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            )
-            .expect("Unable to find suitable memory type for the buffer");
+            let buffer_memory_req = device.handle.get_buffer_memory_requirements(buffer);
+            let buffer_memory_index = device
+                .find_memory_type_index(
+                    &buffer_memory_req,
+                    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+                )
+                .expect("Unable to find suitable memory type for the buffer");
 
             let allocate_info = vk::MemoryAllocateInfo {
                 allocation_size: buffer_memory_req.size,
@@ -43,10 +44,12 @@ impl Buffer {
             };
 
             let device_memory = device
+                .handle
                 .allocate_memory(&allocate_info, None)
                 .expect("Unable to allocate memory for the buffer");
 
             let buffer_ptr = device
+                .handle
                 .map_memory(
                     device_memory,
                     0,
@@ -59,9 +62,10 @@ impl Buffer {
 
             slice.copy_from_slice(&data);
 
-            device.unmap_memory(device_memory);
+            device.handle.unmap_memory(device_memory);
 
             device
+                .handle
                 .bind_buffer_memory(buffer, device_memory, 0)
                 .expect("Failed to bind device memory to buffer");
 
@@ -72,4 +76,6 @@ impl Buffer {
             }
         }
     }
+
+    pub fn copy_to_image(&self, device: &Device, cb: vk::CommandBuffer, image: &Image) {}
 }

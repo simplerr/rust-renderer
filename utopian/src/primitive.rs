@@ -1,6 +1,7 @@
 use ash::vk;
 
 use crate::buffer::*;
+use crate::device::*;
 
 #[derive(Clone, Debug, Copy)]
 pub struct Vertex {
@@ -16,15 +17,9 @@ pub struct Primitive {
 }
 
 impl Primitive {
-    pub fn new(
-        device: &ash::Device,
-        device_memory_properties: vk::PhysicalDeviceMemoryProperties,
-        indices: Vec<u32>,
-        vertices: Vec<Vertex>,
-    ) -> Primitive {
+    pub fn new(device: &Device, indices: Vec<u32>, vertices: Vec<Vertex>) -> Primitive {
         let index_buffer = Buffer::new(
             device,
-            device_memory_properties,
             indices.as_slice(),
             std::mem::size_of_val(&*indices) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER,
@@ -32,11 +27,12 @@ impl Primitive {
 
         let vertex_buffer = Buffer::new(
             device,
-            device_memory_properties,
             vertices.as_slice(),
             std::mem::size_of_val(&*vertices) as u64,
             vk::BufferUsageFlags::VERTEX_BUFFER,
         );
+
+        // Todo: device local index and vertex buffers
 
         Primitive {
             index_buffer,

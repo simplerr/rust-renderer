@@ -1,6 +1,7 @@
 use ash::vk;
 
 use crate::buffer::*;
+use crate::device::*;
 use crate::shader::*;
 
 pub struct DescriptorSet {
@@ -10,7 +11,7 @@ pub struct DescriptorSet {
 
 impl DescriptorSet {
     pub fn new(
-        device: &ash::Device,
+        device: &Device,
         layout: vk::DescriptorSetLayout,
         binding_map: BindingMap,
     ) -> DescriptorSet {
@@ -50,6 +51,7 @@ impl DescriptorSet {
 
         let descriptor_pool = unsafe {
             device
+                .handle
                 .create_descriptor_pool(&descriptor_pool_info, None)
                 .expect("Error creating descriptor pool")
         };
@@ -61,6 +63,7 @@ impl DescriptorSet {
 
         let descriptor_sets = unsafe {
             device
+                .handle
                 .allocate_descriptor_sets(&descriptor_alloc_info)
                 .expect("Error allocating descriptor sets")
         };
@@ -71,7 +74,7 @@ impl DescriptorSet {
         }
     }
 
-    pub fn write_uniform_buffer(&self, device: &ash::Device, name: String, buffer: &Buffer) {
+    pub fn write_uniform_buffer(&self, device: &Device, name: String, buffer: &Buffer) {
         let buffer_info = vk::DescriptorBufferInfo::builder()
             .offset(0)
             .range(buffer.size)
@@ -90,6 +93,10 @@ impl DescriptorSet {
             .buffer_info(&[buffer_info])
             .build();
 
-        unsafe { device.update_descriptor_sets(&[descriptor_writes], &[]) };
+        unsafe {
+            device
+                .handle
+                .update_descriptor_sets(&[descriptor_writes], &[])
+        };
     }
 }

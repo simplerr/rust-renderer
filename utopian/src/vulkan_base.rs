@@ -8,12 +8,14 @@ use winit::{
 use ash::extensions::ext::DebugUtils;
 use ash::extensions::khr::Surface;
 use ash::extensions::khr::Swapchain;
-use ash::{vk, Device};
+use ash::vk;
 
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::ffi::CStr;
 use std::os::raw::c_char;
+
+use crate::device::*;
 
 // Simple offset_of macro akin to C++ offsetof
 #[macro_export]
@@ -60,27 +62,10 @@ unsafe extern "system" fn vulkan_debug_callback(
     vk::FALSE
 }
 
-pub fn find_memory_type_index(
-    memory_req: &vk::MemoryRequirements,
-    memory_prop: &vk::PhysicalDeviceMemoryProperties,
-    flags: vk::MemoryPropertyFlags,
-) -> Option<u32> {
-    memory_prop.memory_types[..memory_prop.memory_type_count as _]
-        .iter()
-        .enumerate()
-        .find(|(index, memory_type)| {
-            (1 << index) & memory_req.memory_type_bits != 0
-                && memory_type.property_flags & flags == flags
-        })
-        .map(|(index, _memory_type)| index as _)
-}
-
 pub struct VulkanBase {
     window: winit::window::Window,
     event_loop: RefCell<winit::event_loop::EventLoop<()>>,
-    pub device: ash::Device,
-    pub device_memory_properties: vk::PhysicalDeviceMemoryProperties,
-    pub present_queue: vk::Queue,
+    pub device: Device,
     _command_pool: vk::CommandPool,
     pub setup_command_buffer: vk::CommandBuffer,
     pub draw_command_buffer: vk::CommandBuffer,
@@ -105,35 +90,37 @@ impl VulkanBase {
         let debug_callback = VulkanBase::create_debug_utils(&entry, &instance);
 
         let (surface, surface_loader) = VulkanBase::create_surface(&entry, &instance, &window);
-        let (device, physical_device, present_queue, queue_family_index) =
-            VulkanBase::create_device(&instance, surface, &surface_loader);
+
+        let device = Device::new(&instance, surface, &surface_loader);
+
         let (swapchain, swapchain_loader, surface_format, surface_resolution) =
             VulkanBase::create_swapchain(
                 &instance,
-                physical_device,
-                &device,
+                device.physical_device,
+                &device.handle,
                 surface,
                 &surface_loader,
             );
+
         let (_command_pool, setup_command_buffer, draw_command_buffer) =
-            VulkanBase::create_command_buffers(&device, queue_family_index);
+            VulkanBase::create_command_buffers(&device.handle, device.queue_family_index);
+
         let (_present_images, present_image_views) = VulkanBase::setup_swapchain_images(
-            &device,
+            &device.handle,
             swapchain,
             &swapchain_loader,
             surface_format,
         );
-        let (present_complete_semaphore, rendering_complete_semaphore) =
-            VulkanBase::create_semaphores(&device);
 
-        let device_memory_properties =
-            unsafe { instance.get_physical_device_memory_properties(physical_device) };
+        let (present_complete_semaphore, rendering_complete_semaphore) =
+            VulkanBase::create_semaphores(&device.handle);
 
         let fence_create_info =
             vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
 
         let draw_commands_reuse_fence = unsafe {
             device
+                .handle
                 .create_fence(&fence_create_info, None)
                 .expect("Create fence failed.")
         };
@@ -142,8 +129,6 @@ impl VulkanBase {
             window,
             event_loop: RefCell::new(event_loop),
             device,
-            device_memory_properties,
-            present_queue,
             _command_pool,
             setup_command_buffer,
             draw_command_buffer,
@@ -249,57 +234,6 @@ impl VulkanBase {
         let surface_loader = Surface::new(&entry, &instance);
 
         (surface, surface_loader)
-    }
-
-    fn create_device(
-        instance: &ash::Instance,
-        surface: vk::SurfaceKHR,
-        surface_loader: &Surface,
-    ) -> (ash::Device, vk::PhysicalDevice, vk::Queue, u32) {
-        unsafe {
-            let physical_devices = instance
-                .enumerate_physical_devices()
-                .expect("Error enumerating physical devices");
-
-            // Note: assume single physical device
-            let physical_device = physical_devices[0];
-            // let device_properties = instance.get_physical_device_properties(selected_physical_device);
-
-            let queue_family_properties =
-                instance.get_physical_device_queue_family_properties(physical_device);
-            let queue_family_index = queue_family_properties
-                .iter()
-                .position(|info| info.queue_flags.contains(vk::QueueFlags::GRAPHICS))
-                .expect("Did not find any matching graphics queue");
-            let queue_family_index = queue_family_index as u32;
-            surface_loader
-                .get_physical_device_surface_support(physical_device, queue_family_index, surface)
-                .expect("Presentation of the queue family not supported by the surface");
-
-            let device_extension_names_raw = [Swapchain::name().as_ptr()];
-            let device_features = vk::PhysicalDeviceFeatures {
-                shader_clip_distance: 1,
-                ..Default::default()
-            };
-
-            let queue_priorities = [1.0];
-            let queue_info = vk::DeviceQueueCreateInfo::builder()
-                .queue_family_index(queue_family_index)
-                .queue_priorities(&queue_priorities);
-
-            let device_create_info = vk::DeviceCreateInfo::builder()
-                .queue_create_infos(std::slice::from_ref(&queue_info))
-                .enabled_extension_names(&device_extension_names_raw)
-                .enabled_features(&device_features);
-
-            let device: Device = instance
-                .create_device(physical_device, &device_create_info, None)
-                .expect("Failed to create logical Vulkan device");
-
-            let present_queue = device.get_device_queue(queue_family_index, 0);
-
-            (device, physical_device, present_queue, queue_family_index)
-        }
     }
 
     fn create_swapchain(
@@ -476,7 +410,7 @@ impl VulkanBase {
                 .image_indices(&image_indices);
 
             self.swapchain_loader
-                .queue_present(self.present_queue, &present_info)
+                .queue_present(self.device.queue, &present_info)
                 .unwrap();
         }
     }
@@ -495,8 +429,9 @@ impl VulkanBase {
                 .command_buffers(&command_buffers);
 
             self.device
+                .handle
                 .queue_submit(
-                    self.present_queue,
+                    self.device.queue,
                     &[submit_info.build()],
                     self.draw_commands_reuse_fence,
                 )
