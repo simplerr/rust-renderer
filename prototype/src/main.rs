@@ -27,21 +27,25 @@ impl Application {
         let vertices = vec![
             utopian::Vertex {
                 pos: Vec3::new(-1.0, -1.0, 0.0),
+                normal: Vec3::new(0.0, 0.0, 0.0),
                 uv: Vec2::new(0.0, 0.0),
                 color: Vec4::new(1.0, 0.0, 0.0, 1.0),
             },
             utopian::Vertex {
                 pos: Vec3::new(-1.0, 1.0, 0.0),
+                normal: Vec3::new(0.0, 0.0, 0.0),
                 uv: Vec2::new(0.0, 1.0),
                 color: Vec4::new(1.0, 0.0, 0.0, 1.0),
             },
             utopian::Vertex {
                 pos: Vec3::new(1.0, 1.0, 0.0),
+                normal: Vec3::new(0.0, 0.0, 0.0),
                 uv: Vec2::new(1.0, 1.0),
                 color: Vec4::new(0.0, 1.0, 0.0, 1.0),
             },
             utopian::Vertex {
                 pos: Vec3::new(1.0, -1.0, 0.0),
+                normal: Vec3::new(0.0, 0.0, 0.0),
                 uv: Vec2::new(1.0, 0.0),
                 color: Vec4::new(0.0, 1.0, 0.0, 1.0),
             },

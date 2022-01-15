@@ -7,6 +7,7 @@ use crate::device::*;
 #[derive(Clone, Debug, Copy)]
 pub struct Vertex {
     pub pos: Vec3,
+    pub normal: Vec3,
     pub color: Vec4,
     pub uv: Vec2,
 }
