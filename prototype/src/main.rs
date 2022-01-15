@@ -3,6 +3,13 @@ use glam::{Vec2, Vec3, Vec4};
 
 use utopian;
 
+#[derive(Clone, Debug, Copy)]
+struct CameraUniformData {
+    view_mat: glam::Mat4,
+    projection_mat: glam::Mat4,
+    eye_pos: glam::Vec3,
+}
+
 struct Application {
     base: utopian::VulkanBase,
     renderpass: vk::RenderPass,
@@ -13,47 +20,54 @@ struct Application {
     descriptor_set_frag: utopian::DescriptorSet, // testing
     binding1: utopian::shader::Binding,          // testing
     binding2: utopian::shader::Binding,          // testing
+    camera: CameraUniformData,
 }
 
 impl Application {
     fn new() -> Application {
-        let base = utopian::VulkanBase::new(1200, 800);
+        let (width, height) = (1200, 800);
+        let base = utopian::VulkanBase::new(width, height);
 
         let renderpass = Application::create_renderpass(&base);
         let framebuffers = Application::create_framebuffers(&base, renderpass);
 
-        let indices = vec![0u32, 1, 2, 2, 3, 0];
-
-        let vertices = vec![
-            utopian::Vertex {
-                pos: Vec3::new(-1.0, -1.0, 0.0),
-                normal: Vec3::new(0.0, 0.0, 0.0),
-                uv: Vec2::new(0.0, 0.0),
-                color: Vec4::new(1.0, 0.0, 0.0, 1.0),
-            },
-            utopian::Vertex {
-                pos: Vec3::new(-1.0, 1.0, 0.0),
-                normal: Vec3::new(0.0, 0.0, 0.0),
-                uv: Vec2::new(0.0, 1.0),
-                color: Vec4::new(1.0, 0.0, 0.0, 1.0),
-            },
-            utopian::Vertex {
-                pos: Vec3::new(1.0, 1.0, 0.0),
-                normal: Vec3::new(0.0, 0.0, 0.0),
-                uv: Vec2::new(1.0, 1.0),
-                color: Vec4::new(0.0, 1.0, 0.0, 1.0),
-            },
-            utopian::Vertex {
-                pos: Vec3::new(1.0, -1.0, 0.0),
-                normal: Vec3::new(0.0, 0.0, 0.0),
-                uv: Vec2::new(1.0, 0.0),
-                color: Vec4::new(0.0, 1.0, 0.0, 1.0),
-            },
-        ];
-
-        let primitive = utopian::Primitive::new(&base.device, indices, vertices);
-
         let cube = utopian::ModelLoader::load_cube(&base.device);
+
+        let eye_pos = Vec3::new(2.0, 2.0, 2.0);
+        let view_mat = glam::Mat4::look_at_lh(
+            eye_pos,
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+
+        let projection_mat = glam::Mat4::perspective_lh(
+            f32::to_radians(60.0),
+            width as f32 / height as f32,
+            0.01,
+            20000.0,
+        );
+
+        let camera_data = CameraUniformData {
+            view_mat,
+            projection_mat,
+            eye_pos,
+        };
+
+        let slice = unsafe { std::slice::from_raw_parts(
+                &camera_data,
+                1,
+            )
+        };
+
+        println!("camera size: {}", std::mem::size_of_val(&camera_data) as u64);
+        println!("camera data: {:#?}", camera_data);
+
+        let camera_uniform_buffer = utopian::Buffer::new(
+            &base.device,
+            &slice,
+            std::mem::size_of_val(&camera_data) as u64,
+            vk::BufferUsageFlags::UNIFORM_BUFFER,
+        );
 
         let pipeline = utopian::Pipeline::new(
             &base.device.handle,
@@ -96,6 +110,8 @@ impl Application {
 
         let texture = utopian::Texture::new(&base.device, "prototype/data/rust.png");
 
+        descriptor_set.write_uniform_buffer(&base.device, "camera".to_string(), &camera_uniform_buffer);
+
         descriptor_set.write_uniform_buffer(&base.device, "test1".to_string(), &uniform_buffer);
         descriptor_set_frag.write_uniform_buffer(
             &base.device,
@@ -110,11 +126,13 @@ impl Application {
             renderpass,
             framebuffers,
             pipeline,
-            primitive,
+            //primitive: primitive,
+            primitive: cube,
             descriptor_set,
             descriptor_set_frag,
             binding1,
             binding2,
+            camera: camera_data,
         }
     }
 

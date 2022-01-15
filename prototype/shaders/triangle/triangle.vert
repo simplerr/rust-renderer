@@ -17,16 +17,11 @@ layout (std140, set = 0, binding = 0) uniform UBO_test1
    vec4 color;
 } test1;
 
-layout(std430, set = 0, binding = 21) buffer CounterSSBO
+layout (std140, set = 0, binding = 1) uniform UBO_camera
 {
-   uint vertexCount;
-} counterSSBO;
-
-layout (std140, set = 1, binding = 0) uniform UBO_camera
-{
-   mat4 viewMatrix;
-   mat4 projectionMatrix;
-   vec4 eyePos;
+   mat4 view;
+   mat4 projection;
+   vec4 eye_pos;
 } camera;
 
 layout (std140, set = 1, binding = 1) uniform UBO_mouse
@@ -58,5 +53,5 @@ void main() {
     //out_color = camera.eyePos;
     //out_color = test1.color;
     //out_color = pushConsts.color;
-    gl_Position = vec4(pos, 1.0);
+    gl_Position = camera.projection * camera.view * vec4(pos, 1.0);
 }
