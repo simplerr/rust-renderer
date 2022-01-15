@@ -3,6 +3,7 @@ use ash::vk;
 use crate::buffer::*;
 use crate::device::*;
 use crate::shader::*;
+use crate::texture::*;
 
 pub struct DescriptorSet {
     pub handle: vk::DescriptorSet,
@@ -91,6 +92,26 @@ impl DescriptorSet {
             .dst_binding(binding.binding)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER) // todo
             .buffer_info(&[buffer_info])
+            .build();
+
+        unsafe {
+            device
+                .handle
+                .update_descriptor_sets(&[descriptor_writes], &[])
+        };
+    }
+
+    pub fn write_combined_image(&self, device: &Device, name: String, texture: &Texture) {
+        let binding = match self.binding_map.get(&name) {
+            Some(binding) => binding,
+            None => panic!("No descriptor binding found with name: \"{}\"", name),
+        };
+
+        let descriptor_writes = vk::WriteDescriptorSet::builder()
+            .dst_set(self.handle)
+            .dst_binding(binding.binding)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .image_info(&[texture.descriptor_info])
             .build();
 
         unsafe {

@@ -21,20 +21,28 @@ impl Application {
         let renderpass = Application::create_renderpass(&base);
         let framebuffers = Application::create_framebuffers(&base, renderpass);
 
-        let indices = vec![0u32, 1, 2];
+        let indices = vec![0u32, 1, 2, 2, 3, 0];
 
         let vertices = vec![
             utopian::Vertex {
+                pos: [-1.0, -1.0, 0.0, 1.0],
+                uv: [0.0, 0.0],
+                color: [1.0, 0.0, 0.0, 1.0],
+            },
+            utopian::Vertex {
                 pos: [-1.0, 1.0, 0.0, 1.0],
-                color: [0.0, 1.0, 0.0, 1.0],
+                uv: [0.0, 1.0],
+                color: [1.0, 0.0, 0.0, 1.0],
             },
             utopian::Vertex {
                 pos: [1.0, 1.0, 0.0, 1.0],
-                color: [0.0, 0.0, 1.0, 1.0],
+                uv: [1.0, 1.0],
+                color: [0.0, 1.0, 0.0, 1.0],
             },
             utopian::Vertex {
-                pos: [0.0, -1.0, 0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
+                pos: [1.0, -1.0, 0.0, 1.0],
+                uv: [1.0, 0.0],
+                color: [0.0, 1.0, 0.0, 1.0],
             },
         ];
 
@@ -79,23 +87,16 @@ impl Application {
             vk::BufferUsageFlags::UNIFORM_BUFFER,
         );
 
+        let texture = utopian::Texture::new(&base.device, "prototype/data/rust.png");
+
         descriptor_set.write_uniform_buffer(&base.device, "test1".to_string(), &uniform_buffer);
-        descriptor_set.write_uniform_buffer(
-            &base.device,
-            "test2".to_string(),
-            &uniform_buffer_frag,
-        );
         descriptor_set_frag.write_uniform_buffer(
             &base.device,
             "test_frag".to_string(),
             &uniform_buffer_frag,
         );
 
-        // let texture = utopian::Texture::new(
-        //     &base.device,
-        //     base.setup_command_buffer,
-        //     "prototype/data/rust.png",
-        // );
+        descriptor_set.write_combined_image(&base.device, "samplerColor".to_string(), &texture);
 
         Application {
             base,

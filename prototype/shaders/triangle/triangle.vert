@@ -4,19 +4,16 @@
 #extension GL_GOOGLE_include_directive : enable
 
 layout (location = 0) in vec4 pos;
-layout (location = 1) in vec4 color;
+layout (location = 1) in vec2 uv;
+layout (location = 2) in vec4 color;
 
-layout (location = 0) out vec4 out_color;
+layout (location = 0) out vec2 out_uv;
+layout (location = 1) out vec4 out_color;
 
 layout (std140, set = 0, binding = 0) uniform UBO_test1
 {
    vec4 color;
 } test1;
-
-layout (std140, set = 0, binding = 1) uniform UBO_test2
-{
-   vec4 color;
-} test2;
 
 layout(std430, set = 0, binding = 21) buffer CounterSSBO
 {
@@ -53,9 +50,10 @@ layout(push_constant) uniform PushConsts {
 
 
 void main() {
+    out_uv = uv;
     out_color = color;
     //out_color = camera.eyePos;
-    out_color = test1.color;
-    out_color = pushConsts.color;
+    //out_color = test1.color;
+    //out_color = pushConsts.color;
     gl_Position = pos;
 }

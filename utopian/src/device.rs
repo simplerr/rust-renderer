@@ -105,6 +105,37 @@ impl Device {
         (pool, command_buffers[0])
     }
 
+    pub fn execute_and_submit<F: FnOnce(&Device, vk::CommandBuffer)>(&self, recording_function: F) {
+        let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        unsafe {
+            self.handle
+                .begin_command_buffer(self.setup_cmd_buf, &command_buffer_begin_info)
+                .expect("Begin command buffer failed.")
+        };
+
+        recording_function(&self, self.setup_cmd_buf);
+
+        unsafe {
+            self.handle
+                .end_command_buffer(self.setup_cmd_buf)
+                .expect("End commandbuffer failed.")
+        };
+
+        let submit_info =
+            vk::SubmitInfo::builder().command_buffers(std::slice::from_ref(&self.setup_cmd_buf));
+
+        unsafe {
+            self.handle
+                .queue_submit(self.queue, &[submit_info.build()], vk::Fence::null())
+                .expect("Queue submit failed");
+
+            self.handle
+                .device_wait_idle()
+                .expect("Device wait idle failed");
+        }
+    }
+
     pub fn find_memory_type_index(
         &self,
         memory_req: &vk::MemoryRequirements,

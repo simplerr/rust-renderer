@@ -5,7 +5,7 @@ pub mod image;
 pub mod pipeline;
 pub mod primitive;
 pub mod shader;
-pub mod texture_loader;
+pub mod texture;
 pub mod vulkan_base;
 
 pub use crate::image::Image;
@@ -15,5 +15,5 @@ pub use device::Device;
 pub use pipeline::Pipeline;
 pub use primitive::Primitive;
 pub use primitive::Vertex;
-pub use texture_loader::Texture;
+pub use texture::Texture;
 pub use vulkan_base::VulkanBase;

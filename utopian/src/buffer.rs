@@ -77,5 +77,28 @@ impl Buffer {
         }
     }
 
-    pub fn copy_to_image(&self, device: &Device, cb: vk::CommandBuffer, image: &Image) {}
+    pub fn copy_to_image(&self, device: &Device, cb: vk::CommandBuffer, image: &Image) {
+        let buffer_copy_regions = vk::BufferImageCopy::builder()
+            .image_subresource(
+                vk::ImageSubresourceLayers::builder()
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .layer_count(1)
+                    .build(),
+            )
+            .image_extent(vk::Extent3D {
+                width: image.width,
+                height: image.height,
+                depth: 1,
+            });
+
+        unsafe {
+            device.handle.cmd_copy_buffer_to_image(
+                cb,
+                self.buffer,
+                image.image,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                &[buffer_copy_regions.build()],
+            );
+        }
+    }
 }
