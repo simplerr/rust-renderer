@@ -53,6 +53,8 @@ impl Application {
 
         let primitive = utopian::Primitive::new(&base.device, indices, vertices);
 
+        let cube = utopian::ModelLoader::load_cube(&base.device);
+
         let pipeline = utopian::Pipeline::new(
             &base.device.handle,
             "prototype/shaders/triangle/triangle.vert",
