@@ -829,7 +829,7 @@ dependencies = [
 
 [[package]]
 name = "prototype"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "ash",
  "ash-window",
@@ -1077,7 +1077,7 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 
 [[package]]
 name = "utopian"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "ash",
  "ash-window",

@@ -30,7 +30,14 @@ impl Texture {
             vk::BufferUsageFlags::TRANSFER_SRC,
         );
 
-        let image = Image::new(device, width, height);
+        let image = Image::new(
+            device,
+            width,
+            height,
+            vk::Format::R8G8B8A8_UNORM,
+            vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
+            vk::ImageAspectFlags::COLOR,
+        );
 
         device.execute_and_submit(|device, cb| {
             image.transition_layout(device, cb, vk::ImageLayout::TRANSFER_DST_OPTIMAL);

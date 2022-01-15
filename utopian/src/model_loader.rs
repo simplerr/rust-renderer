@@ -1,7 +1,7 @@
 use glam::{Vec2, Vec3, Vec4};
 
-use crate::primitive::*;
 use crate::device::*;
+use crate::primitive::*;
 
 pub struct ModelLoader {}
 
@@ -11,15 +11,23 @@ pub fn add_triangle(indices: &mut Vec<u32>, v1: u32, v2: u32, v3: u32) {
     indices.push(v3);
 }
 
-pub fn add_vertex(vertices: &mut Vec<Vertex>, x: f32, y: f32, z: f32, nx: f32, ny: f32, nz: f32, u: f32, v: f32) {
-    vertices.push(
-        Vertex {
-            pos: Vec3::new(x, y, z),
-            normal: Vec3::new(nx, ny, nz),
-            uv: Vec2::new(u, v),
-            color: Vec4::new(1.0, 1.0, 1.0, 1.0),
-        },
-    );
+pub fn add_vertex(
+    vertices: &mut Vec<Vertex>,
+    x: f32,
+    y: f32,
+    z: f32,
+    nx: f32,
+    ny: f32,
+    nz: f32,
+    u: f32,
+    v: f32,
+) {
+    vertices.push(Vertex {
+        pos: Vec3::new(x, y, z),
+        normal: Vec3::new(nx, ny, nz),
+        uv: Vec2::new(u, v),
+        color: Vec4::new(1.0, 1.0, 1.0, 1.0),
+    });
 }
 
 impl ModelLoader {

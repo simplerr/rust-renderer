@@ -34,11 +34,8 @@ impl Application {
         let cube = utopian::ModelLoader::load_cube(&base.device);
 
         let eye_pos = Vec3::new(2.0, 2.0, 2.0);
-        let view_mat = glam::Mat4::look_at_lh(
-            eye_pos,
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
-        );
+        let view_mat =
+            glam::Mat4::look_at_lh(eye_pos, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
 
         let projection_mat = glam::Mat4::perspective_lh(
             f32::to_radians(60.0),
@@ -53,13 +50,12 @@ impl Application {
             eye_pos,
         };
 
-        let slice = unsafe { std::slice::from_raw_parts(
-                &camera_data,
-                1,
-            )
-        };
+        let slice = unsafe { std::slice::from_raw_parts(&camera_data, 1) };
 
-        println!("camera size: {}", std::mem::size_of_val(&camera_data) as u64);
+        println!(
+            "camera size: {}",
+            std::mem::size_of_val(&camera_data) as u64
+        );
         println!("camera data: {:#?}", camera_data);
 
         let camera_uniform_buffer = utopian::Buffer::new(
@@ -110,7 +106,11 @@ impl Application {
 
         let texture = utopian::Texture::new(&base.device, "prototype/data/rust.png");
 
-        descriptor_set.write_uniform_buffer(&base.device, "camera".to_string(), &camera_uniform_buffer);
+        descriptor_set.write_uniform_buffer(
+            &base.device,
+            "camera".to_string(),
+            &camera_uniform_buffer,
+        );
 
         descriptor_set.write_uniform_buffer(&base.device, "test1".to_string(), &uniform_buffer);
         descriptor_set_frag.write_uniform_buffer(
@@ -126,7 +126,6 @@ impl Application {
             renderpass,
             framebuffers,
             pipeline,
-            //primitive: primitive,
             primitive: cube,
             descriptor_set,
             descriptor_set_frag,
@@ -146,23 +145,23 @@ impl Application {
                 final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
                 ..Default::default()
             },
-            // vk::AttachmentDescription {
-            //     format: vk::Format::D16_UNORM,
-            //     samples: vk::SampleCountFlags::TYPE_1,
-            //     load_op: vk::AttachmentLoadOp::CLEAR,
-            //     initial_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            //     final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            //     ..Default::default()
-            // },
+            vk::AttachmentDescription {
+                format: vk::Format::D16_UNORM,
+                samples: vk::SampleCountFlags::TYPE_1,
+                load_op: vk::AttachmentLoadOp::CLEAR,
+                initial_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                ..Default::default()
+            },
         ];
         let color_attachment_refs = [vk::AttachmentReference {
             attachment: 0,
             layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
         }];
-        // let depth_attachment_ref = vk::AttachmentReference {
-        //     attachment: 1,
-        //     layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        // };
+        let depth_attachment_ref = vk::AttachmentReference {
+            attachment: 1,
+            layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        };
         let dependencies = [vk::SubpassDependency {
             src_subpass: vk::SUBPASS_EXTERNAL,
             src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
@@ -174,7 +173,7 @@ impl Application {
 
         let subpass = vk::SubpassDescription::builder()
             .color_attachments(&color_attachment_refs)
-            //.depth_stencil_attachment(&depth_attachment_ref)
+            .depth_stencil_attachment(&depth_attachment_ref)
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS);
 
         let renderpass_create_info = vk::RenderPassCreateInfo::builder()
@@ -200,8 +199,7 @@ impl Application {
             .present_image_views
             .iter()
             .map(|&present_image_view| {
-                //let framebuffer_attachments = [present_image_view, base.depth_image_view];
-                let framebuffer_attachments = [present_image_view];
+                let framebuffer_attachments = [present_image_view, base.depth_image.image_view];
                 let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
                     .render_pass(renderpass)
                     .attachments(&framebuffer_attachments)

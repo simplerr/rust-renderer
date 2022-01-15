@@ -13,13 +13,20 @@ pub struct Image {
 }
 
 impl Image {
-    pub fn new(device: &Device, width: u32, height: u32) -> Image {
+    pub fn new(
+        device: &Device,
+        width: u32,
+        height: u32,
+        format: vk::Format,
+        usage: vk::ImageUsageFlags,
+        aspect_flags: vk::ImageAspectFlags,
+    ) -> Image {
         unsafe {
             // Create image
             let initial_layout = vk::ImageLayout::UNDEFINED;
             let image_create_info = vk::ImageCreateInfo {
                 image_type: vk::ImageType::TYPE_2D,
-                format: vk::Format::R8G8B8A8_UNORM,
+                format,
                 extent: vk::Extent3D {
                     width,
                     height,
@@ -29,7 +36,7 @@ impl Image {
                 array_layers: 1,
                 samples: vk::SampleCountFlags::TYPE_1,
                 tiling: vk::ImageTiling::OPTIMAL,
-                usage: vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
+                usage,
                 sharing_mode: vk::SharingMode::EXCLUSIVE,
                 initial_layout,
                 ..Default::default()
@@ -60,17 +67,23 @@ impl Image {
                 .expect("Unable to bind device memory to image");
 
             // Create image view
-            let image_view_info = vk::ImageViewCreateInfo {
-                view_type: vk::ImageViewType::TYPE_2D,
-                format: image_create_info.format,
-                components: vk::ComponentMapping {
+            let components = match aspect_flags {
+                vk::ImageAspectFlags::COLOR => vk::ComponentMapping {
                     r: vk::ComponentSwizzle::R,
                     g: vk::ComponentSwizzle::G,
                     b: vk::ComponentSwizzle::B,
                     a: vk::ComponentSwizzle::A,
                 },
+                vk::ImageAspectFlags::DEPTH => vk::ComponentMapping::default(),
+                _ => unimplemented!(),
+            };
+
+            let image_view_info = vk::ImageViewCreateInfo {
+                view_type: vk::ImageViewType::TYPE_2D,
+                format: image_create_info.format,
+                components,
                 subresource_range: vk::ImageSubresourceRange {
-                    aspect_mask: vk::ImageAspectFlags::COLOR,
+                    aspect_mask: aspect_flags,
                     level_count: 1,
                     layer_count: 1,
                     ..Default::default()

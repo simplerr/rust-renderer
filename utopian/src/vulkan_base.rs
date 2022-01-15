@@ -16,6 +16,7 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 
 use crate::device::*;
+use crate::image::*;
 
 // Simple offset_of macro akin to C++ offsetof
 #[macro_export]
@@ -70,6 +71,7 @@ pub struct VulkanBase {
     pub setup_command_buffer: vk::CommandBuffer,
     pub draw_command_buffer: vk::CommandBuffer,
     _present_images: Vec<vk::Image>,
+    pub depth_image: Image,
     pub present_image_views: Vec<vk::ImageView>,
     pub present_complete_semaphore: vk::Semaphore,
     pub rendering_complete_semaphore: vk::Semaphore,
@@ -105,12 +107,14 @@ impl VulkanBase {
         let (_command_pool, setup_command_buffer, draw_command_buffer) =
             VulkanBase::create_command_buffers(&device.handle, device.queue_family_index);
 
-        let (_present_images, present_image_views) = VulkanBase::setup_swapchain_images(
-            &device.handle,
-            swapchain,
-            &swapchain_loader,
-            surface_format,
-        );
+        let (_present_images, present_image_views, depth_image) =
+            VulkanBase::setup_swapchain_images(
+                &device,
+                swapchain,
+                &swapchain_loader,
+                surface_format,
+                surface_resolution,
+            );
 
         let (present_complete_semaphore, rendering_complete_semaphore) =
             VulkanBase::create_semaphores(&device.handle);
@@ -133,6 +137,7 @@ impl VulkanBase {
             setup_command_buffer,
             draw_command_buffer,
             _present_images,
+            depth_image,
             present_image_views,
             present_complete_semaphore,
             rendering_complete_semaphore,
@@ -328,11 +333,12 @@ impl VulkanBase {
     }
 
     fn setup_swapchain_images(
-        device: &ash::Device,
+        device: &Device,
         swapchain: vk::SwapchainKHR,
         swapchain_loader: &Swapchain,
         surface_format: vk::SurfaceFormatKHR,
-    ) -> (Vec<vk::Image>, Vec<vk::ImageView>) {
+        surface_resolution: vk::Extent2D,
+    ) -> (Vec<vk::Image>, Vec<vk::ImageView>, Image) {
         unsafe {
             let present_images = swapchain_loader
                 .get_swapchain_images(swapchain)
@@ -358,13 +364,51 @@ impl VulkanBase {
                             layer_count: 1,
                         })
                         .image(image);
-                    device.create_image_view(&create_view_info, None).unwrap()
+                    device
+                        .handle
+                        .create_image_view(&create_view_info, None)
+                        .unwrap()
                 })
                 .collect();
 
-            // Todo: create depth image
+            let depth_image = Image::new(
+                device,
+                surface_resolution.width,
+                surface_resolution.height,
+                vk::Format::D16_UNORM,
+                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+                vk::ImageAspectFlags::DEPTH,
+            );
 
-            (present_images, present_image_views)
+            device.execute_and_submit(|device, cb| {
+                let layout_transition_barriers = vk::ImageMemoryBarrier::builder()
+                    .image(depth_image.image)
+                    .dst_access_mask(
+                        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
+                            | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                    )
+                    .new_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                    .old_layout(vk::ImageLayout::UNDEFINED)
+                    .subresource_range(
+                        vk::ImageSubresourceRange::builder()
+                            .aspect_mask(vk::ImageAspectFlags::DEPTH)
+                            .layer_count(1)
+                            .level_count(1)
+                            .build(),
+                    );
+
+                device.handle.cmd_pipeline_barrier(
+                    cb,
+                    vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+                    vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
+                    vk::DependencyFlags::empty(),
+                    &[],
+                    &[],
+                    &[layout_transition_barriers.build()],
+                );
+            });
+
+            (present_images, present_image_views, depth_image)
         }
     }
 
