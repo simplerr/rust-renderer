@@ -483,21 +483,30 @@ impl VulkanBase {
         }
     }
 
-    pub fn run<F: Fn()>(&self, user_function: F) {
-        self.event_loop
-            .borrow_mut()
-            .run_return(|event, _, control_flow| {
-                *control_flow = ControlFlow::Wait;
+    pub fn run<F: FnMut()>(&self, mut user_function: F) {
+        let mut running = true;
+        while running {
+            self.event_loop
+                .borrow_mut()
+                .run_return(|event, _, control_flow| {
+                    *control_flow = ControlFlow::Poll;
 
-                user_function();
+                    match event {
+                        Event::WindowEvent {
+                            event: WindowEvent::CloseRequested,
+                            window_id,
+                        } if window_id == self.window.id() => {
+                            *control_flow = ControlFlow::Exit;
+                            running = false;
+                        }
+                        Event::MainEventsCleared => {
+                            *control_flow = ControlFlow::Exit;
+                        }
+                        _ => (),
+                    }
+                });
 
-                match event {
-                    Event::WindowEvent {
-                        event: WindowEvent::CloseRequested,
-                        window_id,
-                    } if window_id == self.window.id() => *control_flow = ControlFlow::Exit,
-                    _ => (),
-                }
-            });
+            user_function();
+        }
     }
 }
