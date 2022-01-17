@@ -8,6 +8,7 @@ use crate::image::*;
 pub struct Buffer {
     pub buffer: vk::Buffer,
     pub device_memory: vk::DeviceMemory,
+    pub memory_req: vk::MemoryRequirements,
     pub size: u64,
 }
 
@@ -73,7 +74,28 @@ impl Buffer {
                 buffer,
                 device_memory,
                 size,
+                memory_req: buffer_memory_req,
             }
+        }
+    }
+
+    pub fn update_memory<T: Copy>(&self, device: &Device, data: &[T]) {
+        unsafe {
+            let buffer_ptr = device
+                .handle
+                .map_memory(
+                    self.device_memory,
+                    0,
+                    self.memory_req.size,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .expect("Failed to map buffer memory");
+
+            let mut slice = Align::new(buffer_ptr, align_of::<T>() as u64, self.memory_req.size);
+
+            slice.copy_from_slice(&data);
+
+            device.handle.unmap_memory(self.device_memory);
         }
     }
 

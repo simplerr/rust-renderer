@@ -17,6 +17,7 @@ use std::os::raw::c_char;
 
 use crate::device::*;
 use crate::image::*;
+use crate::input::*;
 
 // Simple offset_of macro akin to C++ offsetof
 #[macro_export]
@@ -483,7 +484,10 @@ impl VulkanBase {
         }
     }
 
-    pub fn run<F: FnMut()>(&self, mut user_function: F) {
+    pub fn run<F: FnMut(&Input)>(&self, mut user_function: F) {
+        let mut events = Vec::new();
+        let mut input = Input::default();
+
         let mut running = true;
         while running {
             self.event_loop
@@ -492,12 +496,16 @@ impl VulkanBase {
                     *control_flow = ControlFlow::Poll;
 
                     match event {
-                        Event::WindowEvent {
-                            event: WindowEvent::CloseRequested,
-                            window_id,
-                        } if window_id == self.window.id() => {
-                            *control_flow = ControlFlow::Exit;
-                            running = false;
+                        Event::WindowEvent { event, window_id }
+                            if window_id == self.window.id() =>
+                        {
+                            match event {
+                                WindowEvent::CloseRequested => {
+                                    *control_flow = ControlFlow::Exit;
+                                    running = false;
+                                }
+                                _ => events.extend(event.to_static()),
+                            }
                         }
                         Event::MainEventsCleared => {
                             *control_flow = ControlFlow::Exit;
@@ -506,7 +514,11 @@ impl VulkanBase {
                     }
                 });
 
-            user_function();
+            input.update(&events);
+
+            user_function(&input);
+
+            events.clear();
         }
     }
 }

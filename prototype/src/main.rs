@@ -21,6 +21,7 @@ struct Application {
     binding1: utopian::shader::Binding,          // testing
     binding2: utopian::shader::Binding,          // testing
     camera: CameraUniformData,
+    camera_ubo: utopian::Buffer,
 }
 
 impl Application {
@@ -44,7 +45,7 @@ impl Application {
             20000.0,
         );
 
-        let camera_data = CameraUniformData {
+        let mut camera_data = CameraUniformData {
             view_mat,
             projection_mat,
             eye_pos,
@@ -132,6 +133,7 @@ impl Application {
             binding1,
             binding2,
             camera: camera_data,
+            camera_ubo: camera_uniform_buffer,
         }
     }
 
@@ -256,9 +258,26 @@ impl Application {
         }
     }
 
-    fn run(&self) {
-        self.base.run(|| unsafe {
+    fn run(&mut self) {
+        self.base.run(|input| unsafe {
             let present_index = self.base.prepare_frame();
+
+            let speed = 0.001;
+            if input.key_down(winit::event::VirtualKeyCode::W) {
+                self.camera.eye_pos += Vec3::new(speed, speed, speed);
+            } else if input.key_down(winit::event::VirtualKeyCode::S) {
+                self.camera.eye_pos -= Vec3::new(speed, speed, speed);
+            }
+
+            self.camera.view_mat = glam::Mat4::look_at_lh(
+                self.camera.eye_pos,
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            );
+            self.camera_ubo.update_memory(
+                &self.base.device,
+                std::slice::from_raw_parts(&self.camera, 1),
+            );
 
             Application::record_commands(
                 &self.base.device.handle,
@@ -380,7 +399,7 @@ impl Application {
 }
 
 fn main() {
-    let app = Application::new();
+    let mut app = Application::new();
 
     app.run();
 
