@@ -1,5 +1,5 @@
-use glam::{Vec3, Mat3, Mat4, Quat};
 use dolly::prelude::*;
+use glam::{Mat3, Mat4, Quat, Vec3};
 
 use crate::Input;
 
@@ -35,8 +35,7 @@ impl Camera {
 
         let camera_rig = CameraRig::builder()
             .with(Position::new(pos))
-            .with(YawPitch::new()
-                .rotation_quat(rotation))
+            .with(YawPitch::new().rotation_quat(rotation))
             .with(Smooth::new_position_rotation(1.0, 1.0))
             .build();
 
@@ -67,9 +66,7 @@ impl Camera {
             movement -= self.speed * transform.right();
         }
 
-        self.camera_rig
-            .driver_mut::<Position>()
-            .translate(movement);
+        self.camera_rig.driver_mut::<Position>().translate(movement);
 
         if input.right_mouse_down {
             self.camera_rig
@@ -87,7 +84,7 @@ impl Camera {
         glam::Mat4::look_at_lh(
             transform.position,
             transform.position + transform.forward(),
-            transform.up()
+            transform.up(),
         )
     }
 
@@ -99,7 +96,7 @@ impl Camera {
             self.z_far,
         )
     }
-    
+
     pub fn get_position(&self) -> Vec3 {
         self.camera_rig.final_transform.position
     }

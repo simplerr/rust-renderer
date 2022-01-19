@@ -33,7 +33,10 @@ impl Application {
         let renderpass = Application::create_renderpass(&base);
         let framebuffers = Application::create_framebuffers(&base, renderpass);
 
-        let cube = utopian::ModelLoader::load_cube(&base.device);
+        let sphere =
+            utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/sphere.gltf");
+        //let cube = utopian::ModelLoader::load_cube(&base.device);
+
         let camera = utopian::Camera::new(
             Vec3::new(5.0, 5.0, 5.0),
             Vec3::new(0.0, 0.0, 0.0),
@@ -120,7 +123,8 @@ impl Application {
             renderpass,
             framebuffers,
             pipeline,
-            primitive: cube,
+            //primitive: cube,
+            primitive: sphere,
             descriptor_set,
             descriptor_set_frag,
             binding1,
