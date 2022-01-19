@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::{Vec2, Vec3, Vec4};
+use glam::Vec3;
 
 use utopian;
 
@@ -20,8 +20,9 @@ struct Application {
     descriptor_set_frag: utopian::DescriptorSet, // testing
     binding1: utopian::shader::Binding,          // testing
     binding2: utopian::shader::Binding,          // testing
-    camera: CameraUniformData,
+    camera_data: CameraUniformData,
     camera_ubo: utopian::Buffer,
+    camera: utopian::Camera,
 }
 
 impl Application {
@@ -33,31 +34,23 @@ impl Application {
         let framebuffers = Application::create_framebuffers(&base, renderpass);
 
         let cube = utopian::ModelLoader::load_cube(&base.device);
-
-        let eye_pos = Vec3::new(2.0, 2.0, 2.0);
-        let view_mat =
-            glam::Mat4::look_at_lh(eye_pos, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
-
-        let projection_mat = glam::Mat4::perspective_lh(
-            f32::to_radians(60.0),
+        let camera = utopian::Camera::new(
+            Vec3::new(5.0, 5.0, 5.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            60.0,
             width as f32 / height as f32,
             0.01,
             20000.0,
+            0.002,
         );
 
-        let mut camera_data = CameraUniformData {
-            view_mat,
-            projection_mat,
-            eye_pos,
+        let camera_data = CameraUniformData {
+            view_mat: camera.get_view(),
+            projection_mat: camera.get_projection(),
+            eye_pos: camera.get_position(),
         };
 
         let slice = unsafe { std::slice::from_raw_parts(&camera_data, 1) };
-
-        println!(
-            "camera size: {}",
-            std::mem::size_of_val(&camera_data) as u64
-        );
-        println!("camera data: {:#?}", camera_data);
 
         let camera_uniform_buffer = utopian::Buffer::new(
             &base.device,
@@ -132,8 +125,9 @@ impl Application {
             descriptor_set_frag,
             binding1,
             binding2,
-            camera: camera_data,
+            camera_data,
             camera_ubo: camera_uniform_buffer,
+            camera,
         }
     }
 
@@ -262,21 +256,15 @@ impl Application {
         self.base.run(|input| unsafe {
             let present_index = self.base.prepare_frame();
 
-            let speed = 0.001;
-            if input.key_down(winit::event::VirtualKeyCode::W) {
-                self.camera.eye_pos += Vec3::new(speed, speed, speed);
-            } else if input.key_down(winit::event::VirtualKeyCode::S) {
-                self.camera.eye_pos -= Vec3::new(speed, speed, speed);
-            }
+            self.camera.update(&input);
 
-            self.camera.view_mat = glam::Mat4::look_at_lh(
-                self.camera.eye_pos,
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            );
+            self.camera_data.view_mat = self.camera.get_view();
+            self.camera_data.projection_mat = self.camera.get_projection();
+            self.camera_data.eye_pos = self.camera.get_position();
+
             self.camera_ubo.update_memory(
                 &self.base.device,
-                std::slice::from_raw_parts(&self.camera, 1),
+                std::slice::from_raw_parts(&self.camera_data, 1),
             );
 
             Application::record_commands(

@@ -346,6 +346,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dolly"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13a956e7201e6d83f09cdd044314a385d51cb66262dafc7e3db2a5012f0fff7b"
+dependencies = [
+ "glam",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1081,6 +1090,7 @@ version = "0.0.1"
 dependencies = [
  "ash",
  "ash-window",
+ "dolly",
  "glam",
  "image",
  "rspirv-reflect",

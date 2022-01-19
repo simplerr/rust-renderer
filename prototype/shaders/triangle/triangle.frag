@@ -26,6 +26,6 @@ void main() {
     out_color = in_color;
 
     out_color = texture(samplerColor, in_uv);
-    //out_color = vec4(in_normal, 1.0);
+    out_color = vec4(in_normal, 1.0);
 }
 
