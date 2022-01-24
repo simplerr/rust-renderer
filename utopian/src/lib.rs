@@ -24,3 +24,4 @@ pub use primitive::Primitive;
 pub use primitive::Vertex;
 pub use texture::Texture;
 pub use vulkan_base::VulkanBase;
+pub use gltf_loader::Model;

@@ -41,7 +41,7 @@ layout (set = 3, binding = 1) uniform isampler2D triangleTableTex;
 layout (set = 3, binding = 2) uniform sampler3D sdfImage;
 
 layout(push_constant) uniform PushConsts {
-   //mat4 world;
+   mat4 world;
    vec4 color;
 } pushConsts;
 
@@ -52,6 +52,6 @@ void main() {
     out_normal = normal;
     //out_color = camera.eyePos;
     //out_color = test1.color;
-    //out_color = pushConsts.color;
-    gl_Position = camera.projection * camera.view * vec4(pos, 1.0);
+    out_color = pushConsts.color;
+    gl_Position = camera.projection * camera.view * pushConsts.world * vec4(pos, 1.0);
 }

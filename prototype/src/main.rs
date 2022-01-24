@@ -10,12 +10,17 @@ struct CameraUniformData {
     eye_pos: glam::Vec3,
 }
 
+struct PushConstants {
+    world: glam::Mat4,
+    color: glam::Vec4,
+}
+
 struct Application {
     base: utopian::VulkanBase,
     renderpass: vk::RenderPass,
     framebuffers: Vec<vk::Framebuffer>,
     pipeline: utopian::Pipeline,
-    primitive: utopian::Primitive,
+    model: utopian::Model,
     descriptor_set: utopian::DescriptorSet,      // testing
     descriptor_set_frag: utopian::DescriptorSet, // testing
     binding1: utopian::shader::Binding,          // testing
@@ -33,12 +38,14 @@ impl Application {
         let renderpass = Application::create_renderpass(&base);
         let framebuffers = Application::create_framebuffers(&base, renderpass);
 
-        let sphere =
-            utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/sphere.gltf");
+        let model =
+            //utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/sphere.gltf");
+            //utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/Sponza/glTF/Sponza.gltf");
+            utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf");
         //let cube = utopian::ModelLoader::load_cube(&base.device);
 
         let camera = utopian::Camera::new(
-            Vec3::new(5.0, 5.0, 5.0),
+            Vec3::new(1.0, 1.0, 1.0),
             Vec3::new(0.0, 0.0, 0.0),
             60.0,
             width as f32 / height as f32,
@@ -124,7 +131,7 @@ impl Application {
             framebuffers,
             pipeline,
             //primitive: cube,
-            primitive: sphere,
+            model,
             descriptor_set,
             descriptor_set_frag,
             binding1,
@@ -328,19 +335,6 @@ impl Application {
                     device.cmd_set_viewport(command_buffer, 0, &viewports);
                     device.cmd_set_scissor(command_buffer, 0, &scissors);
 
-                    let push_data = [1.0f32, 0.5, 0.2, 1.0];
-
-                    device.cmd_push_constants(
-                        command_buffer,
-                        self.pipeline.pipeline_layout,
-                        vk::ShaderStageFlags::ALL,
-                        0,
-                        std::slice::from_raw_parts(
-                            push_data.as_ptr() as *const u8,
-                            std::mem::size_of_val(&push_data),
-                        ),
-                    );
-
                     device.cmd_bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
@@ -359,26 +353,44 @@ impl Application {
                         &[],
                     );
 
-                    device.cmd_bind_vertex_buffers(
-                        command_buffer,
-                        0,
-                        &[self.primitive.vertex_buffer.buffer],
-                        &[0],
-                    );
-                    device.cmd_bind_index_buffer(
-                        command_buffer,
-                        self.primitive.index_buffer.buffer,
-                        0,
-                        vk::IndexType::UINT32,
-                    );
-                    device.cmd_draw_indexed(
-                        command_buffer,
-                        self.primitive.indices.len() as u32,
-                        1,
-                        0,
-                        0,
-                        1,
-                    );
+                    for (i, primitive) in self.model.primitives.iter().enumerate() {
+                        let push_data = PushConstants {
+                            world: self.model.transforms[i],
+                            color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
+                        };
+
+                        device.cmd_push_constants(
+                            command_buffer,
+                            self.pipeline.pipeline_layout,
+                            vk::ShaderStageFlags::ALL,
+                            0,
+                            std::slice::from_raw_parts(
+                                &push_data as *const _ as *const u8,
+                                std::mem::size_of_val(&push_data),
+                            ),
+                        );
+
+                        device.cmd_bind_vertex_buffers(
+                            command_buffer,
+                            0,
+                            &[primitive.vertex_buffer.buffer],
+                            &[0],
+                        );
+                        device.cmd_bind_index_buffer(
+                            command_buffer,
+                            primitive.index_buffer.buffer,
+                            0,
+                            vk::IndexType::UINT32,
+                        );
+                        device.cmd_draw_indexed(
+                            command_buffer,
+                            primitive.indices.len() as u32,
+                            1,
+                            0,
+                            0,
+                            1,
+                        );
+                    }
 
                     device.cmd_end_render_pass(command_buffer);
                 },
