@@ -31,8 +31,11 @@ impl Pipeline {
 
         let reflection = shader::Reflection::new(&[vertex_spv_file, fragment_spv_file]);
 
-        let (pipeline_layout, descriptor_set_layouts, _) =
-            shader::create_layouts_from_reflection(device, &reflection, bindless_descriptor_set_layout);
+        let (pipeline_layout, descriptor_set_layouts, _) = shader::create_layouts_from_reflection(
+            device,
+            &reflection,
+            bindless_descriptor_set_layout,
+        );
 
         let vertex_spv_file = Cursor::new(vertex_spv_file);
         let fragment_spv_file = Cursor::new(fragment_spv_file);

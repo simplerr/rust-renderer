@@ -44,7 +44,8 @@ impl Device {
 
             // Enable all available features
             // Todo: Check if required features are supported by HW
-            let mut descriptor_indexing = vk::PhysicalDeviceDescriptorIndexingFeaturesEXT::default();
+            let mut descriptor_indexing =
+                vk::PhysicalDeviceDescriptorIndexingFeaturesEXT::default();
             let mut features2 = vk::PhysicalDeviceFeatures2::builder()
                 .push_next(&mut descriptor_indexing)
                 .build();

@@ -12,37 +12,19 @@ layout (location = 0) out vec2 out_uv;
 layout (location = 1) out vec3 out_normal;
 layout (location = 2) out vec4 out_color;
 
-layout (std140, set = 0, binding = 0) uniform UBO_test1
-{
-   vec4 color;
-} test1;
-
-layout (std140, set = 0, binding = 1) uniform UBO_camera
+layout (std140, set = 1, binding = 0) uniform UBO_camera
 {
    mat4 view;
    mat4 projection;
    vec4 eye_pos;
 } camera;
 
-layout (std140, set = 1, binding = 1) uniform UBO_mouse
-{
-   vec2 mouseUV;
-   float time;
-} mouse;
-
-layout (set = 2, binding = 0) uniform sampler2D diffuseSampler;
-layout (set = 2, binding = 1) uniform sampler2D normalSampler;
-layout (set = 2, binding = 2) uniform sampler2D specularSampler;
-
-layout (set = 4, binding = 0, r32f) uniform writeonly image3D sdfImageOutput;
-
-layout (set = 3, binding = 0) uniform isampler2D edgeTableTex;
-layout (set = 3, binding = 1) uniform isampler2D triangleTableTex;
-layout (set = 3, binding = 2) uniform sampler3D sdfImage;
-
 layout(push_constant) uniform PushConsts {
    mat4 world;
    vec4 color;
+   int diffuse_tex_id;
+   int normal_tex_id;
+   vec2 pad;
 } pushConsts;
 
 

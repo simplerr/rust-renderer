@@ -3,6 +3,8 @@ use glam::Vec3;
 
 use utopian;
 
+pub const MAX_BINDLESS_DESCRIPTOR_COUNT: usize = 512 * 1024;
+
 #[derive(Clone, Debug, Copy)]
 struct CameraUniformData {
     view_mat: glam::Mat4,
@@ -14,7 +16,8 @@ struct PushConstants {
     world: glam::Mat4,
     color: glam::Vec4,
     diffuse_tex_id: u32,
-    pad: glam::Vec3,
+    normal_tex_id: u32,
+    pad: glam::Vec2,
 }
 
 struct Application {
@@ -22,14 +25,81 @@ struct Application {
     renderpass: vk::RenderPass,
     framebuffers: Vec<vk::Framebuffer>,
     pipeline: utopian::Pipeline,
-    model: utopian::Model,
-    descriptor_set_camera: utopian::DescriptorSet,      // testing
-    descriptor_set_bindless: utopian::DescriptorSet, // testing
-    camera_binding: utopian::shader::Binding,          // testing
-    bindless_binding: utopian::shader::Binding,          // testing
+    descriptor_set_camera: utopian::DescriptorSet, // testing
+    camera_binding: utopian::shader::Binding,      // testing
+    bindless_binding: utopian::shader::Binding,    // testing
     camera_data: CameraUniformData,
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
+    renderer: Renderer,
+}
+
+struct ModelInstance {
+    model: utopian::Model,
+    transform: glam::Mat4,
+}
+
+struct Renderer {
+    next_bindless_image_index: u32,
+    bindless_descriptor_set: vk::DescriptorSet,
+    instances: Vec<ModelInstance>,
+}
+
+impl Renderer {
+    fn add_model(
+        &mut self,
+        device: &utopian::Device,
+        mut model: utopian::Model,
+        transform: glam::Mat4,
+    ) {
+        // Add the images from the new model to the bindless descriptor set and
+        // also update the mappings for each primitive to be indexes corresponding
+        // to the ordering in the bindless descriptor set texture array.
+        for (i, idx) in model
+            .primitive_to_diffuse_idx
+            .clone()
+            .iter_mut()
+            .enumerate()
+        {
+            let bindless_index =
+                self.add_bindless_texture(&device, &model.textures[(*idx) as usize]);
+            model.primitive_to_diffuse_idx[i] = bindless_index;
+        }
+
+        for (i, idx) in model.primitive_to_normal_idx.clone().iter_mut().enumerate() {
+            let bindless_index =
+                self.add_bindless_texture(&device, &model.textures[(*idx) as usize]);
+            model.primitive_to_normal_idx[i] = bindless_index;
+        }
+
+        self.instances.push(ModelInstance { model, transform });
+    }
+
+    fn add_bindless_texture(
+        &mut self,
+        device: &utopian::Device,
+        texture: &utopian::Texture,
+    ) -> u32 {
+        let new_image_index = self.next_bindless_image_index;
+
+        let descriptor_write = vk::WriteDescriptorSet::builder()
+            .dst_set(self.bindless_descriptor_set)
+            .dst_binding(0)
+            .dst_array_element(new_image_index)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .image_info(std::slice::from_ref(&texture.descriptor_info))
+            .build();
+
+        unsafe {
+            device
+                .handle
+                .update_descriptor_sets(std::slice::from_ref(&descriptor_write), &[])
+        };
+
+        self.next_bindless_image_index += 1;
+
+        new_image_index
+    }
 }
 
 impl Application {
@@ -39,12 +109,6 @@ impl Application {
 
         let renderpass = Application::create_renderpass(&base);
         let framebuffers = Application::create_framebuffers(&base, renderpass);
-
-        let model =
-            //utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/sphere.gltf");
-            //utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/Sponza/glTF/Sponza.gltf");
-            utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf");
-        //utopian::ModelLoader::load_cube(&base.device);
 
         let camera = utopian::Camera::new(
             Vec3::new(1.0, 1.0, 1.0),
@@ -71,7 +135,12 @@ impl Application {
             vk::BufferUsageFlags::UNIFORM_BUFFER,
         );
 
-        let bindless_descriptor_set = Application::create_bindless_descriptor_set_layout(&base.device);
+        let bindless_descriptor_set_layout =
+            Application::create_bindless_descriptor_set_layout(&base.device);
+        let descriptor_set_bindless = Application::create_bindless_descriptor_set(
+            &base.device,
+            bindless_descriptor_set_layout,
+        );
 
         let pipeline = utopian::Pipeline::new(
             &base.device.handle,
@@ -79,7 +148,7 @@ impl Application {
             "prototype/shaders/triangle/triangle.frag",
             renderpass,
             base.surface_resolution,
-            Some(bindless_descriptor_set),
+            Some(bindless_descriptor_set_layout),
         );
 
         let camera_binding = pipeline.reflection.get_binding("camera");
@@ -91,28 +160,6 @@ impl Application {
             pipeline.reflection.get_set_mappings(camera_binding.set),
         );
 
-        let descriptor_set_bindless = utopian::DescriptorSet::new(
-            &base.device,
-            pipeline.descriptor_set_layouts[bindless_binding.set as usize],
-            pipeline.reflection.get_set_mappings(bindless_binding.set),
-        );
-
-        let uniform_data = [1.0f32, 0.0, 0.0, 1.0];
-        let uniform_buffer = utopian::Buffer::new(
-            &base.device,
-            &uniform_data,
-            std::mem::size_of_val(&uniform_data) as u64,
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
-        );
-
-        let uniform_data_frag = [0.0f32, 1.0, 0.0, 1.0];
-        let uniform_buffer_frag = utopian::Buffer::new(
-            &base.device,
-            &uniform_data_frag,
-            std::mem::size_of_val(&uniform_data) as u64,
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
-        );
-
         let texture = utopian::Texture::load(&base.device, "prototype/data/rust.png");
 
         descriptor_set_camera.write_uniform_buffer(
@@ -121,47 +168,40 @@ impl Application {
             &camera_uniform_buffer,
         );
 
-        //descriptor_set.write_combined_image(&base.device, "samplerColor".to_string(), &texture);
-        descriptor_set_bindless.write_combined_image(
-            &base.device,
-            "samplerColor".to_string(),
-            &model.textures[3],
-        );
-
         Application {
             base,
             renderpass,
             framebuffers,
             pipeline,
-            model,
             descriptor_set_camera,
-            descriptor_set_bindless,
             camera_binding,
             bindless_binding,
             camera_data,
             camera_ubo: camera_uniform_buffer,
             camera,
+            renderer: Renderer {
+                bindless_descriptor_set: descriptor_set_bindless,
+                next_bindless_image_index: 0,
+                instances: vec![],
+            },
         }
     }
 
     fn create_bindless_descriptor_set_layout(device: &utopian::Device) -> vk::DescriptorSetLayout {
-        let descriptor_set_layout_binding =
-            vk::DescriptorSetLayoutBinding::builder()
-                .binding(0)
-                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                .descriptor_count(1)
-                .stage_flags(vk::ShaderStageFlags::ALL)
-                .build();
+        let descriptor_set_layout_binding = vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32)
+            .stage_flags(vk::ShaderStageFlags::ALL)
+            .build();
 
-        let mut binding_flags: Vec<vk::DescriptorBindingFlags> =
-            vec![
-                vk::DescriptorBindingFlags::PARTIALLY_BOUND
-                //    | vk::DescriptorBindingFlags::VARIABLE_DESCRIPTOR_COUNT;
-            ];
+        let binding_flags: Vec<vk::DescriptorBindingFlags> = vec![
+            vk::DescriptorBindingFlags::PARTIALLY_BOUND
+                | vk::DescriptorBindingFlags::VARIABLE_DESCRIPTOR_COUNT,
+        ];
 
         let mut binding_flags_create_info =
-            vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder()
-                .binding_flags(&binding_flags);
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder().binding_flags(&binding_flags);
 
         let descriptor_sets_layout_info = vk::DescriptorSetLayoutCreateInfo::builder()
             .bindings(&[descriptor_set_layout_binding])
@@ -170,12 +210,56 @@ impl Application {
             .build();
 
         let descriptor_set_layout = unsafe {
-            device.handle
+            device
+                .handle
                 .create_descriptor_set_layout(&descriptor_sets_layout_info, None)
                 .expect("Error creating descriptor set layout")
         };
 
         descriptor_set_layout
+    }
+
+    fn create_bindless_descriptor_set(
+        device: &utopian::Device,
+        layout: vk::DescriptorSetLayout,
+    ) -> vk::DescriptorSet {
+        let descriptor_sizes = [vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            descriptor_count: MAX_BINDLESS_DESCRIPTOR_COUNT as u32,
+        }];
+
+        let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
+            .pool_sizes(&descriptor_sizes)
+            .flags(vk::DescriptorPoolCreateFlags::UPDATE_AFTER_BIND)
+            .max_sets(1);
+
+        let descriptor_pool = unsafe {
+            device
+                .handle
+                .create_descriptor_pool(&descriptor_pool_info, None)
+                .expect("Error allocating bindless descriptor pool")
+        };
+
+        let variable_descriptor_count = MAX_BINDLESS_DESCRIPTOR_COUNT as u32;
+        let mut variable_descriptor_count_allocate_info =
+            vk::DescriptorSetVariableDescriptorCountAllocateInfo::builder()
+                .descriptor_counts(std::slice::from_ref(&variable_descriptor_count))
+                .build();
+
+        let descriptor_set = unsafe {
+            device
+                .handle
+                .allocate_descriptor_sets(
+                    &vk::DescriptorSetAllocateInfo::builder()
+                        .descriptor_pool(descriptor_pool)
+                        .set_layouts(std::slice::from_ref(&layout))
+                        .push_next(&mut variable_descriptor_count_allocate_info)
+                        .build(),
+                )
+                .expect("Error allocating bindless descriptor pool")[0]
+        };
+
+        descriptor_set
     }
 
     fn create_renderpass(base: &utopian::vulkan_base::VulkanBase) -> vk::RenderPass {
@@ -299,6 +383,41 @@ impl Application {
         }
     }
 
+    fn create_scene(&mut self) {
+        let sponza = utopian::gltf_loader::load_gltf(
+            &self.base.device,
+            "prototype/data/models/Sponza/glTF/Sponza.gltf",
+        );
+
+        let flight_helmet = utopian::gltf_loader::load_gltf(
+            &self.base.device,
+            "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf",
+        );
+
+        let cesium = utopian::gltf_loader::load_gltf(
+            &self.base.device,
+            "prototype/data/models/CesiumMan.gltf",
+        );
+
+        self.renderer.add_model(
+            &self.base.device,
+            sponza,
+            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        );
+
+        self.renderer.add_model(
+            &self.base.device,
+            flight_helmet,
+            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
+        );
+
+        self.renderer.add_model(
+            &self.base.device,
+            cesium,
+            glam::Mat4::from_translation(glam::Vec3::new(1.0, 0.5, 0.0)),
+        );
+    }
+
     fn run(&mut self) {
         self.base.run(|input| unsafe {
             let present_index = self.base.prepare_frame();
@@ -385,51 +504,52 @@ impl Application {
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline.pipeline_layout,
                         self.bindless_binding.set,
-                        &[self.descriptor_set_bindless.handle],
+                        &[self.renderer.bindless_descriptor_set],
                         &[],
                     );
 
-                    for (i, primitive) in self.model.primitives.iter().enumerate() {
-                        let model_world =
-                            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0));
-                        let push_data = PushConstants {
-                            world: model_world * self.model.transforms[i],
-                            color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
-                            diffuse_tex_id: 2,
-                            pad: glam::Vec3::new(0.0, 0.0, 0.0),
-                        };
+                    for instance in &self.renderer.instances {
+                        for (i, primitive) in instance.model.primitives.iter().enumerate() {
+                            let push_data = PushConstants {
+                                world: instance.transform * instance.model.transforms[i],
+                                color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
+                                diffuse_tex_id: instance.model.primitive_to_diffuse_idx[i],
+                                normal_tex_id: instance.model.primitive_to_normal_idx[i],
+                                pad: glam::Vec2::new(0.0, 0.0),
+                            };
 
-                        device.cmd_push_constants(
-                            command_buffer,
-                            self.pipeline.pipeline_layout,
-                            vk::ShaderStageFlags::ALL,
-                            0,
-                            std::slice::from_raw_parts(
-                                &push_data as *const _ as *const u8,
-                                std::mem::size_of_val(&push_data),
-                            ),
-                        );
+                            device.cmd_push_constants(
+                                command_buffer,
+                                self.pipeline.pipeline_layout,
+                                vk::ShaderStageFlags::ALL,
+                                0,
+                                std::slice::from_raw_parts(
+                                    &push_data as *const _ as *const u8,
+                                    std::mem::size_of_val(&push_data),
+                                ),
+                            );
 
-                        device.cmd_bind_vertex_buffers(
-                            command_buffer,
-                            0,
-                            &[primitive.vertex_buffer.buffer],
-                            &[0],
-                        );
-                        device.cmd_bind_index_buffer(
-                            command_buffer,
-                            primitive.index_buffer.buffer,
-                            0,
-                            vk::IndexType::UINT32,
-                        );
-                        device.cmd_draw_indexed(
-                            command_buffer,
-                            primitive.indices.len() as u32,
-                            1,
-                            0,
-                            0,
-                            1,
-                        );
+                            device.cmd_bind_vertex_buffers(
+                                command_buffer,
+                                0,
+                                &[primitive.vertex_buffer.buffer],
+                                &[0],
+                            );
+                            device.cmd_bind_index_buffer(
+                                command_buffer,
+                                primitive.index_buffer.buffer,
+                                0,
+                                vk::IndexType::UINT32,
+                            );
+                            device.cmd_draw_indexed(
+                                command_buffer,
+                                primitive.indices.len() as u32,
+                                1,
+                                0,
+                                0,
+                                1,
+                            );
+                        }
                     }
 
                     device.cmd_end_render_pass(command_buffer);
@@ -445,6 +565,7 @@ impl Application {
 fn main() {
     let mut app = Application::new();
 
+    app.create_scene();
     app.run();
 
     println!("End!");

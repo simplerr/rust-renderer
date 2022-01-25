@@ -207,8 +207,9 @@ pub fn create_layouts_from_reflection(
         })
         .collect();
 
+    // The bindless descriptor set is hardcoded to be 0
     if let Some(bindless_layout) = bindless_descriptor_set_layout {
-        descriptor_sets_layouts.push(bindless_layout);
+        descriptor_sets_layouts[0] = bindless_layout;
     }
 
     let mut push_constant_ranges: Vec<vk::PushConstantRange> = vec![];

@@ -37,6 +37,8 @@ impl ModelLoader {
             primitives: vec![],
             transforms: vec![],
             textures: vec![],
+            primitive_to_diffuse_idx: vec![],
+            primitive_to_normal_idx: vec![],
         };
 
         let mut indices = vec![];

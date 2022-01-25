@@ -47,8 +47,10 @@ impl DescriptorSet {
 
         let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&descriptor_pool_sizes)
-            .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET
-                   | vk::DescriptorPoolCreateFlags::UPDATE_AFTER_BIND)
+            .flags(
+                vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET
+                    | vk::DescriptorPoolCreateFlags::UPDATE_AFTER_BIND,
+            )
             .max_sets(descriptor_pool_sizes.len() as u32);
 
         let descriptor_pool = unsafe {
