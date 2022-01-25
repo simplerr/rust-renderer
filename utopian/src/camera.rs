@@ -60,10 +60,10 @@ impl Camera {
             movement -= self.speed * transform.forward();
         }
         if input.key_down(winit::event::VirtualKeyCode::A) {
-            movement += self.speed * transform.right();
+            movement -= self.speed * transform.right();
         }
         if input.key_down(winit::event::VirtualKeyCode::D) {
-            movement -= self.speed * transform.right();
+            movement += self.speed * transform.right();
         }
 
         self.camera_rig.driver_mut::<Position>().translate(movement);
@@ -71,7 +71,7 @@ impl Camera {
         if input.right_mouse_down {
             self.camera_rig
                 .driver_mut::<YawPitch>()
-                .rotate_yaw_pitch(0.3 * input.mouse_delta.x, 0.3 * input.mouse_delta.y);
+                .rotate_yaw_pitch(-0.3 * input.mouse_delta.x, -0.3 * input.mouse_delta.y);
         }
 
         // Todo: proper frame delta time
@@ -81,7 +81,7 @@ impl Camera {
     pub fn get_view(&self) -> Mat4 {
         let transform = self.camera_rig.final_transform;
 
-        glam::Mat4::look_at_lh(
+        glam::Mat4::look_at_rh(
             transform.position,
             transform.position + transform.forward(),
             transform.up(),
@@ -89,7 +89,7 @@ impl Camera {
     }
 
     pub fn get_projection(&self) -> Mat4 {
-        glam::Mat4::perspective_lh(
+        glam::Mat4::perspective_rh(
             f32::to_radians(self.fov_degrees),
             self.aspect_ratio,
             self.z_near,

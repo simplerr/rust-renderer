@@ -320,9 +320,9 @@ impl Application {
 
                     let viewports = [vk::Viewport {
                         x: 0.0,
-                        y: 0.0,
+                        y: self.base.surface_resolution.height as f32,
                         width: self.base.surface_resolution.width as f32,
-                        height: self.base.surface_resolution.height as f32,
+                        height: -(self.base.surface_resolution.height as f32),
                         min_depth: 0.0,
                         max_depth: 1.0,
                     }];
@@ -354,8 +354,9 @@ impl Application {
                     );
 
                     for (i, primitive) in self.model.primitives.iter().enumerate() {
+                        let model_world = glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0));
                         let push_data = PushConstants {
-                            world: self.model.transforms[i],
+                            world: model_world * self.model.transforms[i],
                             color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
                         };
 
