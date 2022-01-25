@@ -32,7 +32,7 @@ struct Application {
 
 impl Application {
     fn new() -> Application {
-        let (width, height) = (1200, 800);
+        let (width, height) = (2000, 1100);
         let base = utopian::VulkanBase::new(width, height);
 
         let renderpass = Application::create_renderpass(&base);
@@ -40,8 +40,8 @@ impl Application {
 
         let model =
             //utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/sphere.gltf");
-            //utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/Sponza/glTF/Sponza.gltf");
-            utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf");
+            utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/Sponza/glTF/Sponza.gltf");
+            //utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf");
         //let cube = utopian::ModelLoader::load_cube(&base.device);
 
         let camera = utopian::Camera::new(
@@ -153,7 +153,7 @@ impl Application {
                 ..Default::default()
             },
             vk::AttachmentDescription {
-                format: vk::Format::D16_UNORM,
+                format: vk::Format::D32_SFLOAT,
                 samples: vk::SampleCountFlags::TYPE_1,
                 load_op: vk::AttachmentLoadOp::CLEAR,
                 initial_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,

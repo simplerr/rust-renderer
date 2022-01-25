@@ -376,7 +376,7 @@ impl VulkanBase {
                 device,
                 surface_resolution.width,
                 surface_resolution.height,
-                vk::Format::D16_UNORM,
+                vk::Format::D32_SFLOAT,
                 vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
                 vk::ImageAspectFlags::DEPTH,
             );
