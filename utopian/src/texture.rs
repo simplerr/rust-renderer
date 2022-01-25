@@ -11,7 +11,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(device: &Device, path: &str) -> Texture {
+    pub fn load(device: &Device, path: &str) -> Texture {
         let image = match image::open(path) {
             Ok(image) => image,
             Err(_err) => panic!("Unable to load \"{}\"", path),
@@ -21,12 +21,14 @@ impl Texture {
         let (width, height) = (image.width(), image.height());
         let image_data = image.into_raw();
 
-        println!("width: {}, height: {}", width, height);
+        Texture::create(device, &image_data, width, height)
+    }
 
+    pub fn create(device: &Device, pixels: &Vec<u8>, width: u32, height: u32) -> Texture {
         let staging_buffer = Buffer::new(
             device,
-            image_data.as_slice(),
-            std::mem::size_of_val(&*image_data) as u64,
+            pixels.as_slice(),
+            std::mem::size_of_val(pixels.as_slice()) as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
         );
 

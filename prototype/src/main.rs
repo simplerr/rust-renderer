@@ -40,9 +40,9 @@ impl Application {
 
         let model =
             //utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/sphere.gltf");
-            utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/Sponza/glTF/Sponza.gltf");
-            //utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf");
-        //let cube = utopian::ModelLoader::load_cube(&base.device);
+            //utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/Sponza/glTF/Sponza.gltf");
+            utopian::gltf_loader::load_gltf(&base.device, "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf");
+        //utopian::ModelLoader::load_cube(&base.device);
 
         let camera = utopian::Camera::new(
             Vec3::new(1.0, 1.0, 1.0),
@@ -108,7 +108,7 @@ impl Application {
             vk::BufferUsageFlags::UNIFORM_BUFFER,
         );
 
-        let texture = utopian::Texture::new(&base.device, "prototype/data/rust.png");
+        let texture = utopian::Texture::load(&base.device, "prototype/data/rust.png");
 
         descriptor_set.write_uniform_buffer(
             &base.device,
@@ -123,14 +123,18 @@ impl Application {
             &uniform_buffer_frag,
         );
 
-        descriptor_set.write_combined_image(&base.device, "samplerColor".to_string(), &texture);
+        //descriptor_set.write_combined_image(&base.device, "samplerColor".to_string(), &texture);
+        descriptor_set.write_combined_image(
+            &base.device,
+            "samplerColor".to_string(),
+            &model.textures[3],
+        );
 
         Application {
             base,
             renderpass,
             framebuffers,
             pipeline,
-            //primitive: cube,
             model,
             descriptor_set,
             descriptor_set_frag,
@@ -354,7 +358,8 @@ impl Application {
                     );
 
                     for (i, primitive) in self.model.primitives.iter().enumerate() {
-                        let model_world = glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0));
+                        let model_world =
+                            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0));
                         let push_data = PushConstants {
                             world: model_world * self.model.transforms[i],
                             color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
