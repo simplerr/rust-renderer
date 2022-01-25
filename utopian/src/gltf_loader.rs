@@ -55,7 +55,8 @@ pub fn load_node(
                 .primitives
                 .push(Primitive::new(device, indices, vertices));
             model.transforms.push(node_transform);
-            primitive.material();
+
+            let material = primitive.material();
         }
     }
 }

@@ -148,12 +148,13 @@ pub fn compile_glsl_shader(path: &str) -> shaderc::CompilationArtifact {
 pub fn create_layouts_from_reflection(
     device: &ash::Device,
     reflection: &Reflection,
+    bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
 ) -> (
     vk::PipelineLayout,
     Vec<vk::DescriptorSetLayout>,
     Vec<vk::PushConstantRange>,
 ) {
-    let descriptor_sets_layouts: Vec<vk::DescriptorSetLayout> = reflection
+    let mut descriptor_sets_layouts: Vec<vk::DescriptorSetLayout> = reflection
         .descriptor_set_reflections
         .iter()
         .map(|(_slot, descriptor_set)| {
@@ -206,6 +207,10 @@ pub fn create_layouts_from_reflection(
         })
         .collect();
 
+    if let Some(bindless_layout) = bindless_descriptor_set_layout {
+        descriptor_sets_layouts.push(bindless_layout);
+    }
+
     let mut push_constant_ranges: Vec<vk::PushConstantRange> = vec![];
 
     for push_constant_reflection in &reflection.push_constant_reflections {
@@ -216,6 +221,9 @@ pub fn create_layouts_from_reflection(
                 .stage_flags(vk::ShaderStageFlags::ALL)
                 .build(),
         );
+
+        // Note: Only supports a single push constant shared between all shader stages!
+        break;
     }
 
     let pipeline_layout_create_info: vk::PipelineLayoutCreateInfoBuilder;

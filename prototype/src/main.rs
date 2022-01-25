@@ -13,6 +13,8 @@ struct CameraUniformData {
 struct PushConstants {
     world: glam::Mat4,
     color: glam::Vec4,
+    diffuse_tex_id: u32,
+    pad: glam::Vec3,
 }
 
 struct Application {
@@ -21,10 +23,10 @@ struct Application {
     framebuffers: Vec<vk::Framebuffer>,
     pipeline: utopian::Pipeline,
     model: utopian::Model,
-    descriptor_set: utopian::DescriptorSet,      // testing
-    descriptor_set_frag: utopian::DescriptorSet, // testing
-    binding1: utopian::shader::Binding,          // testing
-    binding2: utopian::shader::Binding,          // testing
+    descriptor_set_camera: utopian::DescriptorSet,      // testing
+    descriptor_set_bindless: utopian::DescriptorSet, // testing
+    camera_binding: utopian::shader::Binding,          // testing
+    bindless_binding: utopian::shader::Binding,          // testing
     camera_data: CameraUniformData,
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
@@ -69,27 +71,30 @@ impl Application {
             vk::BufferUsageFlags::UNIFORM_BUFFER,
         );
 
+        let bindless_descriptor_set = Application::create_bindless_descriptor_set_layout(&base.device);
+
         let pipeline = utopian::Pipeline::new(
             &base.device.handle,
             "prototype/shaders/triangle/triangle.vert",
             "prototype/shaders/triangle/triangle.frag",
             renderpass,
             base.surface_resolution,
+            Some(bindless_descriptor_set),
         );
 
-        let binding1 = pipeline.reflection.get_binding("test1");
-        let binding2 = pipeline.reflection.get_binding("test_frag");
+        let camera_binding = pipeline.reflection.get_binding("camera");
+        let bindless_binding = pipeline.reflection.get_binding("samplerColor");
 
-        let descriptor_set = utopian::DescriptorSet::new(
+        let descriptor_set_camera = utopian::DescriptorSet::new(
             &base.device,
-            pipeline.descriptor_set_layouts[binding1.set as usize],
-            pipeline.reflection.get_set_mappings(binding1.set),
+            pipeline.descriptor_set_layouts[camera_binding.set as usize],
+            pipeline.reflection.get_set_mappings(camera_binding.set),
         );
 
-        let descriptor_set_frag = utopian::DescriptorSet::new(
+        let descriptor_set_bindless = utopian::DescriptorSet::new(
             &base.device,
-            pipeline.descriptor_set_layouts[binding2.set as usize],
-            pipeline.reflection.get_set_mappings(binding2.set),
+            pipeline.descriptor_set_layouts[bindless_binding.set as usize],
+            pipeline.reflection.get_set_mappings(bindless_binding.set),
         );
 
         let uniform_data = [1.0f32, 0.0, 0.0, 1.0];
@@ -110,21 +115,14 @@ impl Application {
 
         let texture = utopian::Texture::load(&base.device, "prototype/data/rust.png");
 
-        descriptor_set.write_uniform_buffer(
+        descriptor_set_camera.write_uniform_buffer(
             &base.device,
             "camera".to_string(),
             &camera_uniform_buffer,
         );
 
-        descriptor_set.write_uniform_buffer(&base.device, "test1".to_string(), &uniform_buffer);
-        descriptor_set_frag.write_uniform_buffer(
-            &base.device,
-            "test_frag".to_string(),
-            &uniform_buffer_frag,
-        );
-
         //descriptor_set.write_combined_image(&base.device, "samplerColor".to_string(), &texture);
-        descriptor_set.write_combined_image(
+        descriptor_set_bindless.write_combined_image(
             &base.device,
             "samplerColor".to_string(),
             &model.textures[3],
@@ -136,14 +134,48 @@ impl Application {
             framebuffers,
             pipeline,
             model,
-            descriptor_set,
-            descriptor_set_frag,
-            binding1,
-            binding2,
+            descriptor_set_camera,
+            descriptor_set_bindless,
+            camera_binding,
+            bindless_binding,
             camera_data,
             camera_ubo: camera_uniform_buffer,
             camera,
         }
+    }
+
+    fn create_bindless_descriptor_set_layout(device: &utopian::Device) -> vk::DescriptorSetLayout {
+        let descriptor_set_layout_binding =
+            vk::DescriptorSetLayoutBinding::builder()
+                .binding(0)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::ALL)
+                .build();
+
+        let mut binding_flags: Vec<vk::DescriptorBindingFlags> =
+            vec![
+                vk::DescriptorBindingFlags::PARTIALLY_BOUND
+                //    | vk::DescriptorBindingFlags::VARIABLE_DESCRIPTOR_COUNT;
+            ];
+
+        let mut binding_flags_create_info =
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder()
+                .binding_flags(&binding_flags);
+
+        let descriptor_sets_layout_info = vk::DescriptorSetLayoutCreateInfo::builder()
+            .bindings(&[descriptor_set_layout_binding])
+            .flags(vk::DescriptorSetLayoutCreateFlags::UPDATE_AFTER_BIND_POOL)
+            .push_next(&mut binding_flags_create_info)
+            .build();
+
+        let descriptor_set_layout = unsafe {
+            device.handle
+                .create_descriptor_set_layout(&descriptor_sets_layout_info, None)
+                .expect("Error creating descriptor set layout")
+        };
+
+        descriptor_set_layout
     }
 
     fn create_renderpass(base: &utopian::vulkan_base::VulkanBase) -> vk::RenderPass {
@@ -343,8 +375,8 @@ impl Application {
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline.pipeline_layout,
-                        self.binding1.set,
-                        &[self.descriptor_set.handle],
+                        self.camera_binding.set,
+                        &[self.descriptor_set_camera.handle],
                         &[],
                     );
 
@@ -352,8 +384,8 @@ impl Application {
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline.pipeline_layout,
-                        self.binding2.set,
-                        &[self.descriptor_set_frag.handle],
+                        self.bindless_binding.set,
+                        &[self.descriptor_set_bindless.handle],
                         &[],
                     );
 
@@ -363,6 +395,8 @@ impl Application {
                         let push_data = PushConstants {
                             world: model_world * self.model.transforms[i],
                             color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
+                            diffuse_tex_id: 2,
+                            pad: glam::Vec3::new(0.0, 0.0, 0.0),
                         };
 
                         device.cmd_push_constants(

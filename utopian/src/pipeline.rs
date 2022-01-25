@@ -20,6 +20,7 @@ impl Pipeline {
         fragment_shader_path: &str,
         renderpass: vk::RenderPass,
         surface_resolution: vk::Extent2D,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Pipeline {
         // Todo: understand Cursor
         let vertex_spv_file = shader::compile_glsl_shader(vertex_shader_path);
@@ -31,7 +32,7 @@ impl Pipeline {
         let reflection = shader::Reflection::new(&[vertex_spv_file, fragment_spv_file]);
 
         let (pipeline_layout, descriptor_set_layouts, _) =
-            shader::create_layouts_from_reflection(device, &reflection);
+            shader::create_layouts_from_reflection(device, &reflection, bindless_descriptor_set_layout);
 
         let vertex_spv_file = Cursor::new(vertex_spv_file);
         let fragment_spv_file = Cursor::new(fragment_spv_file);

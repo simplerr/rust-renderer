@@ -37,11 +37,18 @@ impl Device {
                 .get_physical_device_surface_support(physical_device, queue_family_index, surface)
                 .expect("Presentation of the queue family not supported by the surface");
 
-            let device_extension_names_raw = [Swapchain::name().as_ptr()];
-            let device_features = vk::PhysicalDeviceFeatures {
-                shader_clip_distance: 1,
-                ..Default::default()
-            };
+            let device_extension_names_raw = [
+                Swapchain::name().as_ptr(),
+                vk::ExtDescriptorIndexingFn::name().as_ptr(),
+            ];
+
+            // Enable all available features
+            // Todo: Check if required features are supported by HW
+            let mut descriptor_indexing = vk::PhysicalDeviceDescriptorIndexingFeaturesEXT::default();
+            let mut features2 = vk::PhysicalDeviceFeatures2::builder()
+                .push_next(&mut descriptor_indexing)
+                .build();
+            instance.get_physical_device_features2(physical_device, &mut features2);
 
             let queue_priorities = [1.0];
             let queue_info = vk::DeviceQueueCreateInfo::builder()
@@ -51,7 +58,7 @@ impl Device {
             let device_create_info = vk::DeviceCreateInfo::builder()
                 .queue_create_infos(std::slice::from_ref(&queue_info))
                 .enabled_extension_names(&device_extension_names_raw)
-                .enabled_features(&device_features);
+                .push_next(&mut features2);
 
             let device: ash::Device = instance
                 .create_device(physical_device, &device_create_info, None)
