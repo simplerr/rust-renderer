@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Cursor;
+use std::path::Path;
 
 use rspirv_reflect;
 use shaderc;
@@ -128,14 +129,35 @@ pub fn compile_glsl_shader(path: &str) -> shaderc::CompilationArtifact {
     let mut compiler = shaderc::Compiler::new().unwrap();
     let mut options = shaderc::CompileOptions::new().unwrap();
     options.add_macro_definition("EP", Some("main"));
+    options.set_include_callback(|include_request, _include_type, _source, _size| {
+        let include_path = Path::new(path).parent().unwrap();
+        let include_path = include_path.join(include_request);
+
+        // println!(
+        //     "include_request: {}, include_type: {:?}, source: {}, size: {}",
+        //     include_path.to_str().unwrap(),
+        //     include_type,
+        //     source,
+        //     size
+        // );
+
+        let include_source =
+            &fs::read_to_string(include_path).expect("Error reading included file")[..];
+
+        shaderc::IncludeCallbackResult::Ok(shaderc::ResolvedInclude {
+            resolved_name: include_request.to_string(),
+            content: include_source.to_string(),
+        })
+    });
+
     let binary_result = compiler
-        .compile_into_spirv(source, shader_kind, "shader.glsl", "main", Some(&options))
+        .compile_into_spirv(source, shader_kind, path, "main", Some(&options))
         .unwrap();
 
     assert_eq!(Some(&0x07230203), binary_result.as_binary().first());
 
     let text_result = compiler
-        .compile_into_spirv_assembly(source, shader_kind, "shader.glsl", "main", Some(&options))
+        .compile_into_spirv_assembly(source, shader_kind, path, "main", Some(&options))
         .unwrap();
 
     assert!(text_result.as_text().starts_with("; SPIR-V\n"));
