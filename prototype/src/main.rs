@@ -55,21 +55,16 @@ impl Renderer {
         // Add the images from the new model to the bindless descriptor set and
         // also update the mappings for each primitive to be indexes corresponding
         // to the ordering in the bindless descriptor set texture array.
-        for (i, idx) in model
-            .primitive_to_diffuse_idx
-            .clone()
-            .iter_mut()
-            .enumerate()
-        {
-            let bindless_index =
-                self.add_bindless_texture(&device, &model.textures[(*idx) as usize]);
-            model.primitive_to_diffuse_idx[i] = bindless_index;
-        }
+        // Note: After this remapping the indexes no longer corresponds to the
+        // images in model.textures[].
+        for mesh in &mut model.meshes {
+            let diffuse_bindless_index = self
+                .add_bindless_texture(&device, &model.textures[mesh.material.diffuse_map as usize]);
+            let normal_bindless_index = self
+                .add_bindless_texture(&device, &model.textures[mesh.material.normal_map as usize]);
 
-        for (i, idx) in model.primitive_to_normal_idx.clone().iter_mut().enumerate() {
-            let bindless_index =
-                self.add_bindless_texture(&device, &model.textures[(*idx) as usize]);
-            model.primitive_to_normal_idx[i] = bindless_index;
+            mesh.material.diffuse_map = diffuse_bindless_index;
+            mesh.material.normal_map = normal_bindless_index;
         }
 
         self.instances.push(ModelInstance { model, transform });
@@ -509,12 +504,12 @@ impl Application {
                     );
 
                     for instance in &self.renderer.instances {
-                        for (i, primitive) in instance.model.primitives.iter().enumerate() {
+                        for (i, mesh) in instance.model.meshes.iter().enumerate() {
                             let push_data = PushConstants {
                                 world: instance.transform * instance.model.transforms[i],
                                 color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
-                                diffuse_tex_id: instance.model.primitive_to_diffuse_idx[i],
-                                normal_tex_id: instance.model.primitive_to_normal_idx[i],
+                                diffuse_tex_id: mesh.material.diffuse_map,
+                                normal_tex_id: mesh.material.normal_map,
                                 pad: glam::Vec2::new(0.0, 0.0),
                             };
 
@@ -532,18 +527,18 @@ impl Application {
                             device.cmd_bind_vertex_buffers(
                                 command_buffer,
                                 0,
-                                &[primitive.vertex_buffer.buffer],
+                                &[mesh.primitive.vertex_buffer.buffer],
                                 &[0],
                             );
                             device.cmd_bind_index_buffer(
                                 command_buffer,
-                                primitive.index_buffer.buffer,
+                                mesh.primitive.index_buffer.buffer,
                                 0,
                                 vk::IndexType::UINT32,
                             );
                             device.cmd_draw_indexed(
                                 command_buffer,
-                                primitive.indices.len() as u32,
+                                mesh.primitive.indices.len() as u32,
                                 1,
                                 0,
                                 0,

@@ -1,6 +1,7 @@
 use glam::{Mat4, Vec2, Vec3, Vec4};
 
 use crate::device::*;
+use crate::gltf_loader::*;
 use crate::primitive::*;
 use crate::Model;
 
@@ -34,11 +35,9 @@ pub fn add_vertex(
 impl ModelLoader {
     pub fn load_cube(device: &Device) -> Model {
         let mut model = Model {
-            primitives: vec![],
+            meshes: vec![],
             transforms: vec![],
             textures: vec![],
-            primitive_to_diffuse_idx: vec![],
-            primitive_to_normal_idx: vec![],
         };
 
         let mut indices = vec![];
@@ -104,9 +103,13 @@ impl ModelLoader {
         add_vertex(&mut vertices, 0.5, 0.5, 0.5, 1.0, 0.0, 0.0, 1.0, 0.0);
         add_vertex(&mut vertices, 0.5, -0.5, 0.5, 1.0, 0.0, 0.0, 0.0, 0.0);
 
-        model
-            .primitives
-            .push(Primitive::new(device, indices, vertices));
+        model.meshes.push(Mesh {
+            primitive: Primitive::new(device, indices, vertices),
+            material: Material {
+                diffuse_map: 0,
+                normal_map: 0,
+            },
+        });
         model.transforms.push(Mat4::IDENTITY);
 
         model

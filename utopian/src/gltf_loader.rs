@@ -4,12 +4,20 @@ use crate::device::*;
 use crate::primitive::*;
 use crate::texture::*;
 
+pub struct Material {
+    pub diffuse_map: u32,
+    pub normal_map: u32,
+}
+
+pub struct Mesh {
+    pub primitive: Primitive,
+    pub material: Material,
+}
+
 pub struct Model {
-    pub primitives: Vec<Primitive>,
-    pub transforms: Vec<Mat4>,
+    pub meshes: Vec<Mesh>,
     pub textures: Vec<Texture>,
-    pub primitive_to_diffuse_idx: Vec<u32>,
-    pub primitive_to_normal_idx: Vec<u32>,
+    pub transforms: Vec<Mat4>,
 }
 
 pub fn load_node(
@@ -53,25 +61,27 @@ pub fn load_node(
                 });
             }
 
-            model
-                .primitives
-                .push(Primitive::new(device, indices, vertices));
-            model.transforms.push(node_transform);
-
             let material = primitive.material();
             let pbr = material.pbr_metallic_roughness();
             let diffuse = pbr.base_color_texture().unwrap();
             let diffuse = diffuse.texture();
-            let image_index = diffuse.source().index();
-            model.primitive_to_diffuse_idx.push(image_index as u32);
+            let diffuse_index = diffuse.source().index() as u32;
 
-            if let Some(texture) = material.normal_texture() {
-                model
-                    .primitive_to_normal_idx
-                    .push(texture.texture().index() as u32);
+            let normal_index = if let Some(texture) = material.normal_texture() {
+                texture.texture().index() as u32
             } else {
-                model.primitive_to_normal_idx.push(0);
-            }
+                0
+            };
+
+            model.meshes.push(Mesh {
+                primitive: Primitive::new(device, indices, vertices),
+                material: Material {
+                    diffuse_map: diffuse_index,
+                    normal_map: normal_index,
+                },
+            });
+
+            model.transforms.push(node_transform);
         }
     }
 }
@@ -83,11 +93,9 @@ pub fn load_gltf(device: &Device, path: &str) -> Model {
     };
 
     let mut model = Model {
-        primitives: vec![],
+        meshes: vec![],
         transforms: vec![],
         textures: vec![],
-        primitive_to_diffuse_idx: vec![],
-        primitive_to_normal_idx: vec![],
     };
 
     for image in &mut images {
