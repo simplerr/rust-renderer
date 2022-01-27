@@ -15,9 +15,10 @@ struct CameraUniformData {
 struct PushConstants {
     world: glam::Mat4,
     color: glam::Vec4,
-    diffuse_tex_id: u32,
-    normal_tex_id: u32,
-    pad: glam::Vec2,
+    diffuse_map: u32,
+    normal_map: u32,
+    metallic_rougness_map: u32,
+    occlusion_map: u32,
 }
 
 struct Application {
@@ -62,9 +63,19 @@ impl Renderer {
                 .add_bindless_texture(&device, &model.textures[mesh.material.diffuse_map as usize]);
             let normal_bindless_index = self
                 .add_bindless_texture(&device, &model.textures[mesh.material.normal_map as usize]);
+            let metallic_roughness_bindless_index = self.add_bindless_texture(
+                &device,
+                &model.textures[mesh.material.metallic_roughness_map as usize],
+            );
+            let occlusion_bindless_index = self.add_bindless_texture(
+                &device,
+                &model.textures[mesh.material.occlusion_map as usize],
+            );
 
             mesh.material.diffuse_map = diffuse_bindless_index;
             mesh.material.normal_map = normal_bindless_index;
+            mesh.material.metallic_roughness_map = metallic_roughness_bindless_index;
+            mesh.material.occlusion_map = occlusion_bindless_index;
         }
 
         self.instances.push(ModelInstance { model, transform });
@@ -508,9 +519,10 @@ impl Application {
                             let push_data = PushConstants {
                                 world: instance.transform * instance.model.transforms[i],
                                 color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
-                                diffuse_tex_id: mesh.material.diffuse_map,
-                                normal_tex_id: mesh.material.normal_map,
-                                pad: glam::Vec2::new(0.0, 0.0),
+                                diffuse_map: mesh.material.diffuse_map,
+                                normal_map: mesh.material.normal_map,
+                                metallic_rougness_map: mesh.material.metallic_roughness_map,
+                                occlusion_map: mesh.material.occlusion_map,
                             };
 
                             device.cmd_push_constants(

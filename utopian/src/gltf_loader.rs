@@ -7,6 +7,8 @@ use crate::texture::*;
 pub struct Material {
     pub diffuse_map: u32,
     pub normal_map: u32,
+    pub metallic_roughness_map: u32,
+    pub occlusion_map: u32,
 }
 
 pub struct Mesh {
@@ -63,21 +65,30 @@ pub fn load_node(
 
             let material = primitive.material();
             let pbr = material.pbr_metallic_roughness();
-            let diffuse = pbr.base_color_texture().unwrap();
-            let diffuse = diffuse.texture();
-            let diffuse_index = diffuse.source().index() as u32;
 
-            let normal_index = if let Some(texture) = material.normal_texture() {
-                texture.texture().index() as u32
-            } else {
-                0
-            };
+            let diffuse_index = pbr
+                .base_color_texture()
+                .map_or(0, |texture| texture.texture().index() as u32);
+
+            let normal_index = material
+                .normal_texture()
+                .map_or(0, |texture| texture.texture().index() as u32);
+
+            let metallic_roughness_index = pbr
+                .metallic_roughness_texture()
+                .map_or(0, |texture| texture.texture().index() as u32);
+
+            let occlusion_index = material
+                .occlusion_texture()
+                .map_or(0, |texture| texture.texture().index() as u32);
 
             model.meshes.push(Mesh {
                 primitive: Primitive::new(device, indices, vertices),
                 material: Material {
                     diffuse_map: diffuse_index,
                     normal_map: normal_index,
+                    metallic_roughness_map: metallic_roughness_index,
+                    occlusion_map: occlusion_index,
                 },
             });
 
