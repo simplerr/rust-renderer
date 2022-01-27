@@ -152,19 +152,6 @@ pub fn load_gltf(device: &Device, path: &str) -> Model {
         model.textures.push(texture);
     }
 
-    for (i, material) in gltf.materials().enumerate() {
-        let pbr = material.pbr_metallic_roughness();
-        let diffuse = pbr.base_color_texture().unwrap();
-        let diffuse = diffuse.texture();
-        let image_index = diffuse.source().index();
-        let image = &images[image_index];
-
-        println!(
-            "image_index: {}, format: {:#?}, widht: {}, height: {}",
-            image_index, image.format, image.width, image.height
-        );
-    }
-
     for scene in gltf.scenes() {
         for node in scene.nodes() {
             load_node(device, &node, &mut model, &buffers, Mat4::IDENTITY);

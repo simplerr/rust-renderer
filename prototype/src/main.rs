@@ -191,8 +191,8 @@ impl Application {
 
         let pipeline = utopian::Pipeline::new(
             &base.device.handle,
-            "prototype/shaders/triangle/triangle.vert",
-            "prototype/shaders/triangle/triangle.frag",
+            "prototype/shaders/pbr/pbr.vert",
+            "prototype/shaders/pbr/pbr.frag",
             renderpass,
             base.surface_resolution,
             Some(bindless_descriptor_set_layout),

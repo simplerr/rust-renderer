@@ -9,16 +9,19 @@ layout (location = 2) in vec2 uv;
 layout (location = 3) in vec4 color;
 layout (location = 4) in vec4 tangent;
 
-layout (location = 0) out vec2 out_uv;
-layout (location = 1) out vec3 out_normal;
-layout (location = 2) out vec4 out_color;
-layout (location = 3) out vec4 out_tangent;
+layout (location = 0) out vec3 out_pos;
+layout (location = 1) out vec2 out_uv;
+layout (location = 2) out vec3 out_normal;
+layout (location = 3) out vec4 out_color;
+layout (location = 4) out vec4 out_tangent;
+layout (location = 5) out mat3 out_tbn;
+
 
 layout (std140, set = 1, binding = 0) uniform UBO_camera
 {
    mat4 view;
    mat4 projection;
-   vec4 eye_pos;
+   vec3 eye_pos;
 } camera;
 
 layout(push_constant) uniform PushConsts {
@@ -31,12 +34,17 @@ layout(push_constant) uniform PushConsts {
 
 
 void main() {
+    vec3 bitangentL = cross(normal, tangent.xyz);
+    vec3 T = normalize(mat3(pushConsts.world) * tangent.xyz);
+    vec3 B = normalize(mat3(pushConsts.world) * bitangentL);
+    vec3 N = normalize(mat3(pushConsts.world) * normal);
+    out_tbn = mat3(T, B, N);
+
+    out_pos = (pushConsts.world * vec4(pos, 1.0)).xyz;
     out_uv = uv;
     out_color = color;
-    out_normal = normal;
+    out_normal = mat3(transpose(inverse(pushConsts.world))) * normal;
     out_tangent = tangent;
-    //out_color = camera.eyePos;
-    //out_color = test1.color;
     out_color = pushConsts.color;
     gl_Position = camera.projection * camera.view * pushConsts.world * vec4(pos, 1.0);
 }
