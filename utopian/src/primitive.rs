@@ -8,8 +8,9 @@ use crate::device::*;
 pub struct Vertex {
     pub pos: Vec3,
     pub normal: Vec3,
-    pub color: Vec4,
     pub uv: Vec2,
+    pub color: Vec4,
+    pub tangent: Vec4,
 }
 
 pub struct Primitive {

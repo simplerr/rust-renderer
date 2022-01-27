@@ -29,6 +29,7 @@ pub fn add_vertex(
         normal: Vec3::new(nx, ny, nz),
         uv: Vec2::new(u, v),
         color: Vec4::new(1.0, 1.0, 1.0, 1.0),
+        tangent: Vec4::new(0.0, 0.0, 0.0, 0.0),
     });
 }
 

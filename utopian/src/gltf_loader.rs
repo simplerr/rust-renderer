@@ -54,6 +54,12 @@ pub fn load_node(
                 .map(Vec2::from)
                 .collect();
 
+            let tangents = if let Some(tangents) = reader.read_tangents() {
+                tangents.map(Vec4::from).collect()
+            } else {
+                vec![Vec4::new(0.0, 0.0, 0.0, 0.0); positions.len()]
+            };
+
             let mut vertices: Vec<Vertex> = vec![];
 
             for (i, _) in positions.iter().enumerate() {
@@ -61,6 +67,7 @@ pub fn load_node(
                     pos: positions[i],
                     normal: normals[i],
                     uv: tex_coords[i],
+                    tangent: tangents[i],
                     color: Vec4::new(1.0, 1.0, 1.0, 1.0),
                 });
             }
