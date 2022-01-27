@@ -14,16 +14,20 @@ layout (set = 0, binding = 0) uniform sampler2D samplerColor[];
 layout(push_constant) uniform PushConsts {
    mat4 world;
    vec4 color;
-   int diffuse_tex_id;
-   int normal_tex_id;
-   vec2 pad;
+   int diffuse_map;
+   int normal_map;
+   int metallic_roughness_map;
+   int occlusion_map;
 } pushConsts;
 
 void main() {
     out_color = in_color;
 
-    out_color = texture(samplerColor[pushConsts.diffuse_tex_id], in_uv);
-    //out_color = texture(samplerColor[pushConsts.normal_tex_id], in_uv);
-    //out_color = vec4(in_normal, 1.0);
+    float metallic = texture(samplerColor[pushConsts.metallic_roughness_map], in_uv).b;
+    float roughness = texture(samplerColor[pushConsts.metallic_roughness_map], in_uv).g;
+    float occlusion = texture(samplerColor[pushConsts.occlusion_map], in_uv).r;
+
+    out_color = vec4(vec3(metallic), 1.0);
+    out_color = texture(samplerColor[pushConsts.diffuse_map], in_uv);
 }
 

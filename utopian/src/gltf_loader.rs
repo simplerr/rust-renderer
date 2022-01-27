@@ -4,6 +4,8 @@ use crate::device::*;
 use crate::primitive::*;
 use crate::texture::*;
 
+pub const DEFAULT_TEXTURE_MAP: u32 = u32::MAX;
+
 pub struct Material {
     pub diffuse_map: u32,
     pub normal_map: u32,
@@ -68,19 +70,27 @@ pub fn load_node(
 
             let diffuse_index = pbr
                 .base_color_texture()
-                .map_or(0, |texture| texture.texture().index() as u32);
+                .map_or(DEFAULT_TEXTURE_MAP, |texture| {
+                    texture.texture().index() as u32
+                });
 
             let normal_index = material
                 .normal_texture()
-                .map_or(0, |texture| texture.texture().index() as u32);
+                .map_or(DEFAULT_TEXTURE_MAP, |texture| {
+                    texture.texture().index() as u32
+                });
 
             let metallic_roughness_index = pbr
                 .metallic_roughness_texture()
-                .map_or(0, |texture| texture.texture().index() as u32);
+                .map_or(DEFAULT_TEXTURE_MAP, |texture| {
+                    texture.texture().index() as u32
+                });
 
             let occlusion_index = material
                 .occlusion_texture()
-                .map_or(0, |texture| texture.texture().index() as u32);
+                .map_or(DEFAULT_TEXTURE_MAP, |texture| {
+                    texture.texture().index() as u32
+                });
 
             model.meshes.push(Mesh {
                 primitive: Primitive::new(device, indices, vertices),

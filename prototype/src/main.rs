@@ -44,9 +44,31 @@ struct Renderer {
     next_bindless_image_index: u32,
     bindless_descriptor_set: vk::DescriptorSet,
     instances: Vec<ModelInstance>,
+    default_diffuse_map_index: u32,
+    default_normal_map_index: u32,
+    default_occlusion_map_index: u32,
+    default_metallic_roughness_map_index: u32,
 }
 
 impl Renderer {
+    fn initialize(&mut self, device: &utopian::Device) {
+        let default_diffuse_map =
+            utopian::Texture::load(device, "utopian/data/textures/defaults/checker.jpg");
+        let default_normal_map =
+            utopian::Texture::load(device, "utopian/data/textures/defaults/flat_normal_map.png");
+        let default_occlusion_map =
+            utopian::Texture::load(device, "utopian/data/textures/defaults/white_texture.png");
+        let default_metallic_roughness_map =
+            utopian::Texture::load(device, "utopian/data/textures/defaults/white_texture.png");
+
+        self.default_diffuse_map_index = self.add_bindless_texture(&device, &default_diffuse_map);
+        self.default_normal_map_index = self.add_bindless_texture(&device, &default_normal_map);
+        self.default_occlusion_map_index =
+            self.add_bindless_texture(&device, &default_occlusion_map);
+        self.default_metallic_roughness_map_index =
+            self.add_bindless_texture(&device, &default_metallic_roughness_map);
+    }
+
     fn add_model(
         &mut self,
         device: &utopian::Device,
@@ -59,18 +81,37 @@ impl Renderer {
         // Note: After this remapping the indexes no longer corresponds to the
         // images in model.textures[].
         for mesh in &mut model.meshes {
-            let diffuse_bindless_index = self
-                .add_bindless_texture(&device, &model.textures[mesh.material.diffuse_map as usize]);
-            let normal_bindless_index = self
-                .add_bindless_texture(&device, &model.textures[mesh.material.normal_map as usize]);
-            let metallic_roughness_bindless_index = self.add_bindless_texture(
-                &device,
-                &model.textures[mesh.material.metallic_roughness_map as usize],
-            );
-            let occlusion_bindless_index = self.add_bindless_texture(
-                &device,
-                &model.textures[mesh.material.occlusion_map as usize],
-            );
+            let diffuse_bindless_index = match mesh.material.diffuse_map {
+                utopian::DEFAULT_TEXTURE_MAP => self.default_diffuse_map_index,
+                _ => self.add_bindless_texture(
+                    &device,
+                    &model.textures[mesh.material.diffuse_map as usize],
+                ),
+            };
+
+            let normal_bindless_index = match mesh.material.normal_map {
+                utopian::DEFAULT_TEXTURE_MAP => self.default_normal_map_index,
+                _ => self.add_bindless_texture(
+                    &device,
+                    &model.textures[mesh.material.normal_map as usize],
+                ),
+            };
+
+            let metallic_roughness_bindless_index = match mesh.material.metallic_roughness_map {
+                utopian::DEFAULT_TEXTURE_MAP => self.default_metallic_roughness_map_index,
+                _ => self.add_bindless_texture(
+                    &device,
+                    &model.textures[mesh.material.metallic_roughness_map as usize],
+                ),
+            };
+
+            let occlusion_bindless_index = match mesh.material.occlusion_map {
+                utopian::DEFAULT_TEXTURE_MAP => self.default_occlusion_map_index,
+                _ => self.add_bindless_texture(
+                    &device,
+                    &model.textures[mesh.material.occlusion_map as usize],
+                ),
+            };
 
             mesh.material.diffuse_map = diffuse_bindless_index;
             mesh.material.normal_map = normal_bindless_index;
@@ -189,6 +230,10 @@ impl Application {
                 bindless_descriptor_set: descriptor_set_bindless,
                 next_bindless_image_index: 0,
                 instances: vec![],
+                default_diffuse_map_index: 0,
+                default_normal_map_index: 0,
+                default_occlusion_map_index: 0,
+                default_metallic_roughness_map_index: 0,
             },
         }
     }
@@ -390,6 +435,8 @@ impl Application {
     }
 
     fn create_scene(&mut self) {
+        self.renderer.initialize(&self.base.device);
+
         let sponza = utopian::gltf_loader::load_gltf(
             &self.base.device,
             "prototype/data/models/Sponza/glTF/Sponza.gltf",

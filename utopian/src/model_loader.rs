@@ -106,10 +106,10 @@ impl ModelLoader {
         model.meshes.push(Mesh {
             primitive: Primitive::new(device, indices, vertices),
             material: Material {
-                diffuse_map: 0, // Todo: change to default fallback texture
-                normal_map: 0,
-                metallic_roughness_map: 0,
-                occlusion_map: 0,
+                diffuse_map: DEFAULT_TEXTURE_MAP,
+                normal_map: DEFAULT_TEXTURE_MAP,
+                metallic_roughness_map: DEFAULT_TEXTURE_MAP,
+                occlusion_map: DEFAULT_TEXTURE_MAP,
             },
         });
         model.transforms.push(Mat4::IDENTITY);
