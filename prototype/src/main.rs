@@ -158,8 +158,8 @@ impl Application {
         let framebuffers = Application::create_framebuffers(&base, renderpass);
 
         let camera = utopian::Camera::new(
-            Vec3::new(1.0, 1.0, 1.0),
-            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(-1.75, 0.75, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
             60.0,
             width as f32 / height as f32,
             0.01,
@@ -447,11 +447,6 @@ impl Application {
             "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf",
         );
 
-        let cesium = utopian::gltf_loader::load_gltf(
-            &self.base.device,
-            "prototype/data/models/CesiumMan.gltf",
-        );
-
         self.renderer.add_model(
             &self.base.device,
             sponza,
@@ -461,13 +456,8 @@ impl Application {
         self.renderer.add_model(
             &self.base.device,
             flight_helmet,
-            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
-        );
-
-        self.renderer.add_model(
-            &self.base.device,
-            cesium,
-            glam::Mat4::from_translation(glam::Vec3::new(1.0, 0.5, 0.0)),
+            glam::Mat4::from_rotation_y(-75.0f32.to_radians())
+                * glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
         );
     }
 
