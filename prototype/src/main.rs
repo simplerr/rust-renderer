@@ -1,5 +1,8 @@
 use ash::vk;
 use glam::Vec3;
+use gpu_allocator::vulkan::*;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use utopian;
 
@@ -33,6 +36,7 @@ struct Application {
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
     renderer: Renderer,
+    egui_integration: egui_winit_ash_integration::Integration<Arc<Mutex<Allocator>>>,
 }
 
 struct ModelInstance {
@@ -215,6 +219,31 @@ impl Application {
             &camera_uniform_buffer,
         );
 
+        // Prepare gpu-allocator's Allocator
+        let allocator = Allocator::new(&AllocatorCreateDesc {
+            instance: base.instance.clone(),
+            device: base.device.handle.clone(),
+            physical_device: base.device.physical_device,
+            debug_settings: Default::default(),
+            buffer_device_address: false,
+        })
+        .unwrap();
+
+        let allocator = Arc::new(Mutex::new(allocator));
+
+        let egui_integration = egui_winit_ash_integration::Integration::new(
+            width,
+            height,
+            1.0,
+            egui::FontDefinitions::default(),
+            egui::Style::default(),
+            base.device.handle.clone(),
+            allocator,
+            base.swapchain_loader.clone(),
+            base.swapchain.clone(),
+            base.surface_format.clone(),
+        );
+
         Application {
             base,
             renderpass,
@@ -235,6 +264,7 @@ impl Application {
                 default_occlusion_map_index: 0,
                 default_metallic_roughness_map_index: 0,
             },
+            egui_integration,
         }
     }
 
@@ -320,7 +350,7 @@ impl Application {
                 samples: vk::SampleCountFlags::TYPE_1,
                 load_op: vk::AttachmentLoadOp::CLEAR,
                 store_op: vk::AttachmentStoreOp::STORE,
-                final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
+                final_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
                 ..Default::default()
             },
             vk::AttachmentDescription {
@@ -461,9 +491,57 @@ impl Application {
         );
     }
 
+    fn update_ui(egui_context: &egui::CtxRef, camera_pos: &mut Vec3, camera_dir: &mut Vec3) {
+        egui::Window::new("rust-renderer 0.0.1")
+            .resizable(true)
+            .scroll(true)
+            .show(&egui_context, |ui| {
+                ui.label("Camera position");
+                ui.horizontal(|ui| {
+                    ui.label("x:");
+                    ui.add(egui::widgets::DragValue::new(&mut camera_pos.x));
+                    ui.label("y:");
+                    ui.add(egui::widgets::DragValue::new(&mut camera_pos.y));
+                    ui.label("z:");
+                    ui.add(egui::widgets::DragValue::new(&mut camera_pos.z));
+                });
+                ui.label("Camera direction");
+                ui.horizontal(|ui| {
+                    ui.label("x:");
+                    ui.add(egui::widgets::DragValue::new(&mut camera_dir.x));
+                    ui.label("y:");
+                    ui.add(egui::widgets::DragValue::new(&mut camera_dir.y));
+                    ui.label("z:");
+                    ui.add(egui::widgets::DragValue::new(&mut camera_dir.z));
+                });
+            });
+    }
+
     fn run(&mut self) {
-        self.base.run(|input| unsafe {
+        self.base.run(|input, events| unsafe {
             let present_index = self.base.prepare_frame();
+
+            // Update egui input
+            // Note: this is not very pretty since we are recreating a Event from 
+            // an WindowEvent manually. Don't know enough rust to have the `events`
+            // input of the correct type.
+            for event in events.clone() {
+                self.egui_integration
+                    .handle_event::<winit::event::Event<winit::event::WindowEvent>>(
+                        &winit::event::Event::WindowEvent {
+                            window_id: self.base.window.id(),
+                            event: event.clone(),
+                        },
+                    );
+            }
+
+            self.egui_integration.begin_frame();
+
+            Application::update_ui(
+                &self.egui_integration.context(),
+                &mut self.camera.get_position(),
+                &mut self.camera.get_forward(),
+            );
 
             self.camera.update(&input);
 
@@ -597,6 +675,18 @@ impl Application {
                     }
 
                     device.cmd_end_render_pass(command_buffer);
+
+                    self.egui_integration
+                        .context()
+                        .set_visuals(egui::style::Visuals::dark());
+
+                    let (_, shapes) = self.egui_integration.end_frame(&self.base.window);
+                    let clipped_meshes = self.egui_integration.context().tessellate(shapes);
+                    self.egui_integration.paint(
+                        command_buffer,
+                        present_index as usize,
+                        clipped_meshes,
+                    );
                 },
             );
 

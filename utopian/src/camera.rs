@@ -100,4 +100,8 @@ impl Camera {
     pub fn get_position(&self) -> Vec3 {
         self.camera_rig.final_transform.position
     }
+
+    pub fn get_forward(&self) -> Vec3 {
+        self.camera_rig.final_transform.forward()
+    }
 }

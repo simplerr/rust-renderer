@@ -65,8 +65,9 @@ unsafe extern "system" fn vulkan_debug_callback(
 }
 
 pub struct VulkanBase {
-    window: winit::window::Window,
+    pub window: winit::window::Window,
     event_loop: RefCell<winit::event_loop::EventLoop<()>>,
+    pub instance: ash::Instance,
     pub device: Device,
     _command_pool: vk::CommandPool,
     pub setup_command_buffer: vk::CommandBuffer,
@@ -133,6 +134,7 @@ impl VulkanBase {
         VulkanBase {
             window,
             event_loop: RefCell::new(event_loop),
+            instance,
             device,
             _command_pool,
             setup_command_buffer,
@@ -484,7 +486,7 @@ impl VulkanBase {
         }
     }
 
-    pub fn run<F: FnMut(&Input)>(&self, mut user_function: F) {
+    pub fn run<F: FnMut(&Input, &Vec<WindowEvent<'static>>)>(&self, mut user_function: F) {
         let mut events = Vec::new();
         let mut input = Input::default();
 
@@ -516,7 +518,7 @@ impl VulkanBase {
 
             input.update(&events);
 
-            user_function(&input);
+            user_function(&input, &events);
 
             events.clear();
         }
