@@ -3,6 +3,7 @@ use glam::Vec3;
 use gpu_allocator::vulkan::*;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Instant;
 
 use utopian;
 
@@ -24,6 +25,12 @@ struct PushConstants {
     occlusion_map: u32,
 }
 
+struct FpsTimer {
+    fps_period_start_time: Instant,
+    fps: u32,
+    elapsed_frames: u32,
+}
+
 struct Application {
     base: utopian::VulkanBase,
     renderpass: vk::RenderPass,
@@ -37,6 +44,7 @@ struct Application {
     camera: utopian::Camera,
     renderer: Renderer,
     egui_integration: egui_winit_ash_integration::Integration<Arc<Mutex<Allocator>>>,
+    fps_timer: FpsTimer,
 }
 
 struct ModelInstance {
@@ -52,6 +60,20 @@ struct Renderer {
     default_normal_map_index: u32,
     default_occlusion_map_index: u32,
     default_metallic_roughness_map_index: u32,
+}
+
+impl FpsTimer {
+    fn calculate(&mut self) -> u32 {
+        self.elapsed_frames += 1;
+        let elapsed = self.fps_period_start_time.elapsed().as_millis() as u32;
+        if elapsed > 1000 {
+            self.fps = self.elapsed_frames;
+            self.fps_period_start_time = Instant::now();
+            self.elapsed_frames = 0;
+        }
+
+        self.fps
+    }
 }
 
 impl Renderer {
@@ -265,6 +287,11 @@ impl Application {
                 default_metallic_roughness_map_index: 0,
             },
             egui_integration,
+            fps_timer: FpsTimer {
+                fps_period_start_time: Instant::now(),
+                fps: 0,
+                elapsed_frames: 0,
+            },
         }
     }
 
@@ -491,11 +518,17 @@ impl Application {
         );
     }
 
-    fn update_ui(egui_context: &egui::CtxRef, camera_pos: &mut Vec3, camera_dir: &mut Vec3) {
+    fn update_ui(
+        egui_context: &egui::CtxRef,
+        camera_pos: &mut Vec3,
+        camera_dir: &mut Vec3,
+        fps: u32,
+    ) {
         egui::Window::new("rust-renderer 0.0.1")
             .resizable(true)
             .scroll(true)
             .show(&egui_context, |ui| {
+                ui.label(format!("FPS: {}", fps));
                 ui.label("Camera position");
                 ui.horizontal(|ui| {
                     ui.label("x:");
@@ -522,7 +555,7 @@ impl Application {
             let present_index = self.base.prepare_frame();
 
             // Update egui input
-            // Note: this is not very pretty since we are recreating a Event from 
+            // Note: this is not very pretty since we are recreating a Event from
             // an WindowEvent manually. Don't know enough rust to have the `events`
             // input of the correct type.
             for event in events.clone() {
@@ -541,6 +574,7 @@ impl Application {
                 &self.egui_integration.context(),
                 &mut self.camera.get_position(),
                 &mut self.camera.get_forward(),
+                self.fps_timer.calculate(),
             );
 
             self.camera.update(&input);
