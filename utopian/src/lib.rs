@@ -1,3 +1,4 @@
+pub mod bindless;
 pub mod buffer;
 pub mod camera;
 pub mod descriptor_set;
@@ -8,11 +9,13 @@ pub mod input;
 pub mod model_loader;
 pub mod pipeline;
 pub mod primitive;
+pub mod renderer;
 pub mod shader;
 pub mod texture;
 pub mod vulkan_base;
 
 pub use crate::image::Image;
+pub use bindless::*;
 pub use buffer::Buffer;
 pub use camera::Camera;
 pub use descriptor_set::DescriptorSet;
@@ -24,5 +27,6 @@ pub use model_loader::ModelLoader;
 pub use pipeline::Pipeline;
 pub use primitive::Primitive;
 pub use primitive::Vertex;
+pub use renderer::Renderer;
 pub use texture::Texture;
 pub use vulkan_base::VulkanBase;

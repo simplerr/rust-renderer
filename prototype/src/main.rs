@@ -7,8 +7,6 @@ use std::time::Instant;
 
 use utopian;
 
-pub const MAX_BINDLESS_DESCRIPTOR_COUNT: usize = 512 * 1024;
-
 #[derive(Clone, Debug, Copy)]
 struct CameraUniformData {
     view_mat: glam::Mat4,
@@ -16,6 +14,7 @@ struct CameraUniformData {
     eye_pos: glam::Vec3,
 }
 
+#[allow(dead_code)]
 struct PushConstants {
     world: glam::Mat4,
     color: glam::Vec4,
@@ -38,28 +37,12 @@ struct Application {
     pipeline: utopian::Pipeline,
     descriptor_set_camera: utopian::DescriptorSet, // testing
     camera_binding: utopian::shader::Binding,      // testing
-    bindless_binding: utopian::shader::Binding,    // testing
     camera_data: CameraUniformData,
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
-    renderer: Renderer,
+    renderer: utopian::Renderer,
     egui_integration: egui_winit_ash_integration::Integration<Arc<Mutex<Allocator>>>,
     fps_timer: FpsTimer,
-}
-
-struct ModelInstance {
-    model: utopian::Model,
-    transform: glam::Mat4,
-}
-
-struct Renderer {
-    next_bindless_image_index: u32,
-    bindless_descriptor_set: vk::DescriptorSet,
-    instances: Vec<ModelInstance>,
-    default_diffuse_map_index: u32,
-    default_normal_map_index: u32,
-    default_occlusion_map_index: u32,
-    default_metallic_roughness_map_index: u32,
 }
 
 impl FpsTimer {
@@ -76,109 +59,12 @@ impl FpsTimer {
     }
 }
 
-impl Renderer {
-    fn initialize(&mut self, device: &utopian::Device) {
-        let default_diffuse_map =
-            utopian::Texture::load(device, "utopian/data/textures/defaults/checker.jpg");
-        let default_normal_map =
-            utopian::Texture::load(device, "utopian/data/textures/defaults/flat_normal_map.png");
-        let default_occlusion_map =
-            utopian::Texture::load(device, "utopian/data/textures/defaults/white_texture.png");
-        let default_metallic_roughness_map =
-            utopian::Texture::load(device, "utopian/data/textures/defaults/white_texture.png");
-
-        self.default_diffuse_map_index = self.add_bindless_texture(&device, &default_diffuse_map);
-        self.default_normal_map_index = self.add_bindless_texture(&device, &default_normal_map);
-        self.default_occlusion_map_index =
-            self.add_bindless_texture(&device, &default_occlusion_map);
-        self.default_metallic_roughness_map_index =
-            self.add_bindless_texture(&device, &default_metallic_roughness_map);
-    }
-
-    fn add_model(
-        &mut self,
-        device: &utopian::Device,
-        mut model: utopian::Model,
-        transform: glam::Mat4,
-    ) {
-        // Add the images from the new model to the bindless descriptor set and
-        // also update the mappings for each primitive to be indexes corresponding
-        // to the ordering in the bindless descriptor set texture array.
-        // Note: After this remapping the indexes no longer corresponds to the
-        // images in model.textures[].
-        for mesh in &mut model.meshes {
-            let diffuse_bindless_index = match mesh.material.diffuse_map {
-                utopian::DEFAULT_TEXTURE_MAP => self.default_diffuse_map_index,
-                _ => self.add_bindless_texture(
-                    &device,
-                    &model.textures[mesh.material.diffuse_map as usize],
-                ),
-            };
-
-            let normal_bindless_index = match mesh.material.normal_map {
-                utopian::DEFAULT_TEXTURE_MAP => self.default_normal_map_index,
-                _ => self.add_bindless_texture(
-                    &device,
-                    &model.textures[mesh.material.normal_map as usize],
-                ),
-            };
-
-            let metallic_roughness_bindless_index = match mesh.material.metallic_roughness_map {
-                utopian::DEFAULT_TEXTURE_MAP => self.default_metallic_roughness_map_index,
-                _ => self.add_bindless_texture(
-                    &device,
-                    &model.textures[mesh.material.metallic_roughness_map as usize],
-                ),
-            };
-
-            let occlusion_bindless_index = match mesh.material.occlusion_map {
-                utopian::DEFAULT_TEXTURE_MAP => self.default_occlusion_map_index,
-                _ => self.add_bindless_texture(
-                    &device,
-                    &model.textures[mesh.material.occlusion_map as usize],
-                ),
-            };
-
-            mesh.material.diffuse_map = diffuse_bindless_index;
-            mesh.material.normal_map = normal_bindless_index;
-            mesh.material.metallic_roughness_map = metallic_roughness_bindless_index;
-            mesh.material.occlusion_map = occlusion_bindless_index;
-        }
-
-        self.instances.push(ModelInstance { model, transform });
-    }
-
-    fn add_bindless_texture(
-        &mut self,
-        device: &utopian::Device,
-        texture: &utopian::Texture,
-    ) -> u32 {
-        let new_image_index = self.next_bindless_image_index;
-
-        let descriptor_write = vk::WriteDescriptorSet::builder()
-            .dst_set(self.bindless_descriptor_set)
-            .dst_binding(0)
-            .dst_array_element(new_image_index)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .image_info(std::slice::from_ref(&texture.descriptor_info))
-            .build();
-
-        unsafe {
-            device
-                .handle
-                .update_descriptor_sets(std::slice::from_ref(&descriptor_write), &[])
-        };
-
-        self.next_bindless_image_index += 1;
-
-        new_image_index
-    }
-}
-
 impl Application {
     fn new() -> Application {
         let (width, height) = (2000, 1100);
         let base = utopian::VulkanBase::new(width, height);
+
+        let renderer = utopian::Renderer::new(&base.device);
 
         let renderpass = Application::create_renderpass(&base);
         let framebuffers = Application::create_framebuffers(&base, renderpass);
@@ -208,32 +94,22 @@ impl Application {
             vk::BufferUsageFlags::UNIFORM_BUFFER,
         );
 
-        let bindless_descriptor_set_layout =
-            Application::create_bindless_descriptor_set_layout(&base.device);
-        let descriptor_set_bindless = Application::create_bindless_descriptor_set(
-            &base.device,
-            bindless_descriptor_set_layout,
-        );
-
         let pipeline = utopian::Pipeline::new(
             &base.device.handle,
             "prototype/shaders/pbr/pbr.vert",
             "prototype/shaders/pbr/pbr.frag",
             renderpass,
             base.surface_resolution,
-            Some(bindless_descriptor_set_layout),
+            Some(renderer.bindless_descriptor_set_layout),
         );
 
         let camera_binding = pipeline.reflection.get_binding("camera");
-        let bindless_binding = pipeline.reflection.get_binding("samplerColor");
 
         let descriptor_set_camera = utopian::DescriptorSet::new(
             &base.device,
             pipeline.descriptor_set_layouts[camera_binding.set as usize],
             pipeline.reflection.get_set_mappings(camera_binding.set),
         );
-
-        let texture = utopian::Texture::load(&base.device, "prototype/data/rust.png");
 
         descriptor_set_camera.write_uniform_buffer(
             &base.device,
@@ -273,19 +149,10 @@ impl Application {
             pipeline,
             descriptor_set_camera,
             camera_binding,
-            bindless_binding,
             camera_data,
             camera_ubo: camera_uniform_buffer,
             camera,
-            renderer: Renderer {
-                bindless_descriptor_set: descriptor_set_bindless,
-                next_bindless_image_index: 0,
-                instances: vec![],
-                default_diffuse_map_index: 0,
-                default_normal_map_index: 0,
-                default_occlusion_map_index: 0,
-                default_metallic_roughness_map_index: 0,
-            },
+            renderer,
             egui_integration,
             fps_timer: FpsTimer {
                 fps_period_start_time: Instant::now(),
@@ -293,81 +160,6 @@ impl Application {
                 elapsed_frames: 0,
             },
         }
-    }
-
-    fn create_bindless_descriptor_set_layout(device: &utopian::Device) -> vk::DescriptorSetLayout {
-        let descriptor_set_layout_binding = vk::DescriptorSetLayoutBinding::builder()
-            .binding(0)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32)
-            .stage_flags(vk::ShaderStageFlags::ALL)
-            .build();
-
-        let binding_flags: Vec<vk::DescriptorBindingFlags> = vec![
-            vk::DescriptorBindingFlags::PARTIALLY_BOUND
-                | vk::DescriptorBindingFlags::VARIABLE_DESCRIPTOR_COUNT,
-        ];
-
-        let mut binding_flags_create_info =
-            vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder().binding_flags(&binding_flags);
-
-        let descriptor_sets_layout_info = vk::DescriptorSetLayoutCreateInfo::builder()
-            .bindings(&[descriptor_set_layout_binding])
-            .flags(vk::DescriptorSetLayoutCreateFlags::UPDATE_AFTER_BIND_POOL)
-            .push_next(&mut binding_flags_create_info)
-            .build();
-
-        let descriptor_set_layout = unsafe {
-            device
-                .handle
-                .create_descriptor_set_layout(&descriptor_sets_layout_info, None)
-                .expect("Error creating descriptor set layout")
-        };
-
-        descriptor_set_layout
-    }
-
-    fn create_bindless_descriptor_set(
-        device: &utopian::Device,
-        layout: vk::DescriptorSetLayout,
-    ) -> vk::DescriptorSet {
-        let descriptor_sizes = [vk::DescriptorPoolSize {
-            ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            descriptor_count: MAX_BINDLESS_DESCRIPTOR_COUNT as u32,
-        }];
-
-        let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
-            .pool_sizes(&descriptor_sizes)
-            .flags(vk::DescriptorPoolCreateFlags::UPDATE_AFTER_BIND)
-            .max_sets(1);
-
-        let descriptor_pool = unsafe {
-            device
-                .handle
-                .create_descriptor_pool(&descriptor_pool_info, None)
-                .expect("Error allocating bindless descriptor pool")
-        };
-
-        let variable_descriptor_count = MAX_BINDLESS_DESCRIPTOR_COUNT as u32;
-        let mut variable_descriptor_count_allocate_info =
-            vk::DescriptorSetVariableDescriptorCountAllocateInfo::builder()
-                .descriptor_counts(std::slice::from_ref(&variable_descriptor_count))
-                .build();
-
-        let descriptor_set = unsafe {
-            device
-                .handle
-                .allocate_descriptor_sets(
-                    &vk::DescriptorSetAllocateInfo::builder()
-                        .descriptor_pool(descriptor_pool)
-                        .set_layouts(std::slice::from_ref(&layout))
-                        .push_next(&mut variable_descriptor_count_allocate_info)
-                        .build(),
-                )
-                .expect("Error allocating bindless descriptor pool")[0]
-        };
-
-        descriptor_set
     }
 
     fn create_renderpass(base: &utopian::vulkan_base::VulkanBase) -> vk::RenderPass {
@@ -658,7 +450,7 @@ impl Application {
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline.pipeline_layout,
-                        self.bindless_binding.set,
+                        utopian::BINDLESS_DESCRIPTOR_INDEX,
                         &[self.renderer.bindless_descriptor_set],
                         &[],
                     );
@@ -735,6 +527,4 @@ fn main() {
 
     app.create_scene();
     app.run();
-
-    println!("End!");
 }
