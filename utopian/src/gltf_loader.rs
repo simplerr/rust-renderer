@@ -47,12 +47,12 @@ pub fn load_node(
             let indices: Vec<_> = reader.read_indices().unwrap().into_u32().collect();
             let positions: Vec<_> = reader.read_positions().unwrap().map(Vec3::from).collect();
             let normals: Vec<_> = reader.read_normals().unwrap().map(Vec3::from).collect();
-            let tex_coords: Vec<_> = reader
-                .read_tex_coords(0)
-                .unwrap()
-                .into_f32()
-                .map(Vec2::from)
-                .collect();
+            let tex_coords = if let Some(tex_coords) = reader.read_tex_coords(0) {
+                tex_coords.into_f32().map(Vec2::from).collect()
+            } else {
+                println!("Missing texture coordinates in primitive");
+                vec![Vec2::new(0.0, 0.0); positions.len()]
+            };
 
             let tangents = if let Some(tangents) = reader.read_tangents() {
                 tangents.map(Vec4::from).collect()
