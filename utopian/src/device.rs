@@ -10,6 +10,7 @@ pub struct Device {
     pub setup_cmd_buf: vk::CommandBuffer,
     pub device_memory_properties: vk::PhysicalDeviceMemoryProperties,
     pub queue_family_index: u32,
+    pub rt_pipeline_properties: vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
 }
 
 impl Device {
@@ -37,18 +38,35 @@ impl Device {
                 .get_physical_device_surface_support(physical_device, queue_family_index, surface)
                 .expect("Presentation of the queue family not supported by the surface");
 
-            let device_extension_names_raw = [
+            let mut device_extension_names_raw = vec![
                 Swapchain::name().as_ptr(),
                 vk::ExtDescriptorIndexingFn::name().as_ptr(),
             ];
 
-            // Enable all available features
-            // Todo: Check if required features are supported by HW
-            let mut descriptor_indexing =
+            device_extension_names_raw.extend([
+                vk::KhrAccelerationStructureFn::name().as_ptr(),
+                vk::KhrBufferDeviceAddressFn::name().as_ptr(),
+                vk::KhrDeferredHostOperationsFn::name().as_ptr(),
+                vk::KhrSpirv14Fn::name().as_ptr(),
+                vk::KhrShaderFloatControlsFn::name().as_ptr(),
+            ]);
+
+            let mut descriptor_indexing_features =
                 vk::PhysicalDeviceDescriptorIndexingFeaturesEXT::default();
+            let mut ray_tracing_pipeline_features =
+                vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::default();
+            let mut acceleration_structure_features =
+                vk::PhysicalDeviceAccelerationStructureFeaturesKHR::default();
+            let mut buffer_device_address_features =
+                vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR::default();
+
             let mut features2 = vk::PhysicalDeviceFeatures2::builder()
-                .push_next(&mut descriptor_indexing)
+                .push_next(&mut descriptor_indexing_features)
+                .push_next(&mut ray_tracing_pipeline_features)
+                .push_next(&mut acceleration_structure_features)
+                .push_next(&mut buffer_device_address_features)
                 .build();
+
             instance.get_physical_device_features2(physical_device, &mut features2);
 
             let queue_priorities = [1.0];
@@ -73,6 +91,12 @@ impl Device {
             let (cmd_pool, setup_cmd_buf) =
                 Device::create_setup_command_buffer(&device, queue_family_index);
 
+            let (rt_pipeline_properties, as_features) =
+                Device::retrieve_rt_properties(&instance, physical_device);
+
+            println!("{:#?}", rt_pipeline_properties);
+            println!("{:#?}", as_features);
+
             Device {
                 handle: device,
                 physical_device,
@@ -81,7 +105,34 @@ impl Device {
                 device_memory_properties,
                 cmd_pool,
                 setup_cmd_buf,
+                rt_pipeline_properties,
             }
+        }
+    }
+
+    fn retrieve_rt_properties(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+    ) -> (
+        vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
+        vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
+    ) {
+        unsafe {
+            let mut rt_pipeline_properties =
+                vk::PhysicalDeviceRayTracingPipelinePropertiesKHR::default();
+            let mut properties2 = vk::PhysicalDeviceProperties2::builder()
+                .push_next(&mut rt_pipeline_properties)
+                .build();
+            instance.get_physical_device_properties2(physical_device, &mut properties2);
+
+            let mut acceleration_structure_features =
+                vk::PhysicalDeviceAccelerationStructureFeaturesKHR::default();
+            let mut features2 = vk::PhysicalDeviceFeatures2::builder()
+                .push_next(&mut acceleration_structure_features)
+                .build();
+            instance.get_physical_device_features2(physical_device, &mut features2);
+
+            (rt_pipeline_properties, acceleration_structure_features)
         }
     }
 

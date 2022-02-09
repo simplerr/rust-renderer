@@ -123,4 +123,12 @@ impl Buffer {
             );
         }
     }
+
+    pub fn get_device_address(&self, device: &Device) -> vk::DeviceAddress {
+        let info = vk::BufferDeviceAddressInfo::builder()
+            .buffer(self.buffer)
+            .build();
+
+        unsafe { device.handle.get_buffer_device_address(&info) }
+    }
 }

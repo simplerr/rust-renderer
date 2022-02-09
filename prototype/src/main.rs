@@ -117,6 +117,8 @@ impl Application {
             &camera_uniform_buffer,
         );
 
+        println!("Device addr: {}", camera_uniform_buffer.get_device_address(&base.device));
+
         // Prepare gpu-allocator's Allocator
         let allocator = Allocator::new(&AllocatorCreateDesc {
             instance: base.instance.clone(),
