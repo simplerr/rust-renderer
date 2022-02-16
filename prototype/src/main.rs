@@ -117,8 +117,6 @@ impl Application {
             &camera_uniform_buffer,
         );
 
-        println!("Device addr: {}", camera_uniform_buffer.get_device_address(&base.device));
-
         // Prepare gpu-allocator's Allocator
         let allocator = Allocator::new(&AllocatorCreateDesc {
             instance: base.instance.clone(),
@@ -143,6 +141,8 @@ impl Application {
             base.swapchain.clone(),
             base.surface_format.clone(),
         );
+
+        utopian::Raytracing::create_bottom_acceleration_structure(&base.device);
 
         Application {
             base,

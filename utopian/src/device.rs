@@ -1,3 +1,4 @@
+use ash::extensions::khr;
 use ash::extensions::khr::Surface;
 use ash::extensions::khr::Swapchain;
 use ash::vk;
@@ -11,6 +12,7 @@ pub struct Device {
     pub device_memory_properties: vk::PhysicalDeviceMemoryProperties,
     pub queue_family_index: u32,
     pub rt_pipeline_properties: vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
+    pub acceleration_structure_ext: khr::AccelerationStructure,
 }
 
 impl Device {
@@ -94,6 +96,8 @@ impl Device {
             let (rt_pipeline_properties, as_features) =
                 Device::retrieve_rt_properties(&instance, physical_device);
 
+            let acceleration_structure_ext = khr::AccelerationStructure::new(&instance, &device);
+
             println!("{:#?}", rt_pipeline_properties);
             println!("{:#?}", as_features);
 
@@ -106,6 +110,7 @@ impl Device {
                 cmd_pool,
                 setup_cmd_buf,
                 rt_pipeline_properties,
+                acceleration_structure_ext,
             }
         }
     }

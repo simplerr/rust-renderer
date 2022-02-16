@@ -38,11 +38,19 @@ impl Buffer {
                 )
                 .expect("Unable to find suitable memory type for the buffer");
 
-            let allocate_info = vk::MemoryAllocateInfo {
-                allocation_size: buffer_memory_req.size,
-                memory_type_index: buffer_memory_index,
-                ..Default::default()
-            };
+            let mut allocate_info_builder = vk::MemoryAllocateInfo::builder()
+                .allocation_size(buffer_memory_req.size)
+                .memory_type_index(buffer_memory_index);
+
+            let mut allocate_flags_info = vk::MemoryAllocateFlagsInfo::builder()
+                .flags(vk::MemoryAllocateFlags::DEVICE_ADDRESS)
+                .build();
+
+            if usage_flags.contains(vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS) {
+                allocate_info_builder = allocate_info_builder.push_next(&mut allocate_flags_info);
+            }
+
+            let allocate_info = allocate_info_builder.build();
 
             let device_memory = device
                 .handle
