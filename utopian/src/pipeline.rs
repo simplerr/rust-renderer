@@ -52,7 +52,6 @@ impl Pipeline {
                 ..Default::default()
             },
             vk::PipelineShaderStageCreateInfo {
-                s_type: vk::StructureType::PIPELINE_SHADER_STAGE_CREATE_INFO,
                 module: fragment_shader_module,
                 p_name: shader_entry_name.as_ptr(),
                 stage: vk::ShaderStageFlags::FRAGMENT,

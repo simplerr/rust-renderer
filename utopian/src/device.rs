@@ -13,6 +13,7 @@ pub struct Device {
     pub queue_family_index: u32,
     pub rt_pipeline_properties: vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
     pub acceleration_structure_ext: khr::AccelerationStructure,
+    pub raytracing_pipeline_ext: khr::RayTracingPipeline,
 }
 
 impl Device {
@@ -48,6 +49,7 @@ impl Device {
             device_extension_names_raw.extend([
                 vk::KhrAccelerationStructureFn::name().as_ptr(),
                 vk::KhrBufferDeviceAddressFn::name().as_ptr(),
+                vk::KhrRayTracingPipelineFn::name().as_ptr(),
                 vk::KhrDeferredHostOperationsFn::name().as_ptr(),
                 vk::KhrSpirv14Fn::name().as_ptr(),
                 vk::KhrShaderFloatControlsFn::name().as_ptr(),
@@ -97,6 +99,7 @@ impl Device {
                 Device::retrieve_rt_properties(&instance, physical_device);
 
             let acceleration_structure_ext = khr::AccelerationStructure::new(&instance, &device);
+            let raytracing_pipeline_ext = khr::RayTracingPipeline::new(&instance, &device);
 
             println!("{:#?}", rt_pipeline_properties);
             println!("{:#?}", as_features);
@@ -111,6 +114,7 @@ impl Device {
                 setup_cmd_buf,
                 rt_pipeline_properties,
                 acceleration_structure_ext,
+                raytracing_pipeline_ext,
             }
         }
     }
