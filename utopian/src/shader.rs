@@ -122,6 +122,12 @@ pub fn compile_glsl_shader(path: &str) -> shaderc::CompilationArtifact {
         shaderc::ShaderKind::Vertex
     } else if path.ends_with(".frag") {
         shaderc::ShaderKind::Fragment
+    } else if path.ends_with(".rgen") {
+        shaderc::ShaderKind::RayGeneration
+    } else if path.ends_with(".rmiss") {
+        shaderc::ShaderKind::Miss
+    } else if path.ends_with(".rchit") {
+        shaderc::ShaderKind::ClosestHit
     } else {
         panic!("Unsupported shader extension");
     };
@@ -129,6 +135,10 @@ pub fn compile_glsl_shader(path: &str) -> shaderc::CompilationArtifact {
     let mut compiler = shaderc::Compiler::new().unwrap();
     let mut options = shaderc::CompileOptions::new().unwrap();
     options.add_macro_definition("EP", Some("main"));
+    options.set_target_env(
+        shaderc::TargetEnv::Vulkan,
+        shaderc::EnvVersion::Vulkan1_2 as u32,
+    );
     options.set_include_callback(|include_request, _include_type, _source, _size| {
         let include_path = Path::new(path).parent().unwrap();
         let include_path = include_path.join(include_request);
@@ -199,6 +209,9 @@ pub fn create_layouts_from_reflection(
                             }
                             rspirv_reflect::DescriptorType::STORAGE_BUFFER => {
                                 vk::DescriptorType::STORAGE_BUFFER
+                            }
+                            rspirv_reflect::DescriptorType::ACCELERATION_STRUCTURE_KHR => {
+                                vk::DescriptorType::ACCELERATION_STRUCTURE_KHR
                             }
                             _ => panic!("Unsupported descriptor type"),
                         };
