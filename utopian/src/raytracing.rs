@@ -4,11 +4,30 @@ use std::mem;
 
 use crate::buffer::*;
 use crate::device::*;
+use crate::image::*;
 
-pub struct Raytracing {}
+pub struct Raytracing {
+    top_level_acceleration: vk::AccelerationStructureKHR,
+    bottom_level_acceleration: vk::AccelerationStructureKHR,
+    storage_image: Image,
+}
 
 impl Raytracing {
-    pub fn create_bottom_acceleration_structure(device: &Device) -> vk::AccelerationStructureKHR {
+    pub fn new(device: &Device) -> Self {
+        let blas = Raytracing::create_bottom_level_acceleration_structure(device);
+        let tlas = Raytracing::create_top_level_acceleration_structure(device, blas);
+        let storage_image = Raytracing::create_storage_image(device, 2000, 1100);
+
+        Raytracing {
+            bottom_level_acceleration: blas,
+            top_level_acceleration: tlas,
+            storage_image,
+        }
+    }
+
+    pub fn create_bottom_level_acceleration_structure(
+        device: &Device,
+    ) -> vk::AccelerationStructureKHR {
         let indices = vec![0, 1, 2];
 
         let vertices = vec![
@@ -51,7 +70,7 @@ impl Raytracing {
             device_address: index_buffer.get_device_address(device),
         };
 
-        let geometries = vk::AccelerationStructureGeometryKHR::builder()
+        let geometry = vk::AccelerationStructureGeometryKHR::builder()
             .flags(vk::GeometryFlagsKHR::OPAQUE)
             .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
             .geometry(vk::AccelerationStructureGeometryDataKHR {
@@ -66,11 +85,11 @@ impl Raytracing {
             })
             .build();
 
-        // First used to get the build sizes
+        // Get size info
         let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
             .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
             .flags(ash::vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
-            .geometries(std::slice::from_ref(&geometries))
+            .geometries(std::slice::from_ref(&geometry))
             .build();
 
         let num_triangles = 1;
@@ -117,7 +136,7 @@ impl Raytracing {
         let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
             .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
             .flags(ash::vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
-            .geometries(std::slice::from_ref(&geometries))
+            .geometries(std::slice::from_ref(&geometry))
             .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
             .dst_acceleration_structure(acceleration_structure)
             .scratch_data(vk::DeviceOrHostAddressKHR {
@@ -145,5 +164,156 @@ impl Raytracing {
         println!("{:#?}", build_sizes);
 
         acceleration_structure
+    }
+
+    pub fn create_top_level_acceleration_structure(
+        device: &Device,
+        blas: vk::AccelerationStructureKHR,
+    ) -> vk::AccelerationStructureKHR {
+        let transform = vk::TransformMatrixKHR {
+            matrix: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        };
+
+        let blas_device_address = unsafe {
+            device
+                .acceleration_structure_ext
+                .get_acceleration_structure_device_address(
+                    &vk::AccelerationStructureDeviceAddressInfoKHR::builder()
+                        .acceleration_structure(blas)
+                        .build(),
+                )
+        };
+
+        let instance = vk::AccelerationStructureInstanceKHR {
+            transform,
+            acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
+                device_handle: blas_device_address,
+            },
+            instance_custom_index_and_mask: vk::Packed24_8::new(0, 0xff),
+            instance_shader_binding_table_record_offset_and_flags: vk::Packed24_8::new(
+                0,
+                vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw() as u8,
+            ),
+        };
+
+        let instances_buffer = Buffer::new(
+            device,
+            std::slice::from_ref(&instance),
+            std::mem::size_of_val(&instance) as u64,
+            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+        );
+
+        let geometry = vk::AccelerationStructureGeometryKHR::builder()
+            .flags(vk::GeometryFlagsKHR::OPAQUE)
+            .geometry_type(vk::GeometryTypeKHR::INSTANCES)
+            .geometry(vk::AccelerationStructureGeometryDataKHR {
+                instances: vk::AccelerationStructureGeometryInstancesDataKHR::builder()
+                    .array_of_pointers(false)
+                    .data(vk::DeviceOrHostAddressConstKHR {
+                        device_address: instances_buffer.get_device_address(device),
+                    })
+                    .build(),
+            })
+            .build();
+
+        // Get size info
+        let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+            .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL)
+            .flags(ash::vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
+            .geometries(std::slice::from_ref(&geometry))
+            .build();
+
+        let num_instances = 1;
+
+        let build_sizes = unsafe {
+            device
+                .acceleration_structure_ext
+                .get_acceleration_structure_build_sizes(
+                    vk::AccelerationStructureBuildTypeKHR::DEVICE,
+                    &build_geometry_info,
+                    &[num_instances],
+                )
+        };
+
+        // Todo: this should be created using device local memory
+        let tlas_buffer = Buffer::new(
+            device,
+            &[0],
+            build_sizes.acceleration_structure_size,
+            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
+        );
+
+        let create_info = vk::AccelerationStructureCreateInfoKHR::builder()
+            .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL)
+            .buffer(tlas_buffer.buffer)
+            .size(build_sizes.acceleration_structure_size)
+            .build();
+
+        let acceleration_structure = unsafe {
+            device
+                .acceleration_structure_ext
+                .create_acceleration_structure(&create_info, None)
+                .expect("Creation of acceleration structure failed")
+        };
+
+        let scratch_buffer = Buffer::new(
+            device,
+            &[0],
+            build_sizes.build_scratch_size,
+            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::STORAGE_BUFFER,
+        );
+
+        let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+            .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL)
+            .flags(ash::vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
+            .geometries(std::slice::from_ref(&geometry))
+            .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
+            .dst_acceleration_structure(acceleration_structure)
+            .scratch_data(vk::DeviceOrHostAddressKHR {
+                device_address: scratch_buffer.get_device_address(device),
+            })
+            .build();
+
+        let build_range_info = vec![ash::vk::AccelerationStructureBuildRangeInfoKHR::builder()
+            .primitive_count(num_instances)
+            .build()];
+
+        unsafe {
+            device.execute_and_submit(|device, cb| {
+                device
+                    .acceleration_structure_ext
+                    .cmd_build_acceleration_structures(
+                        cb,
+                        std::slice::from_ref(&build_geometry_info),
+                        std::slice::from_ref(&build_range_info.as_slice()),
+                    );
+            });
+        }
+
+        println!("Created top level acceleration structure");
+        println!("{:#?}", build_sizes);
+
+        acceleration_structure
+
+        // Todo: cleanup scratch buffer and instances buffer
+    }
+
+    pub fn create_storage_image(device: &Device, width: u32, height: u32) -> Image {
+        let storage_image = Image::new(
+            device,
+            width,
+            height,
+            vk::Format::R8G8B8A8_UINT,
+            vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE,
+            vk::ImageAspectFlags::COLOR,
+        );
+
+        device.execute_and_submit(|device, cb| {
+            storage_image.transition_layout(device, cb, vk::ImageLayout::GENERAL);
+        });
+
+        storage_image
     }
 }

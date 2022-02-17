@@ -41,6 +41,7 @@ struct Application {
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
     renderer: utopian::Renderer,
+    raytracing: utopian::Raytracing,
     egui_integration: egui_winit_ash_integration::Integration<Arc<Mutex<Allocator>>>,
     fps_timer: FpsTimer,
 }
@@ -142,7 +143,7 @@ impl Application {
             base.surface_format.clone(),
         );
 
-        utopian::Raytracing::create_bottom_acceleration_structure(&base.device);
+        let raytracing = utopian::Raytracing::new(&base.device);
 
         Application {
             base,
@@ -155,6 +156,7 @@ impl Application {
             camera_ubo: camera_uniform_buffer,
             camera,
             renderer,
+            raytracing,
             egui_integration,
             fps_timer: FpsTimer {
                 fps_period_start_time: Instant::now(),
