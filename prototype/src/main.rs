@@ -143,7 +143,7 @@ impl Application {
             base.surface_format.clone(),
         );
 
-        let raytracing = utopian::Raytracing::new(&base.device);
+        let raytracing = utopian::Raytracing::new(&base.device, &camera_uniform_buffer);
 
         Application {
             base,
@@ -250,22 +250,22 @@ impl Application {
         framebuffers
     }
 
-    fn record_commands<F: FnOnce(&ash::Device, vk::CommandBuffer)>(
-        device: &ash::Device,
+    fn record_commands<F: FnOnce(&utopian::Device, vk::CommandBuffer)>(
+        device: &utopian::Device,
         command_buffer: vk::CommandBuffer,
         wait_fence: vk::Fence,
         render_commands: F,
     ) {
         unsafe {
-            device
+            device.handle
                 .wait_for_fences(&[wait_fence], true, std::u64::MAX)
                 .expect("Wait for fence failed.");
 
-            device
+            device.handle
                 .reset_fences(&[wait_fence])
                 .expect("Reset fences failed.");
 
-            device
+            device.handle
                 .reset_command_buffer(
                     command_buffer,
                     vk::CommandBufferResetFlags::RELEASE_RESOURCES,
@@ -275,13 +275,13 @@ impl Application {
             let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
                 .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
-            device
+            device.handle
                 .begin_command_buffer(command_buffer, &command_buffer_begin_info)
                 .expect("Begin command buffer failed.");
 
             render_commands(&device, command_buffer);
 
-            device
+            device.handle
                 .end_command_buffer(command_buffer)
                 .expect("End commandbuffer failed.");
         }
@@ -385,10 +385,13 @@ impl Application {
             );
 
             Application::record_commands(
-                &self.base.device.handle,
+                &self.base.device,
                 self.base.draw_command_buffer,
                 self.base.draw_commands_reuse_fence,
                 |device, command_buffer| {
+
+                    self.raytracing.record_commands(&device, command_buffer);
+
                     let clear_values = [
                         vk::ClearValue {
                             color: vk::ClearColorValue {
@@ -412,13 +415,13 @@ impl Application {
                         })
                         .clear_values(&clear_values);
 
-                    device.cmd_begin_render_pass(
+                    device.handle.cmd_begin_render_pass(
                         command_buffer,
                         &render_pass_begin_info,
                         vk::SubpassContents::INLINE,
                     );
 
-                    device.cmd_bind_pipeline(
+                    device.handle.cmd_bind_pipeline(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline.handle,
@@ -438,10 +441,10 @@ impl Application {
                         extent: self.base.surface_resolution,
                     }];
 
-                    device.cmd_set_viewport(command_buffer, 0, &viewports);
-                    device.cmd_set_scissor(command_buffer, 0, &scissors);
+                    device.handle.cmd_set_viewport(command_buffer, 0, &viewports);
+                    device.handle.cmd_set_scissor(command_buffer, 0, &scissors);
 
-                    device.cmd_bind_descriptor_sets(
+                    device.handle.cmd_bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline.pipeline_layout,
@@ -450,7 +453,7 @@ impl Application {
                         &[],
                     );
 
-                    device.cmd_bind_descriptor_sets(
+                    device.handle.cmd_bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
                         self.pipeline.pipeline_layout,
@@ -470,7 +473,7 @@ impl Application {
                                 occlusion_map: mesh.material.occlusion_map,
                             };
 
-                            device.cmd_push_constants(
+                            device.handle.cmd_push_constants(
                                 command_buffer,
                                 self.pipeline.pipeline_layout,
                                 vk::ShaderStageFlags::ALL,
@@ -481,19 +484,19 @@ impl Application {
                                 ),
                             );
 
-                            device.cmd_bind_vertex_buffers(
+                            device.handle.cmd_bind_vertex_buffers(
                                 command_buffer,
                                 0,
                                 &[mesh.primitive.vertex_buffer.buffer],
                                 &[0],
                             );
-                            device.cmd_bind_index_buffer(
+                            device.handle.cmd_bind_index_buffer(
                                 command_buffer,
                                 mesh.primitive.index_buffer.buffer,
                                 0,
                                 vk::IndexType::UINT32,
                             );
-                            device.cmd_draw_indexed(
+                            device.handle.cmd_draw_indexed(
                                 command_buffer,
                                 mesh.primitive.indices.len() as u32,
                                 1,
@@ -504,7 +507,7 @@ impl Application {
                         }
                     }
 
-                    device.cmd_end_render_pass(command_buffer);
+                    device.handle.cmd_end_render_pass(command_buffer);
 
                     self.egui_integration
                         .context()

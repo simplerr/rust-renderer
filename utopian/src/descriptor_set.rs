@@ -2,6 +2,7 @@ use ash::vk;
 
 use crate::buffer::*;
 use crate::device::*;
+use crate::image::*;
 use crate::shader::*;
 use crate::texture::*;
 
@@ -34,6 +35,9 @@ impl DescriptorSet {
                     }
                     rspirv_reflect::DescriptorType::STORAGE_BUFFER => {
                         vk::DescriptorType::STORAGE_BUFFER
+                    }
+                    rspirv_reflect::DescriptorType::ACCELERATION_STRUCTURE_KHR => {
+                        vk::DescriptorType::ACCELERATION_STRUCTURE_KHR
                     }
                     _ => unimplemented!(),
                 };
@@ -116,6 +120,62 @@ impl DescriptorSet {
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
             .image_info(&[texture.descriptor_info])
             .build();
+
+        unsafe {
+            device
+                .handle
+                .update_descriptor_sets(&[descriptor_writes], &[])
+        };
+    }
+
+    pub fn write_storage_image(&self, device: &Device, name: String, image: &Image) {
+        let binding = match self.binding_map.get(&name) {
+            Some(binding) => binding,
+            None => panic!("No descriptor binding found with name: \"{}\"", name),
+        };
+
+        let descriptor_info = vk::DescriptorImageInfo {
+            image_layout: vk::ImageLayout::GENERAL,
+            image_view: image.image_view,
+            sampler: vk::Sampler::null(),
+        };
+
+        let descriptor_writes = vk::WriteDescriptorSet::builder()
+            .dst_set(self.handle)
+            .dst_binding(binding.binding)
+            .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
+            .image_info(&[descriptor_info])
+            .build();
+
+        unsafe {
+            device
+                .handle
+                .update_descriptor_sets(&[descriptor_writes], &[])
+        };
+    }
+
+    pub fn write_acceleration_structure(
+        &self,
+        device: &Device,
+        name: String,
+        acceleration_structure: vk::AccelerationStructureKHR,
+    ) {
+        let binding = match self.binding_map.get(&name) {
+            Some(binding) => binding,
+            None => panic!("No descriptor binding found with name: \"{}\"", name),
+        };
+
+        let mut descriptor_info = vk::WriteDescriptorSetAccelerationStructureKHR::builder()
+            .acceleration_structures(std::slice::from_ref(&acceleration_structure))
+            .build();
+
+        let mut descriptor_writes = vk::WriteDescriptorSet::builder()
+            .dst_set(self.handle)
+            .dst_binding(binding.binding)
+            .descriptor_type(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR)
+            .push_next(&mut descriptor_info)
+            .build();
+        descriptor_writes.descriptor_count = 1; // Not set for acceleration structures
 
         unsafe {
             device
