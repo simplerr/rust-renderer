@@ -70,13 +70,23 @@ impl Application {
         let renderpass = Application::create_renderpass(&base);
         let framebuffers = Application::create_framebuffers(&base, renderpass);
 
+        // let camera = utopian::Camera::new(
+        //     Vec3::new(-1.75, 0.75, 0.0),
+        //     Vec3::new(0.0, 1.0, 0.0),
+        //     60.0,
+        //     width as f32 / height as f32,
+        //     0.01,
+        //     20000.0,
+        //     0.002,
+        // );
+
         let camera = utopian::Camera::new(
-            Vec3::new(-1.75, 0.75, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 0.0, -2.5),
+            Vec3::new(0.0, 0.0, 0.0),
             60.0,
             width as f32 / height as f32,
-            0.01,
-            20000.0,
+            0.1,
+            512.0,
             0.002,
         );
 
@@ -230,7 +240,8 @@ impl Application {
             .present_images
             .iter()
             .map(|present_image| {
-                let framebuffer_attachments = [present_image.image_view, base.depth_image.image_view];
+                let framebuffer_attachments =
+                    [present_image.image_view, base.depth_image.image_view];
                 let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
                     .render_pass(renderpass)
                     .attachments(&framebuffer_attachments)
@@ -257,15 +268,18 @@ impl Application {
         render_commands: F,
     ) {
         unsafe {
-            device.handle
+            device
+                .handle
                 .wait_for_fences(&[wait_fence], true, std::u64::MAX)
                 .expect("Wait for fence failed.");
 
-            device.handle
+            device
+                .handle
                 .reset_fences(&[wait_fence])
                 .expect("Reset fences failed.");
 
-            device.handle
+            device
+                .handle
                 .reset_command_buffer(
                     command_buffer,
                     vk::CommandBufferResetFlags::RELEASE_RESOURCES,
@@ -275,13 +289,15 @@ impl Application {
             let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
                 .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
-            device.handle
+            device
+                .handle
                 .begin_command_buffer(command_buffer, &command_buffer_begin_info)
                 .expect("Begin command buffer failed.");
 
             render_commands(&device, command_buffer);
 
-            device.handle
+            device
+                .handle
                 .end_command_buffer(command_buffer)
                 .expect("End commandbuffer failed.");
         }
@@ -389,8 +405,12 @@ impl Application {
                 self.base.draw_command_buffer,
                 self.base.draw_commands_reuse_fence,
                 |device, command_buffer| {
-
-                    self.raytracing.record_commands(&device, command_buffer);
+                    self.raytracing.record_commands(
+                        &device,
+                        command_buffer,
+                        &self.base.present_images[present_index as usize],
+                    );
+                    return;
 
                     let clear_values = [
                         vk::ClearValue {
@@ -441,7 +461,9 @@ impl Application {
                         extent: self.base.surface_resolution,
                     }];
 
-                    device.handle.cmd_set_viewport(command_buffer, 0, &viewports);
+                    device
+                        .handle
+                        .cmd_set_viewport(command_buffer, 0, &viewports);
                     device.handle.cmd_set_scissor(command_buffer, 0, &scissors);
 
                     device.handle.cmd_bind_descriptor_sets(

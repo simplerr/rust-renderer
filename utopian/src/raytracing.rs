@@ -346,7 +346,7 @@ impl Raytracing {
             device,
             width,
             height,
-            vk::Format::R8G8B8A8_UNORM,
+            vk::Format::B8G8R8A8_UNORM, // Matches the swapchain image format
             vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE,
             vk::ImageAspectFlags::COLOR,
         );
@@ -487,10 +487,6 @@ impl Raytracing {
                 .expect("Failed to get raytracing shader group handles")
         };
 
-        //let mut shader_binding_table_data = vec![0u8; handle_size];
-        //shader_binding_table_data.copy_from_slice(&shader_handle_storage[0..handle_size as usize]);
-
-        //shader_binding_table_data.copy_from_slice
         let raygen_sbt_buffer = Buffer::new(
             device,
             &shader_handle_storage[0..handle_size],
@@ -518,7 +514,7 @@ impl Raytracing {
         (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer)
     }
 
-    pub fn record_commands(&self, device: &Device, command_buffer: vk::CommandBuffer) {
+    pub fn record_commands(&self, device: &Device, cb: vk::CommandBuffer, present_image: &Image) {
         let raygen_shader_binding_table = vk::StridedDeviceAddressRegionKHR {
             device_address: self.raygen_sbt_buffer.get_device_address(device),
             stride: device.rt_pipeline_properties.shader_group_handle_size as u64,
@@ -545,12 +541,12 @@ impl Raytracing {
 
         unsafe {
             device.handle.cmd_bind_pipeline(
-                command_buffer,
+                cb,
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
                 self.pipeline,
             );
             device.handle.cmd_bind_descriptor_sets(
-                command_buffer,
+                cb,
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
                 self.pipeline_layout,
                 0,
@@ -559,7 +555,7 @@ impl Raytracing {
             );
 
             device.raytracing_pipeline_ext.cmd_trace_rays(
-                command_buffer,
+                cb,
                 &raygen_shader_binding_table,
                 &miss_shader_binding_table,
                 &hit_shader_binding_table,
@@ -568,7 +564,16 @@ impl Raytracing {
                 1100,
                 1,
             );
-        }
 
+            present_image.transition_layout(device, cb, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
+            self.storage_image
+                .transition_layout(device, cb, vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
+
+            self.storage_image.copy(device, cb, &present_image);
+
+            present_image.transition_layout(device, cb, vk::ImageLayout::PRESENT_SRC_KHR);
+            self.storage_image
+                .transition_layout(device, cb, vk::ImageLayout::GENERAL);
+        }
     }
 }

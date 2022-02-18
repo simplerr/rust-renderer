@@ -141,6 +141,41 @@ impl Image {
         image_view
     }
 
+    pub fn copy(&self, device: &Device, cb: vk::CommandBuffer, dest: &Image) {
+        let copy_region = vk::ImageCopy::builder()
+            .src_subresource(vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            })
+            .src_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+            .dst_subresource(vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            })
+            .dst_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+            .extent(vk::Extent3D {
+                width: self.width,
+                height: self.height,
+                depth: 1,
+            })
+            .build();
+
+        unsafe {
+            device.handle.cmd_copy_image(
+                cb,
+                self.image,
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                dest.image,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                &[copy_region],
+            )
+        };
+    }
+
     pub fn transition_layout(
         &self,
         device: &Device,
@@ -185,6 +220,11 @@ impl Image {
             ImageLayout::GENERAL => (
                 AccessFlags::SHADER_READ,
                 PipelineStageFlags::FRAGMENT_SHADER,
+            ),
+            ImageLayout::PRESENT_SRC_KHR => (
+                // Note: random flags, no idea if correct
+                AccessFlags::COLOR_ATTACHMENT_READ,
+                PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
             ),
             _ => unimplemented!(),
         };

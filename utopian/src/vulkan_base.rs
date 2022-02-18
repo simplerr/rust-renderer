@@ -108,14 +108,13 @@ impl VulkanBase {
         let (_command_pool, setup_command_buffer, draw_command_buffer) =
             VulkanBase::create_command_buffers(&device.handle, device.queue_family_index);
 
-        let (present_images, depth_image) =
-            VulkanBase::setup_swapchain_images(
-                &device,
-                swapchain,
-                &swapchain_loader,
-                surface_format,
-                surface_resolution,
-            );
+        let (present_images, depth_image) = VulkanBase::setup_swapchain_images(
+            &device,
+            swapchain,
+            &swapchain_loader,
+            surface_format,
+            surface_resolution,
+        );
 
         let (present_complete_semaphore, rendering_complete_semaphore) =
             VulkanBase::create_semaphores(&device.handle);
@@ -284,7 +283,9 @@ impl VulkanBase {
                 .image_color_space(surface_format.color_space)
                 .image_format(surface_format.format)
                 .image_extent(surface_resolution)
-                .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+                .image_usage(
+                    vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST,
+                )
                 .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
                 .pre_transform(desired_transform)
                 .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
