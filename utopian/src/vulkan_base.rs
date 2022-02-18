@@ -72,9 +72,8 @@ pub struct VulkanBase {
     _command_pool: vk::CommandPool,
     pub setup_command_buffer: vk::CommandBuffer,
     pub draw_command_buffer: vk::CommandBuffer,
-    _present_images: Vec<vk::Image>,
+    pub present_images: Vec<Image>,
     pub depth_image: Image,
-    pub present_image_views: Vec<vk::ImageView>,
     pub present_complete_semaphore: vk::Semaphore,
     pub rendering_complete_semaphore: vk::Semaphore,
     pub surface_format: vk::SurfaceFormatKHR,
@@ -109,7 +108,7 @@ impl VulkanBase {
         let (_command_pool, setup_command_buffer, draw_command_buffer) =
             VulkanBase::create_command_buffers(&device.handle, device.queue_family_index);
 
-        let (_present_images, present_image_views, depth_image) =
+        let (present_images, depth_image) =
             VulkanBase::setup_swapchain_images(
                 &device,
                 swapchain,
@@ -139,9 +138,8 @@ impl VulkanBase {
             _command_pool,
             setup_command_buffer,
             draw_command_buffer,
-            _present_images,
+            present_images,
             depth_image,
-            present_image_views,
             present_complete_semaphore,
             rendering_complete_semaphore,
             surface_format,
@@ -341,36 +339,23 @@ impl VulkanBase {
         swapchain_loader: &Swapchain,
         surface_format: vk::SurfaceFormatKHR,
         surface_resolution: vk::Extent2D,
-    ) -> (Vec<vk::Image>, Vec<vk::ImageView>, Image) {
+    ) -> (Vec<Image>, Image) {
         unsafe {
             let present_images = swapchain_loader
                 .get_swapchain_images(swapchain)
                 .expect("Error getting swapchain images");
 
-            let present_image_views: Vec<vk::ImageView> = present_images
+            let present_images: Vec<Image> = present_images
                 .iter()
                 .map(|&image| {
-                    let create_view_info = vk::ImageViewCreateInfo::builder()
-                        .view_type(vk::ImageViewType::TYPE_2D)
-                        .format(surface_format.format)
-                        .components(vk::ComponentMapping {
-                            r: vk::ComponentSwizzle::R,
-                            g: vk::ComponentSwizzle::G,
-                            b: vk::ComponentSwizzle::B,
-                            a: vk::ComponentSwizzle::A,
-                        })
-                        .subresource_range(vk::ImageSubresourceRange {
-                            aspect_mask: vk::ImageAspectFlags::COLOR,
-                            base_mip_level: 0,
-                            level_count: 1,
-                            base_array_layer: 0,
-                            layer_count: 1,
-                        })
-                        .image(image);
-                    device
-                        .handle
-                        .create_image_view(&create_view_info, None)
-                        .unwrap()
+                    Image::new_from_handle(
+                        device,
+                        image,
+                        surface_resolution.width,
+                        surface_resolution.height,
+                        surface_format.format,
+                        vk::ImageAspectFlags::COLOR,
+                    )
                 })
                 .collect();
 
@@ -411,7 +396,7 @@ impl VulkanBase {
                 );
             });
 
-            (present_images, present_image_views, depth_image)
+            (present_images, depth_image)
         }
     }
 

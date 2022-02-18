@@ -66,35 +66,7 @@ impl Image {
                 .bind_image_memory(image, device_memory, 0)
                 .expect("Unable to bind device memory to image");
 
-            // Create image view
-            let components = match aspect_flags {
-                vk::ImageAspectFlags::COLOR => vk::ComponentMapping {
-                    r: vk::ComponentSwizzle::R,
-                    g: vk::ComponentSwizzle::G,
-                    b: vk::ComponentSwizzle::B,
-                    a: vk::ComponentSwizzle::A,
-                },
-                vk::ImageAspectFlags::DEPTH => vk::ComponentMapping::default(),
-                _ => unimplemented!(),
-            };
-
-            let image_view_info = vk::ImageViewCreateInfo {
-                view_type: vk::ImageViewType::TYPE_2D,
-                format: image_create_info.format,
-                components,
-                subresource_range: vk::ImageSubresourceRange {
-                    aspect_mask: aspect_flags,
-                    level_count: 1,
-                    layer_count: 1,
-                    ..Default::default()
-                },
-                image,
-                ..Default::default()
-            };
-            let image_view = device
-                .handle
-                .create_image_view(&image_view_info, None)
-                .unwrap();
+            let image_view = Image::create_image_view(device, image, format, aspect_flags);
 
             Image {
                 image,
@@ -105,6 +77,68 @@ impl Image {
                 height,
             }
         }
+    }
+
+    pub fn new_from_handle(
+        device: &Device,
+        image: vk::Image,
+        width: u32,
+        height: u32,
+        format: vk::Format,
+        aspect_flags: vk::ImageAspectFlags,
+    ) -> Image {
+        let image_view = Image::create_image_view(device, image, format, aspect_flags);
+
+        Image {
+            image,
+            image_view,
+            device_memory: vk::DeviceMemory::null(),
+            current_layout: vk::ImageLayout::UNDEFINED,
+            width,
+            height,
+        }
+    }
+
+    pub fn create_image_view(
+        device: &Device,
+        image: vk::Image,
+        format: vk::Format,
+        aspect_flags: vk::ImageAspectFlags,
+    ) -> vk::ImageView {
+        // Create image view
+        let components = match aspect_flags {
+            vk::ImageAspectFlags::COLOR => vk::ComponentMapping {
+                r: vk::ComponentSwizzle::R,
+                g: vk::ComponentSwizzle::G,
+                b: vk::ComponentSwizzle::B,
+                a: vk::ComponentSwizzle::A,
+            },
+            vk::ImageAspectFlags::DEPTH => vk::ComponentMapping::default(),
+            _ => unimplemented!(),
+        };
+
+        let image_view_info = vk::ImageViewCreateInfo {
+            view_type: vk::ImageViewType::TYPE_2D,
+            format,
+            components,
+            subresource_range: vk::ImageSubresourceRange {
+                aspect_mask: aspect_flags,
+                level_count: 1,
+                layer_count: 1,
+                ..Default::default()
+            },
+            image,
+            ..Default::default()
+        };
+
+        let image_view = unsafe {
+            device
+                .handle
+                .create_image_view(&image_view_info, None)
+                .unwrap()
+        };
+
+        image_view
     }
 
     pub fn transition_layout(

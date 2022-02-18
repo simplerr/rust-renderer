@@ -227,10 +227,10 @@ impl Application {
         renderpass: vk::RenderPass,
     ) -> Vec<vk::Framebuffer> {
         let framebuffers: Vec<vk::Framebuffer> = base
-            .present_image_views
+            .present_images
             .iter()
-            .map(|&present_image_view| {
-                let framebuffer_attachments = [present_image_view, base.depth_image.image_view];
+            .map(|present_image| {
+                let framebuffer_attachments = [present_image.image_view, base.depth_image.image_view];
                 let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
                     .render_pass(renderpass)
                     .attachments(&framebuffer_attachments)
