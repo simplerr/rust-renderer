@@ -34,6 +34,30 @@ pub fn add_vertex(
 }
 
 impl ModelLoader {
+    pub fn load_triangle(device: &Device) -> Model {
+        let indices = vec![0, 1, 2];
+
+        let mut vertices = vec![];
+        add_vertex(&mut vertices, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0);
+        add_vertex(&mut vertices, -1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0);
+        add_vertex(&mut vertices, 1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0);
+
+        let model = Model {
+            meshes: vec![Mesh {
+                primitive: Primitive::new(device, indices, vertices),
+                material: Material {
+                    diffuse_map: DEFAULT_TEXTURE_MAP,
+                    normal_map: DEFAULT_TEXTURE_MAP,
+                    metallic_roughness_map: DEFAULT_TEXTURE_MAP,
+                    occlusion_map: DEFAULT_TEXTURE_MAP,
+                },
+            }],
+            transforms: vec![Mat4::IDENTITY],
+            textures: vec![],
+        };
+
+        model
+    }
     pub fn load_cube(device: &Device) -> Model {
         let mut model = Model {
             meshes: vec![],

@@ -8,6 +8,8 @@ use crate::buffer::*;
 use crate::descriptor_set::*;
 use crate::device::*;
 use crate::image::*;
+use crate::primitive::*;
+use crate::renderer::*;
 use crate::shader::*;
 
 pub struct Raytracing {
@@ -24,8 +26,6 @@ pub struct Raytracing {
 
 impl Raytracing {
     pub fn new(device: &Device, camera_uniform_buffer: &Buffer) -> Self {
-        let blas = Raytracing::create_bottom_level_acceleration_structure(device);
-        let tlas = Raytracing::create_top_level_acceleration_structure(device, blas);
         let storage_image = Raytracing::create_storage_image(device, 2000, 1100);
 
         let (pipeline, reflection, pipeline_layout, descriptor_set_layouts) =
@@ -48,14 +48,11 @@ impl Raytracing {
         );
 
         descriptor_set.write_uniform_buffer(&device, "camera".to_string(), &camera_uniform_buffer);
-
         descriptor_set.write_storage_image(&device, "image".to_string(), &storage_image);
 
-        descriptor_set.write_acceleration_structure(&device, "topLevelAS".to_string(), tlas);
-
         Raytracing {
-            bottom_level_acceleration: blas,
-            top_level_acceleration: tlas,
+            bottom_level_acceleration: vk::AccelerationStructureKHR::null(),
+            top_level_acceleration: vk::AccelerationStructureKHR::null(),
             storage_image,
             pipeline,
             pipeline_layout,
@@ -66,49 +63,30 @@ impl Raytracing {
         }
     }
 
+    pub fn initialize(&mut self, device: &Device, models: &Vec<ModelInstance>) {
+        let blas = Raytracing::create_bottom_level_acceleration_structure(
+            device,
+            &models[0].model.meshes[0].primitive,
+        );
+
+        let tlas = Raytracing::create_top_level_acceleration_structure(device, blas);
+
+        self.descriptor_set
+            .write_acceleration_structure(&device, "topLevelAS".to_string(), tlas);
+
+        self.bottom_level_acceleration = blas;
+        self.top_level_acceleration = tlas;
+    }
+
     pub fn create_bottom_level_acceleration_structure(
         device: &Device,
+        primitive: &Primitive,
     ) -> vk::AccelerationStructureKHR {
-        let indices = vec![0, 1, 2];
-
-        let vertices = vec![
-            Vec3::new(1.0, 1.0, 0.0),
-            Vec3::new(-1.0, 1.0, 0.0),
-            Vec3::new(1.0, -1.0, 0.0),
-        ];
-
-        // let transform = vk::TransformMatrixKHR {
-        //     matrix: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-        // };
-
-        let index_buffer = Buffer::new(
-            device,
-            indices.as_slice(),
-            std::mem::size_of_val(&*indices) as u64,
-            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
-                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
-        );
-
-        let vertex_buffer = Buffer::new(
-            device,
-            vertices.as_slice(),
-            std::mem::size_of_val(&*vertices) as u64,
-            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
-                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
-        );
-
-        // let transform_buffer = Buffer::new(
-        //     device,
-        //     transform.as_slice(),
-        //     std::mem::size_of_val(&*transform) as u64,
-        //     vk::BufferUsageFlags::VERTEX_BUFFER,
-        // );
-
         let vertex_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
-            device_address: vertex_buffer.get_device_address(device),
+            device_address: primitive.vertex_buffer.get_device_address(device),
         };
         let index_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
-            device_address: index_buffer.get_device_address(device),
+            device_address: primitive.index_buffer.get_device_address(device),
         };
 
         let geometry = vk::AccelerationStructureGeometryKHR::builder()
@@ -118,8 +96,8 @@ impl Raytracing {
                 triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
                     .vertex_format(vk::Format::R32G32B32_SFLOAT)
                     .vertex_data(vertex_buffer_device_address)
-                    .vertex_stride(mem::size_of::<Vec3>() as _)
-                    .max_vertex(3)
+                    .vertex_stride(mem::size_of::<Vertex>() as _)
+                    .max_vertex(primitive.vertices.len() as _)
                     .index_type(vk::IndexType::UINT32)
                     .index_data(index_buffer_device_address)
                     .build(),
@@ -133,7 +111,7 @@ impl Raytracing {
             .geometries(std::slice::from_ref(&geometry))
             .build();
 
-        let num_triangles = 1;
+        let num_triangles = (primitive.indices.len() / 3) as u32;
 
         let build_sizes = unsafe {
             device
