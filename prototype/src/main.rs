@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::Vec3;
+use glam::{Vec3, Quat};
 use gpu_allocator::vulkan::*;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -9,8 +9,10 @@ use utopian;
 
 #[derive(Clone, Debug, Copy)]
 struct CameraUniformData {
-    view_mat: glam::Mat4,
-    projection_mat: glam::Mat4,
+    view: glam::Mat4,
+    projection: glam::Mat4,
+    inverse_view: glam::Mat4,
+    inverse_projection: glam::Mat4,
     eye_pos: glam::Vec3,
 }
 
@@ -71,29 +73,21 @@ impl Application {
         let renderpass = Application::create_renderpass(&base);
         let framebuffers = Application::create_framebuffers(&base, renderpass);
 
-        // let camera = utopian::Camera::new(
-        //     Vec3::new(-1.75, 0.75, 0.0),
-        //     Vec3::new(0.0, 1.0, 0.0),
-        //     60.0,
-        //     width as f32 / height as f32,
-        //     0.01,
-        //     20000.0,
-        //     0.002,
-        // );
-
         let camera = utopian::Camera::new(
-            Vec3::new(0.0, 0.0, -2.5),
-            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(-1.75, 0.75, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
             60.0,
             width as f32 / height as f32,
-            0.1,
-            512.0,
+            0.01,
+            20000.0,
             0.002,
         );
 
         let camera_data = CameraUniformData {
-            view_mat: camera.get_view(),
-            projection_mat: camera.get_projection(),
+            view: camera.get_view(),
+            projection: camera.get_projection(),
+            inverse_view: camera.get_view().inverse(),
+            inverse_projection: camera.get_projection().inverse(),
             eye_pos: camera.get_position(),
         };
 
@@ -343,7 +337,13 @@ impl Application {
         self.renderer.add_model(
             &self.base.device,
             utopian::ModelLoader::load_cube(&self.base.device),
-            glam::Mat4::from_translation(glam::Vec3::new(2.0, 0.0, 0.0)),
+            glam::Mat4::from_scale_rotation_translation(
+                Vec3::new(2.0, 3.0, 4.0),
+                Quat::from_rotation_x(-75.0f32.to_radians()) *
+                Quat::from_rotation_y(-150.0f32.to_radians()) *
+                Quat::from_rotation_z(50.0f32.to_radians()),
+                glam::Vec3::new(2.0, 4.0, 1.0),
+            ),
         );
 
         self.raytracing
@@ -415,8 +415,10 @@ impl Application {
 
             self.camera.update(&input);
 
-            self.camera_data.view_mat = self.camera.get_view();
-            self.camera_data.projection_mat = self.camera.get_projection();
+            self.camera_data.view = self.camera.get_view();
+            self.camera_data.projection = self.camera.get_projection();
+            self.camera_data.inverse_view = self.camera.get_view().inverse();
+            self.camera_data.inverse_projection = self.camera.get_projection().inverse();
             self.camera_data.eye_pos = self.camera.get_position();
 
             self.camera_ubo.update_memory(

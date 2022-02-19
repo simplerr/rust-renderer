@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::{Mat3, Vec3};
+use glam::{Mat3, Vec3, Mat4};
 use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
@@ -198,22 +198,22 @@ impl Raytracing {
         for instance in instances {
             for (i, _mesh) in instance.model.meshes.iter().enumerate() {
                 let world_matrix = instance.transform * instance.model.transforms[i];
-                let (_scale, rotation, translation) = world_matrix.to_scale_rotation_translation();
+                let (scale, rotation, translation) = world_matrix.to_scale_rotation_translation();
                 let rotation_matrix = Mat3::from_quat(rotation);
 
                 let transform = vk::TransformMatrixKHR {
                     matrix: [
-                        rotation_matrix.x_axis.x,
-                        rotation_matrix.y_axis.x,
-                        rotation_matrix.z_axis.x,
+                        rotation_matrix.x_axis.x * scale.x,
+                        rotation_matrix.y_axis.x * scale.y,
+                        rotation_matrix.z_axis.x * scale.z,
                         translation.x,
-                        rotation_matrix.x_axis.y,
-                        rotation_matrix.y_axis.y,
-                        rotation_matrix.z_axis.y,
+                        rotation_matrix.x_axis.y * scale.x,
+                        rotation_matrix.y_axis.y * scale.y,
+                        rotation_matrix.z_axis.y * scale.z,
                         translation.y,
-                        rotation_matrix.x_axis.z,
-                        rotation_matrix.y_axis.z,
-                        rotation_matrix.z_axis.z,
+                        rotation_matrix.x_axis.z * scale.x,
+                        rotation_matrix.y_axis.z * scale.y,
+                        rotation_matrix.z_axis.z * scale.z,
                         translation.z,
                     ],
                 };
