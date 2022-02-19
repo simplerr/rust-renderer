@@ -44,6 +44,7 @@ struct Application {
     raytracing: utopian::Raytracing,
     egui_integration: egui_winit_ash_integration::Integration<Arc<Mutex<Allocator>>>,
     fps_timer: FpsTimer,
+    raytracing_enabled: bool,
 }
 
 impl FpsTimer {
@@ -173,6 +174,7 @@ impl Application {
                 fps: 0,
                 elapsed_frames: 0,
             },
+            raytracing_enabled: false,
         }
     }
 
@@ -407,6 +409,10 @@ impl Application {
                 self.fps_timer.calculate(),
             );
 
+            if input.key_pressed(winit::event::VirtualKeyCode::Space) {
+                self.raytracing_enabled = !self.raytracing_enabled;
+            }
+
             self.camera.update(&input);
 
             self.camera_data.view_mat = self.camera.get_view();
@@ -423,134 +429,132 @@ impl Application {
                 self.base.draw_command_buffer,
                 self.base.draw_commands_reuse_fence,
                 |device, command_buffer| {
-                    let raytracing = true;
-                    if raytracing {
+                    if self.raytracing_enabled {
                         self.raytracing.record_commands(
                             &device,
                             command_buffer,
                             &self.base.present_images[present_index as usize],
                         );
-                        return;
-                    }
-
-                    let clear_values = [
-                        vk::ClearValue {
-                            color: vk::ClearColorValue {
-                                float32: [0.5, 0.5, 0.5, 0.0],
+                    } else {
+                        let clear_values = [
+                            vk::ClearValue {
+                                color: vk::ClearColorValue {
+                                    float32: [0.5, 0.5, 0.5, 0.0],
+                                },
                             },
-                        },
-                        vk::ClearValue {
-                            depth_stencil: vk::ClearDepthStencilValue {
-                                depth: 1.0,
-                                stencil: 0,
+                            vk::ClearValue {
+                                depth_stencil: vk::ClearDepthStencilValue {
+                                    depth: 1.0,
+                                    stencil: 0,
+                                },
                             },
-                        },
-                    ];
+                        ];
 
-                    let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-                        .render_pass(self.renderpass)
-                        .framebuffer(self.framebuffers[present_index as usize])
-                        .render_area(vk::Rect2D {
+                        let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+                            .render_pass(self.renderpass)
+                            .framebuffer(self.framebuffers[present_index as usize])
+                            .render_area(vk::Rect2D {
+                                offset: vk::Offset2D { x: 0, y: 0 },
+                                extent: self.base.surface_resolution,
+                            })
+                            .clear_values(&clear_values);
+
+                        device.handle.cmd_begin_render_pass(
+                            command_buffer,
+                            &render_pass_begin_info,
+                            vk::SubpassContents::INLINE,
+                        );
+
+                        device.handle.cmd_bind_pipeline(
+                            command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.pipeline.handle,
+                        );
+
+                        let viewports = [vk::Viewport {
+                            x: 0.0,
+                            y: self.base.surface_resolution.height as f32,
+                            width: self.base.surface_resolution.width as f32,
+                            height: -(self.base.surface_resolution.height as f32),
+                            min_depth: 0.0,
+                            max_depth: 1.0,
+                        }];
+
+                        let scissors = [vk::Rect2D {
                             offset: vk::Offset2D { x: 0, y: 0 },
                             extent: self.base.surface_resolution,
-                        })
-                        .clear_values(&clear_values);
+                        }];
 
-                    device.handle.cmd_begin_render_pass(
-                        command_buffer,
-                        &render_pass_begin_info,
-                        vk::SubpassContents::INLINE,
-                    );
+                        device
+                            .handle
+                            .cmd_set_viewport(command_buffer, 0, &viewports);
+                        device.handle.cmd_set_scissor(command_buffer, 0, &scissors);
 
-                    device.handle.cmd_bind_pipeline(
-                        command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.pipeline.handle,
-                    );
+                        device.handle.cmd_bind_descriptor_sets(
+                            command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.pipeline.pipeline_layout,
+                            self.camera_binding.set,
+                            &[self.descriptor_set_camera.handle],
+                            &[],
+                        );
 
-                    let viewports = [vk::Viewport {
-                        x: 0.0,
-                        y: self.base.surface_resolution.height as f32,
-                        width: self.base.surface_resolution.width as f32,
-                        height: -(self.base.surface_resolution.height as f32),
-                        min_depth: 0.0,
-                        max_depth: 1.0,
-                    }];
+                        device.handle.cmd_bind_descriptor_sets(
+                            command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
+                            self.pipeline.pipeline_layout,
+                            utopian::BINDLESS_DESCRIPTOR_INDEX,
+                            &[self.renderer.bindless_descriptor_set],
+                            &[],
+                        );
 
-                    let scissors = [vk::Rect2D {
-                        offset: vk::Offset2D { x: 0, y: 0 },
-                        extent: self.base.surface_resolution,
-                    }];
+                        for instance in &self.renderer.instances {
+                            for (i, mesh) in instance.model.meshes.iter().enumerate() {
+                                let push_data = PushConstants {
+                                    world: instance.transform * instance.model.transforms[i],
+                                    color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
+                                    diffuse_map: mesh.material.diffuse_map,
+                                    normal_map: mesh.material.normal_map,
+                                    metallic_rougness_map: mesh.material.metallic_roughness_map,
+                                    occlusion_map: mesh.material.occlusion_map,
+                                };
 
-                    device
-                        .handle
-                        .cmd_set_viewport(command_buffer, 0, &viewports);
-                    device.handle.cmd_set_scissor(command_buffer, 0, &scissors);
+                                device.handle.cmd_push_constants(
+                                    command_buffer,
+                                    self.pipeline.pipeline_layout,
+                                    vk::ShaderStageFlags::ALL,
+                                    0,
+                                    std::slice::from_raw_parts(
+                                        &push_data as *const _ as *const u8,
+                                        std::mem::size_of_val(&push_data),
+                                    ),
+                                );
 
-                    device.handle.cmd_bind_descriptor_sets(
-                        command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.pipeline.pipeline_layout,
-                        self.camera_binding.set,
-                        &[self.descriptor_set_camera.handle],
-                        &[],
-                    );
-
-                    device.handle.cmd_bind_descriptor_sets(
-                        command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.pipeline.pipeline_layout,
-                        utopian::BINDLESS_DESCRIPTOR_INDEX,
-                        &[self.renderer.bindless_descriptor_set],
-                        &[],
-                    );
-
-                    for instance in &self.renderer.instances {
-                        for (i, mesh) in instance.model.meshes.iter().enumerate() {
-                            let push_data = PushConstants {
-                                world: instance.transform * instance.model.transforms[i],
-                                color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
-                                diffuse_map: mesh.material.diffuse_map,
-                                normal_map: mesh.material.normal_map,
-                                metallic_rougness_map: mesh.material.metallic_roughness_map,
-                                occlusion_map: mesh.material.occlusion_map,
-                            };
-
-                            device.handle.cmd_push_constants(
-                                command_buffer,
-                                self.pipeline.pipeline_layout,
-                                vk::ShaderStageFlags::ALL,
-                                0,
-                                std::slice::from_raw_parts(
-                                    &push_data as *const _ as *const u8,
-                                    std::mem::size_of_val(&push_data),
-                                ),
-                            );
-
-                            device.handle.cmd_bind_vertex_buffers(
-                                command_buffer,
-                                0,
-                                &[mesh.primitive.vertex_buffer.buffer],
-                                &[0],
-                            );
-                            device.handle.cmd_bind_index_buffer(
-                                command_buffer,
-                                mesh.primitive.index_buffer.buffer,
-                                0,
-                                vk::IndexType::UINT32,
-                            );
-                            device.handle.cmd_draw_indexed(
-                                command_buffer,
-                                mesh.primitive.indices.len() as u32,
-                                1,
-                                0,
-                                0,
-                                1,
-                            );
+                                device.handle.cmd_bind_vertex_buffers(
+                                    command_buffer,
+                                    0,
+                                    &[mesh.primitive.vertex_buffer.buffer],
+                                    &[0],
+                                );
+                                device.handle.cmd_bind_index_buffer(
+                                    command_buffer,
+                                    mesh.primitive.index_buffer.buffer,
+                                    0,
+                                    vk::IndexType::UINT32,
+                                );
+                                device.handle.cmd_draw_indexed(
+                                    command_buffer,
+                                    mesh.primitive.indices.len() as u32,
+                                    1,
+                                    0,
+                                    0,
+                                    1,
+                                );
+                            }
                         }
-                    }
 
-                    device.handle.cmd_end_render_pass(command_buffer);
+                        device.handle.cmd_end_render_pass(command_buffer);
+                    }
 
                     self.egui_integration
                         .context()

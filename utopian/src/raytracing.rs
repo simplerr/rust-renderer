@@ -185,9 +185,6 @@ impl Raytracing {
             });
         }
 
-        println!("Created bottom level acceleration structure");
-        println!("{:#?}", build_sizes);
-
         acceleration_structure
     }
 
@@ -343,9 +340,6 @@ impl Raytracing {
             });
         }
 
-        println!("Created top level acceleration structure");
-        println!("{:#?}", build_sizes);
-
         acceleration_structure
 
         // Todo: cleanup scratch buffer and instances buffer
@@ -388,9 +382,6 @@ impl Raytracing {
         let closest_hit_spv_file = closest_hit_spv_file.as_binary_u8();
 
         let reflection = Reflection::new(&[raygen_spv_file, miss_spv_file, closest_hit_spv_file]);
-
-        println!("{:#?}", reflection.descriptor_set_reflections);
-
         let (pipeline_layout, descriptor_set_layouts, _) =
             create_layouts_from_reflection(&device.handle, &reflection, None);
 
@@ -581,7 +572,7 @@ impl Raytracing {
 
             self.storage_image.copy(device, cb, &present_image);
 
-            present_image.transition_layout(device, cb, vk::ImageLayout::PRESENT_SRC_KHR);
+            present_image.transition_layout(device, cb, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
             self.storage_image
                 .transition_layout(device, cb, vk::ImageLayout::GENERAL);
         }
