@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::Vec3;
+use glam::{Mat3, Vec3};
 use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
@@ -14,7 +14,7 @@ use crate::shader::*;
 
 pub struct Raytracing {
     top_level_acceleration: vk::AccelerationStructureKHR,
-    bottom_level_acceleration: vk::AccelerationStructureKHR,
+    bottom_level_accelerations: Vec<vk::AccelerationStructureKHR>,
     storage_image: Image,
     pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
@@ -51,7 +51,7 @@ impl Raytracing {
         descriptor_set.write_storage_image(&device, "image".to_string(), &storage_image);
 
         Raytracing {
-            bottom_level_acceleration: vk::AccelerationStructureKHR::null(),
+            bottom_level_accelerations: vec![],
             top_level_acceleration: vk::AccelerationStructureKHR::null(),
             storage_image,
             pipeline,
@@ -63,18 +63,24 @@ impl Raytracing {
         }
     }
 
-    pub fn initialize(&mut self, device: &Device, models: &Vec<ModelInstance>) {
-        let blas = Raytracing::create_bottom_level_acceleration_structure(
-            device,
-            &models[0].model.meshes[0].primitive,
-        );
+    pub fn initialize(&mut self, device: &Device, instances: &Vec<ModelInstance>) {
+        for instance in instances {
+            for mesh in &instance.model.meshes {
+                self.bottom_level_accelerations.push(
+                    Raytracing::create_bottom_level_acceleration_structure(device, &mesh.primitive),
+                );
+            }
+        }
 
-        let tlas = Raytracing::create_top_level_acceleration_structure(device, blas);
+        let tlas = Raytracing::create_top_level_acceleration_structure(
+            device,
+            &self.bottom_level_accelerations,
+            &instances,
+        );
 
         self.descriptor_set
             .write_acceleration_structure(&device, "topLevelAS".to_string(), tlas);
 
-        self.bottom_level_acceleration = blas;
         self.top_level_acceleration = tlas;
     }
 
@@ -187,38 +193,64 @@ impl Raytracing {
 
     pub fn create_top_level_acceleration_structure(
         device: &Device,
-        blas: vk::AccelerationStructureKHR,
+        blas: &Vec<vk::AccelerationStructureKHR>,
+        instances: &Vec<ModelInstance>,
     ) -> vk::AccelerationStructureKHR {
-        let transform = vk::TransformMatrixKHR {
-            matrix: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-        };
+        let mut acceleration_instances: Vec<vk::AccelerationStructureInstanceKHR> = vec![];
+        let mut blas_idx = 0;
+        for instance in instances {
+            for (i, _mesh) in instance.model.meshes.iter().enumerate() {
+                let world_matrix = instance.transform * instance.model.transforms[i];
+                let (_scale, rotation, translation) = world_matrix.to_scale_rotation_translation();
+                let rotation_matrix = Mat3::from_quat(rotation);
 
-        let blas_device_address = unsafe {
-            device
-                .acceleration_structure_ext
-                .get_acceleration_structure_device_address(
-                    &vk::AccelerationStructureDeviceAddressInfoKHR::builder()
-                        .acceleration_structure(blas)
-                        .build(),
-                )
-        };
+                let transform = vk::TransformMatrixKHR {
+                    matrix: [
+                        rotation_matrix.x_axis.x,
+                        rotation_matrix.y_axis.x,
+                        rotation_matrix.z_axis.x,
+                        translation.x,
+                        rotation_matrix.x_axis.y,
+                        rotation_matrix.y_axis.y,
+                        rotation_matrix.z_axis.y,
+                        translation.y,
+                        rotation_matrix.x_axis.z,
+                        rotation_matrix.y_axis.z,
+                        rotation_matrix.z_axis.z,
+                        translation.z,
+                    ],
+                };
 
-        let instance = vk::AccelerationStructureInstanceKHR {
-            transform,
-            acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
-                device_handle: blas_device_address,
-            },
-            instance_custom_index_and_mask: vk::Packed24_8::new(0, 0xff),
-            instance_shader_binding_table_record_offset_and_flags: vk::Packed24_8::new(
-                0,
-                vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw() as u8,
-            ),
-        };
+                let blas_device_address = unsafe {
+                    device
+                        .acceleration_structure_ext
+                        .get_acceleration_structure_device_address(
+                            &vk::AccelerationStructureDeviceAddressInfoKHR::builder()
+                                .acceleration_structure(blas[blas_idx])
+                                .build(),
+                        )
+                };
+
+                acceleration_instances.push(vk::AccelerationStructureInstanceKHR {
+                    transform,
+                    acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
+                        device_handle: blas_device_address,
+                    },
+                    instance_custom_index_and_mask: vk::Packed24_8::new(0, 0xff),
+                    instance_shader_binding_table_record_offset_and_flags: vk::Packed24_8::new(
+                        0,
+                        vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw() as u8,
+                    ),
+                });
+
+                blas_idx += 1;
+            }
+        }
 
         let instances_buffer = Buffer::new(
             device,
-            std::slice::from_ref(&instance),
-            std::mem::size_of_val(&instance) as u64,
+            acceleration_instances.as_slice(),
+            std::mem::size_of_val(&*acceleration_instances) as u64,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
         );
@@ -243,7 +275,7 @@ impl Raytracing {
             .geometries(std::slice::from_ref(&geometry))
             .build();
 
-        let num_instances = 1;
+        let num_instances = acceleration_instances.len() as u32;
 
         let build_sizes = unsafe {
             device

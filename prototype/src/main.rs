@@ -319,31 +319,30 @@ impl Application {
         let sphere =
             utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
 
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     sponza,
-        //     glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
-        // );
-        //
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     flight_helmet,
-        //     glam::Mat4::from_rotation_y(-75.0f32.to_radians())
-        //         * glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
-        // );
+        self.renderer.add_model(
+            &self.base.device,
+            sponza,
+            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        );
+
+        self.renderer.add_model(
+            &self.base.device,
+            flight_helmet,
+            glam::Mat4::from_rotation_y(-75.0f32.to_radians())
+                * glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
+        );
 
         self.renderer.add_model(
             &self.base.device,
             sphere,
-            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 5.0)),
         );
 
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     utopian::ModelLoader::load_cube(&self.base.device),
-        //     //utopian::ModelLoader::load_triangle(&self.base.device),
-        //     glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
-        // );
+        self.renderer.add_model(
+            &self.base.device,
+            utopian::ModelLoader::load_cube(&self.base.device),
+            glam::Mat4::from_translation(glam::Vec3::new(2.0, 0.0, 0.0)),
+        );
 
         self.raytracing
             .initialize(&self.base.device, &self.renderer.instances);
