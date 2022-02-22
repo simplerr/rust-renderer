@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::{Vec3, Quat};
+use glam::{Quat, Vec3};
 use gpu_allocator::vulkan::*;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -148,7 +148,11 @@ impl Application {
             base.surface_format.clone(),
         );
 
-        let raytracing = utopian::Raytracing::new(&base.device, &camera_uniform_buffer);
+        let raytracing = utopian::Raytracing::new(
+            &base.device,
+            &camera_uniform_buffer,
+            base.surface_resolution,
+        );
 
         Application {
             base,
@@ -339,9 +343,9 @@ impl Application {
             utopian::ModelLoader::load_cube(&self.base.device),
             glam::Mat4::from_scale_rotation_translation(
                 Vec3::new(2.0, 3.0, 4.0),
-                Quat::from_rotation_x(-75.0f32.to_radians()) *
-                Quat::from_rotation_y(-150.0f32.to_radians()) *
-                Quat::from_rotation_z(50.0f32.to_radians()),
+                Quat::from_rotation_x(-75.0f32.to_radians())
+                    * Quat::from_rotation_y(-150.0f32.to_radians())
+                    * Quat::from_rotation_z(50.0f32.to_radians()),
                 glam::Vec3::new(2.0, 4.0, 1.0),
             ),
         );
@@ -411,6 +415,19 @@ impl Application {
 
             if input.key_pressed(winit::event::VirtualKeyCode::Space) {
                 self.raytracing_enabled = !self.raytracing_enabled;
+            }
+
+            if input.key_pressed(winit::event::VirtualKeyCode::R) {
+                self.pipeline = utopian::Pipeline::new(
+                    &self.base.device.handle,
+                    "prototype/shaders/pbr/pbr.vert",
+                    "prototype/shaders/pbr/pbr.frag",
+                    self.renderpass,
+                    self.base.surface_resolution,
+                    Some(self.renderer.bindless_descriptor_set_layout),
+                );
+
+                self.raytracing.recreate_pipeline(&self.base.device);
             }
 
             self.camera.update(&input);

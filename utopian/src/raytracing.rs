@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::{Mat3, Vec3, Mat4};
+use glam::Mat3;
 use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
@@ -12,6 +12,12 @@ use crate::primitive::*;
 use crate::renderer::*;
 use crate::shader::*;
 
+pub struct PipelineDesc {
+    raygen_path: &'static str,
+    miss_path: &'static str,
+    hit_path: &'static str,
+}
+
 pub struct Raytracing {
     top_level_acceleration: vk::AccelerationStructureKHR,
     bottom_level_accelerations: Vec<vk::AccelerationStructureKHR>,
@@ -22,18 +28,26 @@ pub struct Raytracing {
     miss_sbt_buffer: Buffer,
     hit_sbt_buffer: Buffer,
     descriptor_set: DescriptorSet,
+    pipeline_desc: PipelineDesc,
+    screen_size: vk::Extent2D,
 }
 
 impl Raytracing {
-    pub fn new(device: &Device, camera_uniform_buffer: &Buffer) -> Self {
-        let storage_image = Raytracing::create_storage_image(device, 2000, 1100);
+    pub fn new(device: &Device, camera_uniform_buffer: &Buffer, screen_size: vk::Extent2D) -> Self {
+        let storage_image = Raytracing::create_storage_image(device, screen_size);
+
+        let pipeline_desc = PipelineDesc {
+            raygen_path: "utopian/shaders/raytracing_basic/basic.rgen",
+            miss_path: "utopian/shaders/raytracing_basic/basic.rmiss",
+            hit_path: "utopian/shaders/raytracing_basic/basic.rchit",
+        };
 
         let (pipeline, reflection, pipeline_layout, descriptor_set_layouts) =
             Raytracing::create_pipeline(
                 device,
-                "utopian/shaders/raytracing_basic/basic.rgen",
-                "utopian/shaders/raytracing_basic/basic.rmiss",
-                "utopian/shaders/raytracing_basic/basic.rchit",
+                pipeline_desc.raygen_path,
+                pipeline_desc.miss_path,
+                pipeline_desc.hit_path,
             );
 
         let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
@@ -60,6 +74,8 @@ impl Raytracing {
             miss_sbt_buffer,
             hit_sbt_buffer,
             descriptor_set,
+            pipeline_desc,
+            screen_size,
         }
     }
 
@@ -345,11 +361,11 @@ impl Raytracing {
         // Todo: cleanup scratch buffer and instances buffer
     }
 
-    pub fn create_storage_image(device: &Device, width: u32, height: u32) -> Image {
+    pub fn create_storage_image(device: &Device, screen_size: vk::Extent2D) -> Image {
         let storage_image = Image::new(
             device,
-            width,
-            height,
+            screen_size.width,
+            screen_size.height,
             vk::Format::B8G8R8A8_UNORM, // Matches the swapchain image format
             vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE,
             vk::ImageAspectFlags::COLOR,
@@ -360,6 +376,26 @@ impl Raytracing {
         });
 
         storage_image
+    }
+
+    pub fn recreate_pipeline(&mut self, device: &Device) {
+        // Note: Todo: how to properly make this function usable in the "constructor" as well?
+        // Todo: cleanup old resources
+
+        let (pipeline, _, _, _) = Raytracing::create_pipeline(
+            device,
+            self.pipeline_desc.raygen_path,
+            self.pipeline_desc.miss_path,
+            self.pipeline_desc.hit_path,
+        );
+
+        let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
+            Raytracing::create_shader_binding_table(device, pipeline);
+
+        self.pipeline = pipeline;
+        self.raygen_sbt_buffer = raygen_sbt_buffer;
+        self.miss_sbt_buffer = miss_sbt_buffer;
+        self.hit_sbt_buffer = hit_sbt_buffer;
     }
 
     pub fn create_pipeline(
@@ -561,8 +597,8 @@ impl Raytracing {
                 &miss_shader_binding_table,
                 &hit_shader_binding_table,
                 &callable_shader_binding_table,
-                2000,
-                1100,
+                self.screen_size.width,
+                self.screen_size.height,
                 1,
             );
 
