@@ -6,25 +6,70 @@ use std::mem;
 use crate::offset_of;
 use crate::*;
 
+pub struct PipelineDesc {
+    pub vertex_path: &'static str,
+    pub fragment_path: &'static str,
+}
+
 pub struct Pipeline {
     pub handle: vk::Pipeline,
     pub pipeline_layout: vk::PipelineLayout,
     pub descriptor_set_layouts: Vec<vk::DescriptorSetLayout>,
     pub reflection: shader::Reflection,
+    pub pipeline_desc: PipelineDesc,
 }
 
 impl Pipeline {
     pub fn new(
         device: &ash::Device,
-        vertex_shader_path: &str,
-        fragment_shader_path: &str,
+        pipeline_desc: PipelineDesc,
         renderpass: vk::RenderPass,
         surface_resolution: vk::Extent2D,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Pipeline {
-        // Todo: understand Cursor
-        let vertex_spv_file = shader::compile_glsl_shader(vertex_shader_path);
-        let fragment_spv_file = shader::compile_glsl_shader(fragment_shader_path);
+        let shader_modules_result = Pipeline::create_shader_modules(
+            device,
+            pipeline_desc.vertex_path,
+            pipeline_desc.fragment_path,
+            bindless_descriptor_set_layout,
+        );
+
+        let (shader_stage_create_infos, reflection, pipeline_layout, descriptor_set_layouts) =
+            shader_modules_result.expect("Failed to create shader modules");
+
+        let graphic_pipeline = Pipeline::create_pipeline(
+            device,
+            shader_stage_create_infos,
+            renderpass,
+            pipeline_layout,
+            surface_resolution,
+        );
+
+        Pipeline {
+            handle: graphic_pipeline,
+            pipeline_layout,
+            descriptor_set_layouts,
+            reflection,
+            pipeline_desc,
+        }
+    }
+
+    fn create_shader_modules(
+        device: &ash::Device,
+        vertex_shader_path: &str,
+        fragment_shader_path: &str,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
+    ) -> Result<
+        (
+            Vec<vk::PipelineShaderStageCreateInfo>,
+            shader::Reflection,
+            vk::PipelineLayout,
+            Vec<vk::DescriptorSetLayout>,
+        ),
+        shaderc::Error,
+    > {
+        let vertex_spv_file = shader::compile_glsl_shader(vertex_shader_path)?;
+        let fragment_spv_file = shader::compile_glsl_shader(fragment_shader_path)?;
 
         let vertex_spv_file = vertex_spv_file.as_binary_u8();
         let fragment_spv_file = fragment_spv_file.as_binary_u8();
@@ -44,7 +89,7 @@ impl Pipeline {
         let fragment_shader_module = shader::create_shader_module(fragment_spv_file, device);
 
         let shader_entry_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
-        let shader_stage_create_infos = [
+        let shader_stage_create_infos = vec![
             vk::PipelineShaderStageCreateInfo {
                 module: vertex_shader_module,
                 p_name: shader_entry_name.as_ptr(),
@@ -59,6 +104,21 @@ impl Pipeline {
             },
         ];
 
+        Ok((
+            shader_stage_create_infos,
+            reflection,
+            pipeline_layout,
+            descriptor_set_layouts,
+        ))
+    }
+
+    fn create_pipeline(
+        device: &ash::Device,
+        shader_stage_create_infos: Vec<vk::PipelineShaderStageCreateInfo>,
+        renderpass: vk::RenderPass,
+        pipeline_layout: vk::PipelineLayout,
+        surface_resolution: vk::Extent2D,
+    ) -> vk::Pipeline {
         let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
             binding: 0,
             stride: mem::size_of::<Vertex>() as u32,
@@ -192,11 +252,47 @@ impl Pipeline {
 
         let graphic_pipeline = graphics_pipelines[0];
 
-        Pipeline {
-            handle: graphic_pipeline,
-            pipeline_layout,
-            descriptor_set_layouts,
-            reflection,
+        graphic_pipeline
+    }
+
+    pub fn recreate_pipeline(
+        &mut self,
+        device: &Device,
+        renderpass: vk::RenderPass,
+        surface_resolution: vk::Extent2D,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
+    ) {
+        // Todo: cleanup old resources
+
+        let shader_modules_result = Pipeline::create_shader_modules(
+            &device.handle,
+            self.pipeline_desc.vertex_path,
+            self.pipeline_desc.fragment_path,
+            bindless_descriptor_set_layout,
+        );
+
+        match shader_modules_result {
+            Ok((
+                shader_stage_create_infos,
+                _reflection,
+                pipeline_layout,
+                _descriptor_set_layouts,
+            )) => {
+                let graphic_pipeline = Pipeline::create_pipeline(
+                    &device.handle,
+                    shader_stage_create_infos,
+                    renderpass,
+                    pipeline_layout,
+                    surface_resolution,
+                );
+
+                println!("{} and {} was successfully recompiled", self.pipeline_desc.vertex_path, self.pipeline_desc.fragment_path);
+
+                self.handle = graphic_pipeline
+            }
+            Err(error) => {
+                println!("Failed to recreate rasterization pipeline: {:#?}", error);
+            }
         }
     }
 }

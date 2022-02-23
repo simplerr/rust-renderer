@@ -26,6 +26,7 @@ pub use gltf_loader::DEFAULT_TEXTURE_MAP;
 pub use input::Input;
 pub use model_loader::ModelLoader;
 pub use pipeline::Pipeline;
+pub use pipeline::PipelineDesc;
 pub use primitive::Primitive;
 pub use primitive::Vertex;
 pub use raytracing::Raytracing;

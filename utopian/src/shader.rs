@@ -115,7 +115,7 @@ impl Reflection {
     }
 }
 
-pub fn compile_glsl_shader(path: &str) -> shaderc::CompilationArtifact {
+pub fn compile_glsl_shader(path: &str) -> Result<shaderc::CompilationArtifact, shaderc::Error> {
     let source = &fs::read_to_string(path).expect("Error reading shader file")[..];
 
     let shader_kind = if path.ends_with(".vert") {
@@ -161,8 +161,7 @@ pub fn compile_glsl_shader(path: &str) -> shaderc::CompilationArtifact {
     });
 
     let binary_result = compiler
-        .compile_into_spirv(source, shader_kind, path, "main", Some(&options))
-        .unwrap();
+        .compile_into_spirv(source, shader_kind, path, "main", Some(&options))?;
 
     assert_eq!(Some(&0x07230203), binary_result.as_binary().first());
 
@@ -174,7 +173,7 @@ pub fn compile_glsl_shader(path: &str) -> shaderc::CompilationArtifact {
 
     //println!("{}", text_result.as_text());
 
-    binary_result
+    Ok(binary_result)
 }
 
 pub fn create_layouts_from_reflection(

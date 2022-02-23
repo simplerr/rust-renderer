@@ -102,8 +102,10 @@ impl Application {
 
         let pipeline = utopian::Pipeline::new(
             &base.device.handle,
-            "prototype/shaders/pbr/pbr.vert",
-            "prototype/shaders/pbr/pbr.frag",
+            utopian::PipelineDesc {
+                vertex_path: "prototype/shaders/pbr/pbr.vert",
+                fragment_path: "prototype/shaders/pbr/pbr.frag",
+            },
             renderpass,
             base.surface_resolution,
             Some(renderer.bindless_descriptor_set_layout),
@@ -418,15 +420,12 @@ impl Application {
             }
 
             if input.key_pressed(winit::event::VirtualKeyCode::R) {
-                self.pipeline = utopian::Pipeline::new(
-                    &self.base.device.handle,
-                    "prototype/shaders/pbr/pbr.vert",
-                    "prototype/shaders/pbr/pbr.frag",
+                self.pipeline.recreate_pipeline(
+                    &self.base.device,
                     self.renderpass,
                     self.base.surface_resolution,
                     Some(self.renderer.bindless_descriptor_set_layout),
                 );
-
                 self.raytracing.recreate_pipeline(&self.base.device);
             }
 

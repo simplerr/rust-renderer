@@ -48,7 +48,7 @@ impl Raytracing {
                 pipeline_desc.raygen_path,
                 pipeline_desc.miss_path,
                 pipeline_desc.hit_path,
-            );
+            ).expect("Failed to create raytracing pipeline");
 
         let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
             Raytracing::create_shader_binding_table(device, pipeline);
@@ -378,40 +378,23 @@ impl Raytracing {
         storage_image
     }
 
-    pub fn recreate_pipeline(&mut self, device: &Device) {
-        // Note: Todo: how to properly make this function usable in the "constructor" as well?
-        // Todo: cleanup old resources
-
-        let (pipeline, _, _, _) = Raytracing::create_pipeline(
-            device,
-            self.pipeline_desc.raygen_path,
-            self.pipeline_desc.miss_path,
-            self.pipeline_desc.hit_path,
-        );
-
-        let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
-            Raytracing::create_shader_binding_table(device, pipeline);
-
-        self.pipeline = pipeline;
-        self.raygen_sbt_buffer = raygen_sbt_buffer;
-        self.miss_sbt_buffer = miss_sbt_buffer;
-        self.hit_sbt_buffer = hit_sbt_buffer;
-    }
-
     pub fn create_pipeline(
         device: &Device,
         raygen_shader_path: &str,
         miss_shader_path: &str,
         closest_hit_shader_path: &str,
-    ) -> (
-        vk::Pipeline,
-        Reflection,
-        vk::PipelineLayout,
-        Vec<vk::DescriptorSetLayout>,
-    ) {
-        let raygen_spv_file = compile_glsl_shader(raygen_shader_path);
-        let miss_spv_file = compile_glsl_shader(miss_shader_path);
-        let closest_hit_spv_file = compile_glsl_shader(closest_hit_shader_path);
+    ) -> Result<
+        (
+            vk::Pipeline,
+            Reflection,
+            vk::PipelineLayout,
+            Vec<vk::DescriptorSetLayout>,
+        ),
+        shaderc::Error,
+    > {
+        let raygen_spv_file = compile_glsl_shader(raygen_shader_path)?;
+        let miss_spv_file = compile_glsl_shader(miss_shader_path)?;
+        let closest_hit_spv_file = compile_glsl_shader(closest_hit_shader_path)?;
 
         let raygen_spv_file = raygen_spv_file.as_binary_u8();
         let miss_spv_file = miss_spv_file.as_binary_u8();
@@ -432,7 +415,7 @@ impl Raytracing {
             crate::shader::create_shader_module(closest_hit_spv_file, &device.handle);
 
         let shader_entry_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
-        let shader_stage_create_infos = [
+        let shader_stage_create_infos = vec![
             vk::PipelineShaderStageCreateInfo {
                 module: raygen_shader_module,
                 p_name: shader_entry_name.as_ptr(),
@@ -496,12 +479,12 @@ impl Raytracing {
                 .expect("Failed to create raytracing pipeline")[0]
         };
 
-        (
+        Ok((
             pipeline,
             reflection,
             pipeline_layout,
             descriptor_set_layouts,
-        )
+        ))
     }
 
     pub fn create_shader_binding_table(
@@ -611,6 +594,34 @@ impl Raytracing {
             present_image.transition_layout(device, cb, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
             self.storage_image
                 .transition_layout(device, cb, vk::ImageLayout::GENERAL);
+        }
+    }
+
+    pub fn recreate_pipeline(&mut self, device: &Device) {
+        // Todo: cleanup old resources
+
+        let result = Raytracing::create_pipeline(
+            device,
+            self.pipeline_desc.raygen_path,
+            self.pipeline_desc.miss_path,
+            self.pipeline_desc.hit_path,
+        );
+
+        match result {
+            Ok((pipeline, _, _, _)) => {
+                let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
+                    Raytracing::create_shader_binding_table(device, pipeline);
+
+                self.pipeline = pipeline;
+                self.raygen_sbt_buffer = raygen_sbt_buffer;
+                self.miss_sbt_buffer = miss_sbt_buffer;
+                self.hit_sbt_buffer = hit_sbt_buffer;
+
+                println!("Raytracing shaders was successfully recompiled");
+            }
+            Err(error) => {
+                println!("Failed to recreate raytracing pipeline: {:#?}", error);
+            }
         }
     }
 }
