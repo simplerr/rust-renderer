@@ -5,6 +5,10 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
 
+use notify::{Watcher, RecursiveMode, RecommendedWatcher};
+use std::sync::mpsc;
+use std::time::Duration;
+
 use utopian;
 
 #[derive(Clone, Debug, Copy)]
@@ -37,8 +41,8 @@ struct Application {
     renderpass: vk::RenderPass,
     framebuffers: Vec<vk::Framebuffer>,
     pipeline: utopian::Pipeline,
-    descriptor_set_camera: utopian::DescriptorSet, // testing
-    camera_binding: utopian::shader::Binding,      // testing
+    descriptor_set_camera: utopian::DescriptorSet,
+    camera_binding: utopian::shader::Binding,
     camera_data: CameraUniformData,
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
@@ -47,6 +51,11 @@ struct Application {
     egui_integration: egui_winit_ash_integration::Integration<Arc<Mutex<Allocator>>>,
     fps_timer: FpsTimer,
     raytracing_enabled: bool,
+
+    // For automatic shader recompilation
+    // Todo: generalize and move from here
+    _directory_watcher: notify::ReadDirectoryChangesWatcher,
+    watcher_rx: mpsc::Receiver<notify::DebouncedEvent>,
 }
 
 impl FpsTimer {
@@ -156,6 +165,10 @@ impl Application {
             base.surface_resolution,
         );
 
+        let (watcher_tx, watcher_rx) = mpsc::channel();
+        let mut directory_watcher: RecommendedWatcher = Watcher::new(watcher_tx, Duration::from_millis(100)).unwrap();
+        directory_watcher.watch("utopian/shaders/", RecursiveMode::Recursive).unwrap();
+
         Application {
             base,
             renderpass,
@@ -175,6 +188,8 @@ impl Application {
                 elapsed_frames: 0,
             },
             raytracing_enabled: false,
+            _directory_watcher: directory_watcher,
+            watcher_rx,
         }
     }
 
@@ -419,7 +434,18 @@ impl Application {
                 self.raytracing_enabled = !self.raytracing_enabled;
             }
 
-            if input.key_pressed(winit::event::VirtualKeyCode::R) {
+            let mut recompile_shaders = false;
+            match self.watcher_rx.try_recv() {
+                Ok(_event) => {
+                    match self.watcher_rx.recv() {
+                        Ok(_event) => recompile_shaders = true,
+                        Err(e) => println!("recv Err {:?}", e)
+                    }
+                },
+                Err(_) => (),
+            }
+
+            if recompile_shaders || input.key_pressed(winit::event::VirtualKeyCode::R) {
                 self.pipeline.recreate_pipeline(
                     &self.base.device,
                     self.renderpass,
