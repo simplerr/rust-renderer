@@ -16,6 +16,8 @@ pub struct Material {
 pub struct Mesh {
     pub primitive: Primitive,
     pub material: Material,
+    pub vertex_buffer_bindless_idx: u32,
+    pub index_buffer_bindless_idx: u32,
 }
 
 pub struct Model {
@@ -64,8 +66,8 @@ pub fn load_node(
 
             for (i, _) in positions.iter().enumerate() {
                 vertices.push(Vertex {
-                    pos: positions[i],
-                    normal: normals[i],
+                    pos: positions[i].extend(0.0),
+                    normal: normals[i].extend(0.0),
                     uv: tex_coords[i],
                     tangent: tangents[i],
                     color: Vec4::new(1.0, 1.0, 1.0, 1.0),
@@ -107,6 +109,8 @@ pub fn load_node(
                     metallic_roughness_map: metallic_roughness_index,
                     occlusion_map: occlusion_index,
                 },
+                vertex_buffer_bindless_idx: 0,
+                index_buffer_bindless_idx: 0,
             });
 
             model.transforms.push(node_transform);

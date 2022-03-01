@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
 
-use notify::{Watcher, RecursiveMode, RecommendedWatcher};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -28,6 +28,8 @@ struct PushConstants {
     normal_map: u32,
     metallic_rougness_map: u32,
     occlusion_map: u32,
+    vertex_buffer: u32,
+    index_buffer: u32,
 }
 
 struct FpsTimer {
@@ -163,11 +165,15 @@ impl Application {
             &base.device,
             &camera_uniform_buffer,
             base.surface_resolution,
+            Some(renderer.bindless_descriptor_set_layout),
         );
 
         let (watcher_tx, watcher_rx) = mpsc::channel();
-        let mut directory_watcher: RecommendedWatcher = Watcher::new(watcher_tx, Duration::from_millis(100)).unwrap();
-        directory_watcher.watch("utopian/shaders/", RecursiveMode::Recursive).unwrap();
+        let mut directory_watcher: RecommendedWatcher =
+            Watcher::new(watcher_tx, Duration::from_millis(100)).unwrap();
+        directory_watcher
+            .watch("utopian/shaders/", RecursiveMode::Recursive)
+            .unwrap();
 
         Application {
             base,
@@ -336,33 +342,34 @@ impl Application {
         let sphere =
             utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
 
-        self.renderer.add_model(
-            &self.base.device,
-            sponza,
-            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
-        );
+        // self.renderer.add_model(
+        //     &self.base.device,
+        //     sponza,
+        //     glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        // );
+        //
+        // self.renderer.add_model(
+        //     &self.base.device,
+        //     flight_helmet,
+        //     glam::Mat4::from_rotation_y(-75.0f32.to_radians())
+        //         * glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
+        // );
 
-        self.renderer.add_model(
-            &self.base.device,
-            flight_helmet,
-            glam::Mat4::from_rotation_y(-75.0f32.to_radians())
-                * glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
-        );
-
-        self.renderer.add_model(
-            &self.base.device,
-            sphere,
-            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 5.0)),
-        );
+        // self.renderer.add_model(
+        //     &self.base.device,
+        //     sphere,
+        //     glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        // );
 
         self.renderer.add_model(
             &self.base.device,
             utopian::ModelLoader::load_cube(&self.base.device),
+            //glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
             glam::Mat4::from_scale_rotation_translation(
-                Vec3::new(2.0, 3.0, 4.0),
-                Quat::from_rotation_x(-75.0f32.to_radians())
+                Vec3::new(2.0, 3.0, 1.0),
+                Quat::from_rotation_x(-55.0f32.to_radians())
                     * Quat::from_rotation_y(-150.0f32.to_radians())
-                    * Quat::from_rotation_z(50.0f32.to_radians()),
+                    * Quat::from_rotation_z(20.0f32.to_radians()),
                 glam::Vec3::new(2.0, 4.0, 1.0),
             ),
         );
@@ -436,11 +443,9 @@ impl Application {
 
             let mut recompile_shaders = false;
             match self.watcher_rx.try_recv() {
-                Ok(_event) => {
-                    match self.watcher_rx.recv() {
-                        Ok(_event) => recompile_shaders = true,
-                        Err(e) => println!("recv Err {:?}", e)
-                    }
+                Ok(_event) => match self.watcher_rx.recv() {
+                    Ok(_event) => recompile_shaders = true,
+                    Err(e) => println!("recv Err {:?}", e),
                 },
                 Err(_) => (),
             }
@@ -452,7 +457,10 @@ impl Application {
                     self.base.surface_resolution,
                     Some(self.renderer.bindless_descriptor_set_layout),
                 );
-                self.raytracing.recreate_pipeline(&self.base.device);
+                self.raytracing.recreate_pipeline(
+                    &self.base.device,
+                    Some(self.renderer.bindless_descriptor_set_layout),
+                );
             }
 
             self.camera.update(&input);
@@ -477,6 +485,7 @@ impl Application {
                         self.raytracing.record_commands(
                             &device,
                             command_buffer,
+                            self.renderer.bindless_descriptor_set,
                             &self.base.present_images[present_index as usize],
                         );
                     } else {
@@ -561,6 +570,8 @@ impl Application {
                                     normal_map: mesh.material.normal_map,
                                     metallic_rougness_map: mesh.material.metallic_roughness_map,
                                     occlusion_map: mesh.material.occlusion_map,
+                                    vertex_buffer: mesh.vertex_buffer_bindless_idx,
+                                    index_buffer: mesh.index_buffer_bindless_idx,
                                 };
 
                                 device.handle.cmd_push_constants(

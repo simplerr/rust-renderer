@@ -4,6 +4,7 @@ use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
 
+use crate::bindless::*;
 use crate::buffer::*;
 use crate::descriptor_set::*;
 use crate::device::*;
@@ -33,7 +34,12 @@ pub struct Raytracing {
 }
 
 impl Raytracing {
-    pub fn new(device: &Device, camera_uniform_buffer: &Buffer, screen_size: vk::Extent2D) -> Self {
+    pub fn new(
+        device: &Device,
+        camera_uniform_buffer: &Buffer,
+        screen_size: vk::Extent2D,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
+    ) -> Self {
         let storage_image = Raytracing::create_storage_image(device, screen_size);
 
         let pipeline_desc = PipelineDesc {
@@ -48,7 +54,9 @@ impl Raytracing {
                 pipeline_desc.raygen_path,
                 pipeline_desc.miss_path,
                 pipeline_desc.hit_path,
-            ).expect("Failed to create raytracing pipeline");
+                bindless_descriptor_set_layout,
+            )
+            .expect("Failed to create raytracing pipeline");
 
         let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
             Raytracing::create_shader_binding_table(device, pipeline);
@@ -383,6 +391,7 @@ impl Raytracing {
         raygen_shader_path: &str,
         miss_shader_path: &str,
         closest_hit_shader_path: &str,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Result<
         (
             vk::Pipeline,
@@ -401,8 +410,11 @@ impl Raytracing {
         let closest_hit_spv_file = closest_hit_spv_file.as_binary_u8();
 
         let reflection = Reflection::new(&[raygen_spv_file, miss_spv_file, closest_hit_spv_file]);
-        let (pipeline_layout, descriptor_set_layouts, _) =
-            create_layouts_from_reflection(&device.handle, &reflection, None);
+        let (pipeline_layout, descriptor_set_layouts, _) = create_layouts_from_reflection(
+            &device.handle,
+            &reflection,
+            bindless_descriptor_set_layout,
+        );
 
         let raygen_spv_file = Cursor::new(raygen_spv_file);
         let miss_spv_file = Cursor::new(miss_spv_file);
@@ -534,7 +546,13 @@ impl Raytracing {
         (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer)
     }
 
-    pub fn record_commands(&self, device: &Device, cb: vk::CommandBuffer, present_image: &Image) {
+    pub fn record_commands(
+        &self,
+        device: &Device,
+        cb: vk::CommandBuffer,
+        bindless_descriptor_set: vk::DescriptorSet,
+        present_image: &Image,
+    ) {
         let raygen_shader_binding_table = vk::StridedDeviceAddressRegionKHR {
             device_address: self.raygen_sbt_buffer.get_device_address(device),
             stride: device.rt_pipeline_properties.shader_group_handle_size as u64,
@@ -565,11 +583,21 @@ impl Raytracing {
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
                 self.pipeline,
             );
+
             device.handle.cmd_bind_descriptor_sets(
                 cb,
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
                 self.pipeline_layout,
-                0,
+                BINDLESS_DESCRIPTOR_INDEX,
+                &[bindless_descriptor_set],
+                &[],
+            );
+
+            device.handle.cmd_bind_descriptor_sets(
+                cb,
+                vk::PipelineBindPoint::RAY_TRACING_KHR,
+                self.pipeline_layout,
+                1,
                 &[self.descriptor_set.handle],
                 &[],
             );
@@ -597,7 +625,11 @@ impl Raytracing {
         }
     }
 
-    pub fn recreate_pipeline(&mut self, device: &Device) {
+    pub fn recreate_pipeline(
+        &mut self,
+        device: &Device,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
+    ) {
         // Todo: cleanup old resources
 
         let result = Raytracing::create_pipeline(
@@ -605,6 +637,7 @@ impl Raytracing {
             self.pipeline_desc.raygen_path,
             self.pipeline_desc.miss_path,
             self.pipeline_desc.hit_path,
+            bindless_descriptor_set_layout,
         );
 
         match result {

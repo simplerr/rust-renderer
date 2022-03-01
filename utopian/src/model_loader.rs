@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec2, Vec3, Vec4};
+use glam::{Mat4, Vec2, Vec4};
 
 use crate::device::*;
 use crate::gltf_loader::*;
@@ -25,8 +25,8 @@ pub fn add_vertex(
     v: f32,
 ) {
     vertices.push(Vertex {
-        pos: Vec3::new(x, y, z),
-        normal: Vec3::new(nx, ny, nz),
+        pos: Vec4::new(x, y, z, 0.0),
+        normal: Vec4::new(nx, ny, nz, 0.0),
         uv: Vec2::new(u, v),
         color: Vec4::new(1.0, 1.0, 1.0, 1.0),
         tangent: Vec4::new(0.0, 0.0, 0.0, 0.0),
@@ -51,6 +51,8 @@ impl ModelLoader {
                     metallic_roughness_map: DEFAULT_TEXTURE_MAP,
                     occlusion_map: DEFAULT_TEXTURE_MAP,
                 },
+                vertex_buffer_bindless_idx: 0,
+                index_buffer_bindless_idx: 0,
             }],
             transforms: vec![Mat4::IDENTITY],
             textures: vec![],
@@ -136,6 +138,8 @@ impl ModelLoader {
                 metallic_roughness_map: DEFAULT_TEXTURE_MAP,
                 occlusion_map: DEFAULT_TEXTURE_MAP,
             },
+            vertex_buffer_bindless_idx: 0,
+            index_buffer_bindless_idx: 0,
         });
         model.transforms.push(Mat4::IDENTITY);
 

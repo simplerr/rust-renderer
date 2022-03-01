@@ -2,8 +2,8 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 #extension GL_GOOGLE_include_directive : enable
-#extension GL_EXT_nonuniform_qualifier : enable
 
+#include "include/bindless.glsl"
 #include "pbr_lighting.glsl"
 
 layout (location = 0) in vec3 in_pos;
@@ -14,8 +14,6 @@ layout (location = 4) in vec4 in_tangent;
 layout (location = 5) in mat3 in_tbn;
 
 layout (location = 0) out vec4 out_color;
-
-layout (set = 0, binding = 0) uniform sampler2D samplerColor[];
 
 layout (std140, set = 1, binding = 0) uniform UBO_camera
 {
@@ -33,6 +31,9 @@ layout(push_constant) uniform PushConsts {
     int normal_map;
     int metallic_roughness_map;
     int occlusion_map;
+    int vertex_buffer;
+    int index_buffer;
+    vec2 pad;
 } pushConsts;
 
 vec4 lightColor = vec4(vec3(50.0f), 1.0f);
@@ -90,5 +91,6 @@ void main() {
     color = pow(color, vec3(1.0/2.2));
 
     out_color = vec4(color, 1.0f);
+    out_color = vec4(normal, 1.0f);
 }
 

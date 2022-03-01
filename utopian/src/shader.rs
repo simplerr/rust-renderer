@@ -41,11 +41,15 @@ impl Reflection {
                 if let Some(existing_descriptor_set) = descriptor_sets_combined.get_mut(&set) {
                     for (binding, descriptor) in descriptor_set {
                         if let Some(existing_descriptor) = existing_descriptor_set.get(&binding) {
+                            // Note: would like to compare binding_count as well but it does not
+                            // seem reliable
                             assert!(
-                                descriptor == *existing_descriptor,
-                                "Set: {} binding: {} inconsistent between shader stages",
+                                (descriptor.ty == existing_descriptor.ty && descriptor.name == existing_descriptor.name),
+                                "Set: {} binding: {} inconsistent between shader stages:\n{:#?} {:#?}",
                                 set,
-                                binding
+                                binding,
+                                descriptor,
+                                *existing_descriptor,
                             );
                         } else {
                             existing_descriptor_set.insert(binding, descriptor);
@@ -141,14 +145,19 @@ pub fn compile_glsl_shader(path: &str) -> Result<shaderc::CompilationArtifact, s
     );
     options.set_include_callback(|include_request, _include_type, _source, _size| {
         let include_path = Path::new(path).parent().unwrap();
-        let include_path = include_path.join(include_request);
+        let mut include_path = include_path.join(include_request);
+
+        // Look in the include folder if file not found
+        if !Path::new(&include_path).exists() {
+            include_path = Path::new("utopian/shaders").join(include_request);
+        }
 
         // println!(
         //     "include_request: {}, include_type: {:?}, source: {}, size: {}",
         //     include_path.to_str().unwrap(),
-        //     include_type,
-        //     source,
-        //     size
+        //     _include_type,
+        //     _source,
+        //     _size
         // );
 
         let include_source =
@@ -160,8 +169,8 @@ pub fn compile_glsl_shader(path: &str) -> Result<shaderc::CompilationArtifact, s
         })
     });
 
-    let binary_result = compiler
-        .compile_into_spirv(source, shader_kind, path, "main", Some(&options))?;
+    let binary_result =
+        compiler.compile_into_spirv(source, shader_kind, path, "main", Some(&options))?;
 
     assert_eq!(Some(&0x07230203), binary_result.as_binary().first());
 

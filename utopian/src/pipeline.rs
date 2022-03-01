@@ -128,13 +128,13 @@ impl Pipeline {
             vk::VertexInputAttributeDescription {
                 location: 0,
                 binding: 0,
-                format: vk::Format::R32G32B32_SFLOAT,
+                format: vk::Format::R32G32B32A32_SFLOAT,
                 offset: offset_of!(Vertex, pos) as u32,
             },
             vk::VertexInputAttributeDescription {
                 location: 1,
                 binding: 0,
-                format: vk::Format::R32G32B32_SFLOAT,
+                format: vk::Format::R32G32B32A32_SFLOAT,
                 offset: offset_of!(Vertex, normal) as u32,
             },
             vk::VertexInputAttributeDescription {
@@ -286,7 +286,10 @@ impl Pipeline {
                     surface_resolution,
                 );
 
-                println!("{} and {} was successfully recompiled", self.pipeline_desc.vertex_path, self.pipeline_desc.fragment_path);
+                println!(
+                    "{} and {} was successfully recompiled",
+                    self.pipeline_desc.vertex_path, self.pipeline_desc.fragment_path
+                );
 
                 self.handle = graphic_pipeline
             }

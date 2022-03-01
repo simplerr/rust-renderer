@@ -53,6 +53,7 @@ impl Device {
                 vk::KhrDeferredHostOperationsFn::name().as_ptr(),
                 vk::KhrSpirv14Fn::name().as_ptr(),
                 vk::KhrShaderFloatControlsFn::name().as_ptr(),
+                vk::ExtScalarBlockLayoutFn::name().as_ptr(),
             ]);
 
             let mut descriptor_indexing_features =
@@ -63,12 +64,15 @@ impl Device {
                 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::default();
             let mut buffer_device_address_features =
                 vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR::default();
+            let mut scalar_block_layout_features =
+                vk::PhysicalDeviceScalarBlockLayoutFeatures::default();
 
             let mut features2 = vk::PhysicalDeviceFeatures2::builder()
                 .push_next(&mut descriptor_indexing_features)
                 .push_next(&mut ray_tracing_pipeline_features)
                 .push_next(&mut acceleration_structure_features)
                 .push_next(&mut buffer_device_address_features)
+                .push_next(&mut scalar_block_layout_features)
                 .build();
 
             instance.get_physical_device_features2(physical_device, &mut features2);

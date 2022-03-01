@@ -11,10 +11,12 @@ pub struct Renderer {
     pub bindless_descriptor_set: vk::DescriptorSet,
     pub instances: Vec<ModelInstance>,
     default_diffuse_map_index: u32,
-    next_bindless_image_index: u32,
     default_normal_map_index: u32,
     default_occlusion_map_index: u32,
     default_metallic_roughness_map_index: u32,
+    next_bindless_image_index: u32,
+    next_bindless_vertex_buffer_index: u32,
+    next_bindless_index_buffer_index: u32,
 }
 
 impl Renderer {
@@ -27,6 +29,8 @@ impl Renderer {
             bindless_descriptor_set_layout,
             bindless_descriptor_set,
             next_bindless_image_index: 0,
+            next_bindless_vertex_buffer_index: 0,
+            next_bindless_index_buffer_index: 0,
             instances: vec![],
             default_diffuse_map_index: 0,
             default_normal_map_index: 0,
@@ -96,6 +100,11 @@ impl Renderer {
             mesh.material.normal_map = normal_bindless_index;
             mesh.material.metallic_roughness_map = metallic_roughness_bindless_index;
             mesh.material.occlusion_map = occlusion_bindless_index;
+
+            mesh.vertex_buffer_bindless_idx =
+                self.add_bindless_vertex_buffer(device, &mesh.primitive.vertex_buffer);
+            mesh.index_buffer_bindless_idx =
+                self.add_bindless_index_buffer(device, &mesh.primitive.index_buffer);
         }
 
         self.instances.push(ModelInstance { model, transform });
@@ -121,5 +130,59 @@ impl Renderer {
         self.next_bindless_image_index += 1;
 
         new_image_index
+    }
+
+    fn add_bindless_vertex_buffer(&mut self, device: &Device, buffer: &Buffer) -> u32 {
+        let new_buffer_index = self.next_bindless_vertex_buffer_index;
+
+        let buffer_info = vk::DescriptorBufferInfo::builder()
+            .buffer(buffer.buffer)
+            .range(buffer.size)
+            .build();
+
+        let descriptor_write = vk::WriteDescriptorSet::builder()
+            .dst_set(self.bindless_descriptor_set)
+            .dst_binding(1)
+            .dst_array_element(new_buffer_index)
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .buffer_info(std::slice::from_ref(&buffer_info))
+            .build();
+
+        unsafe {
+            device
+                .handle
+                .update_descriptor_sets(std::slice::from_ref(&descriptor_write), &[])
+        };
+
+        self.next_bindless_vertex_buffer_index += 1;
+
+        new_buffer_index
+    }
+
+    fn add_bindless_index_buffer(&mut self, device: &Device, buffer: &Buffer) -> u32 {
+        let new_buffer_index = self.next_bindless_index_buffer_index;
+
+        let buffer_info = vk::DescriptorBufferInfo::builder()
+            .buffer(buffer.buffer)
+            .range(buffer.size)
+            .build();
+
+        let descriptor_write = vk::WriteDescriptorSet::builder()
+            .dst_set(self.bindless_descriptor_set)
+            .dst_binding(2)
+            .dst_array_element(new_buffer_index)
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .buffer_info(std::slice::from_ref(&buffer_info))
+            .build();
+
+        unsafe {
+            device
+                .handle
+                .update_descriptor_sets(std::slice::from_ref(&descriptor_write), &[])
+        };
+
+        self.next_bindless_index_buffer_index += 1;
+
+        new_buffer_index
     }
 }

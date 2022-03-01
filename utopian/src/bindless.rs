@@ -5,14 +5,33 @@ pub const MAX_BINDLESS_DESCRIPTOR_COUNT: usize = 512 * 1024;
 pub const BINDLESS_DESCRIPTOR_INDEX: u32 = 0;
 
 pub fn create_bindless_descriptor_set_layout(device: &Device) -> vk::DescriptorSetLayout {
-    let descriptor_set_layout_binding = vk::DescriptorSetLayoutBinding::builder()
-        .binding(0)
-        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-        .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32)
-        .stage_flags(vk::ShaderStageFlags::ALL)
-        .build();
+    let descriptor_set_layout_binding = vec![
+        // Textures
+        vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32)
+            .stage_flags(vk::ShaderStageFlags::ALL)
+            .build(),
+        // Vertex buffers
+        vk::DescriptorSetLayoutBinding::builder()
+            .binding(1)
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32)
+            .stage_flags(vk::ShaderStageFlags::ALL)
+            .build(),
+        // Index buffers
+        vk::DescriptorSetLayoutBinding::builder()
+            .binding(2)
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32)
+            .stage_flags(vk::ShaderStageFlags::ALL)
+            .build(),
+    ];
 
     let binding_flags: Vec<vk::DescriptorBindingFlags> = vec![
+        vk::DescriptorBindingFlags::PARTIALLY_BOUND,
+        vk::DescriptorBindingFlags::PARTIALLY_BOUND,
         vk::DescriptorBindingFlags::PARTIALLY_BOUND
             | vk::DescriptorBindingFlags::VARIABLE_DESCRIPTOR_COUNT,
     ];
@@ -21,7 +40,7 @@ pub fn create_bindless_descriptor_set_layout(device: &Device) -> vk::DescriptorS
         vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder().binding_flags(&binding_flags);
 
     let descriptor_sets_layout_info = vk::DescriptorSetLayoutCreateInfo::builder()
-        .bindings(&[descriptor_set_layout_binding])
+        .bindings(&descriptor_set_layout_binding)
         .flags(vk::DescriptorSetLayoutCreateFlags::UPDATE_AFTER_BIND_POOL)
         .push_next(&mut binding_flags_create_info)
         .build();

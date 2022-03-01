@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::{Vec2, Vec3, Vec4};
+use glam::{Vec2, Vec4};
 
 use crate::buffer::*;
 use crate::device::*;
@@ -7,8 +7,8 @@ use crate::device::*;
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct Vertex {
-    pub pos: Vec3,
-    pub normal: Vec3,
+    pub pos: Vec4,
+    pub normal: Vec4,
     pub uv: Vec2,
     pub color: Vec4,
     pub tangent: Vec4,
@@ -24,8 +24,8 @@ pub struct Primitive {
 impl Vertex {
     pub fn new(x: f32, y: f32, z: f32) -> Vertex {
         Vertex {
-            pos: Vec3::new(x, y, z),
-            normal: Vec3::new(0.0, 0.0, 0.0),
+            pos: Vec4::new(x, y, z, 0.0),
+            normal: Vec4::new(0.0, 0.0, 0.0, 0.0),
             uv: Vec2::new(0.0, 0.0),
             color: Vec4::new(1.0, 1.0, 1.0, 1.0),
             tangent: Vec4::new(0.0, 0.0, 0.0, 0.0),
@@ -41,7 +41,8 @@ impl Primitive {
             std::mem::size_of_val(&*indices) as u64,
             vk::BufferUsageFlags::INDEX_BUFFER
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
-                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
+                | vk::BufferUsageFlags::STORAGE_BUFFER,
         );
 
         let vertex_buffer = Buffer::new(
@@ -50,7 +51,8 @@ impl Primitive {
             std::mem::size_of_val(&*vertices) as u64,
             vk::BufferUsageFlags::VERTEX_BUFFER
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
-                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
+                | vk::BufferUsageFlags::STORAGE_BUFFER,
         );
 
         // Todo: device local index and vertex buffers
