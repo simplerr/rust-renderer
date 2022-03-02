@@ -24,12 +24,8 @@ struct CameraUniformData {
 struct PushConstants {
     world: glam::Mat4,
     color: glam::Vec4,
-    diffuse_map: u32,
-    normal_map: u32,
-    metallic_rougness_map: u32,
-    occlusion_map: u32,
-    vertex_buffer: u32,
-    index_buffer: u32,
+    mesh_index: u32,
+    pad: [u32; 3],
 }
 
 struct FpsTimer {
@@ -342,24 +338,24 @@ impl Application {
         let sphere =
             utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
 
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     sponza,
-        //     glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
-        // );
-        //
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     flight_helmet,
-        //     glam::Mat4::from_rotation_y(-75.0f32.to_radians())
-        //         * glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
-        // );
+        self.renderer.add_model(
+            &self.base.device,
+            sponza,
+            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        );
 
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     sphere,
-        //     glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
-        // );
+        self.renderer.add_model(
+            &self.base.device,
+            flight_helmet,
+            glam::Mat4::from_rotation_y(-75.0f32.to_radians())
+                * glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
+        );
+
+        self.renderer.add_model(
+            &self.base.device,
+            sphere,
+            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        );
 
         self.renderer.add_model(
             &self.base.device,
@@ -566,12 +562,8 @@ impl Application {
                                 let push_data = PushConstants {
                                     world: instance.transform * instance.model.transforms[i],
                                     color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
-                                    diffuse_map: mesh.material.diffuse_map,
-                                    normal_map: mesh.material.normal_map,
-                                    metallic_rougness_map: mesh.material.metallic_roughness_map,
-                                    occlusion_map: mesh.material.occlusion_map,
-                                    vertex_buffer: mesh.vertex_buffer_bindless_idx,
-                                    index_buffer: mesh.index_buffer_bindless_idx,
+                                    mesh_index: mesh.gpu_mesh,
+                                    pad: [0; 3],
                                 };
 
                                 device.handle.cmd_push_constants(

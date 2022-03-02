@@ -183,4 +183,34 @@ impl DescriptorSet {
                 .update_descriptor_sets(&[descriptor_writes], &[])
         };
     }
+
+    // Note: this is unlike the other functions above an associate function
+    // specificly used in Renderer for writing the mesh and material buffers.
+    // Either this should be a metho and the bindless descriptor set shall be
+    // an object of this type or all function above should be associate functions
+    // as well. TBD.
+    pub fn write_storage_buffer(
+        device: &Device,
+        descriptor_set: vk::DescriptorSet,
+        binding: u32,
+        buffer: &Buffer,
+    ) {
+        let buffer_info = vk::DescriptorBufferInfo::builder()
+            .buffer(buffer.buffer)
+            .range(buffer.size)
+            .build();
+
+        let descriptor_write = vk::WriteDescriptorSet::builder()
+            .dst_set(descriptor_set)
+            .dst_binding(binding)
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .buffer_info(std::slice::from_ref(&buffer_info))
+            .build();
+
+        unsafe {
+            device
+                .handle
+                .update_descriptor_sets(std::slice::from_ref(&descriptor_write), &[])
+        };
+    }
 }

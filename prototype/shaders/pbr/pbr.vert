@@ -30,17 +30,13 @@ layout (std140, set = 1, binding = 0) uniform UBO_camera
 layout(push_constant) uniform PushConsts {
    mat4 world;
    vec4 color;
-   int diffuse_map;
-   int normal_map;
-   int metallic_roughness_map;
-   int occlusion_map;
-   int vertex_buffer;
-   int index_buffer;
-   vec2 pad;
+   uint mesh_index;
+   ivec3 pad;
 } pushConsts;
 
 void main() {
-    Vertex vertex = verticesSSBO[pushConsts.vertex_buffer].vertices[gl_VertexIndex];
+    Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
+    Vertex vertex = verticesSSBO[mesh.vertex_buffer].vertices[gl_VertexIndex];
 
 #define BINDLESS
 #ifdef BINDLESS

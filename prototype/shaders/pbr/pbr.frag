@@ -27,13 +27,8 @@ layout (std140, set = 1, binding = 0) uniform UBO_camera
 layout(push_constant) uniform PushConsts {
     mat4 world;
     vec4 color;
-    int diffuse_map;
-    int normal_map;
-    int metallic_roughness_map;
-    int occlusion_map;
-    int vertex_buffer;
-    int index_buffer;
-    vec2 pad;
+    uint mesh_index;
+    ivec3 pad;
 } pushConsts;
 
 vec4 lightColor = vec4(vec3(50.0f), 1.0f);
@@ -51,11 +46,14 @@ Light lights[numLights] = {
 };
 
 void main() {
-    vec4 diffuse_color = texture(samplerColor[pushConsts.diffuse_map], in_uv);
-    vec4 normal_map = texture(samplerColor[pushConsts.normal_map], in_uv);
-    float metallic = texture(samplerColor[pushConsts.metallic_roughness_map], in_uv).b;
-    float roughness = texture(samplerColor[pushConsts.metallic_roughness_map], in_uv).g;
-    float occlusion = texture(samplerColor[pushConsts.occlusion_map], in_uv).r;
+    Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
+    Material material = materialsSSBO.materials[mesh.material];
+
+    vec4 diffuse_color = texture(samplerColor[material.diffuse_map], in_uv);
+    vec4 normal_map = texture(samplerColor[material.normal_map], in_uv);
+    float metallic = texture(samplerColor[material.metallic_roughness_map], in_uv).b;
+    float roughness = texture(samplerColor[material.metallic_roughness_map], in_uv).g;
+    float occlusion = texture(samplerColor[material.occlusion_map], in_uv).r;
 
     // From sRGB space to Linear space
     diffuse_color.rgb = pow(diffuse_color.rgb, vec3(2.2));
@@ -91,6 +89,6 @@ void main() {
     color = pow(color, vec3(1.0/2.2));
 
     out_color = vec4(color, 1.0f);
-    out_color = vec4(normal, 1.0f);
+    //out_color = vec4(normal, 1.0f);
 }
 

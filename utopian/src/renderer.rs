@@ -1,6 +1,9 @@
 use crate::*;
 use ash::vk;
 
+pub const MAX_NUM_GPU_MATERIALS: usize = 1024;
+pub const MAX_NUM_GPU_MESHES: usize = 1024;
+
 pub struct ModelInstance {
     pub model: Model,
     pub transform: glam::Mat4,
@@ -10,6 +13,10 @@ pub struct Renderer {
     pub bindless_descriptor_set_layout: vk::DescriptorSetLayout,
     pub bindless_descriptor_set: vk::DescriptorSet,
     pub instances: Vec<ModelInstance>,
+    pub gpu_materials_buffer: Buffer,
+    pub gpu_meshes_buffer: Buffer,
+    gpu_materials: Vec<GpuMaterial>,
+    gpu_meshes: Vec<GpuMesh>,
     default_diffuse_map_index: u32,
     default_normal_map_index: u32,
     default_occlusion_map_index: u32,
@@ -19,19 +26,62 @@ pub struct Renderer {
     next_bindless_index_buffer_index: u32,
 }
 
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+struct GpuMaterial {
+    diffuse_map: u32,
+    normal_map: u32,
+    metallic_roughness_map: u32,
+    occlusion_map: u32,
+}
+
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+struct GpuMesh {
+    vertex_buffer: u32,
+    index_buffer: u32,
+    material: u32,
+}
+
 impl Renderer {
     pub fn new(device: &Device) -> Renderer {
         let bindless_descriptor_set_layout = create_bindless_descriptor_set_layout(&device);
         let bindless_descriptor_set =
             create_bindless_descriptor_set(&device, bindless_descriptor_set_layout);
 
+        let gpu_materials_buffer = Buffer::new(
+            device,
+            &[0],
+            (MAX_NUM_GPU_MATERIALS * std::mem::size_of::<GpuMaterial>()) as u64,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
+        );
+
+        let gpu_meshes_buffer = Buffer::new(
+            device,
+            &[0],
+            (MAX_NUM_GPU_MESHES * std::mem::size_of::<GpuMesh>()) as u64,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
+        );
+
+        DescriptorSet::write_storage_buffer(
+            device,
+            bindless_descriptor_set,
+            3,
+            &gpu_materials_buffer,
+        );
+        DescriptorSet::write_storage_buffer(device, bindless_descriptor_set, 4, &gpu_meshes_buffer);
+
         Renderer {
             bindless_descriptor_set_layout,
             bindless_descriptor_set,
+            instances: vec![],
+            gpu_materials: vec![],
+            gpu_meshes: vec![],
+            gpu_meshes_buffer,
+            gpu_materials_buffer,
             next_bindless_image_index: 0,
             next_bindless_vertex_buffer_index: 0,
             next_bindless_index_buffer_index: 0,
-            instances: vec![],
             default_diffuse_map_index: 0,
             default_normal_map_index: 0,
             default_occlusion_map_index: 0,
@@ -96,16 +146,34 @@ impl Renderer {
                 ),
             };
 
-            mesh.material.diffuse_map = diffuse_bindless_index;
-            mesh.material.normal_map = normal_bindless_index;
-            mesh.material.metallic_roughness_map = metallic_roughness_bindless_index;
-            mesh.material.occlusion_map = occlusion_bindless_index;
-
-            mesh.vertex_buffer_bindless_idx =
+            let vertex_buffer_bindless_idx =
                 self.add_bindless_vertex_buffer(device, &mesh.primitive.vertex_buffer);
-            mesh.index_buffer_bindless_idx =
+            let index_buffer_bindless_idx =
                 self.add_bindless_index_buffer(device, &mesh.primitive.index_buffer);
+
+            let material_index = self.add_material(GpuMaterial {
+                diffuse_map: diffuse_bindless_index,
+                normal_map: normal_bindless_index,
+                metallic_roughness_map: metallic_roughness_bindless_index,
+                occlusion_map: occlusion_bindless_index,
+            });
+
+            let mesh_index = self.add_mesh(GpuMesh {
+                vertex_buffer: vertex_buffer_bindless_idx,
+                index_buffer: index_buffer_bindless_idx,
+                material: material_index,
+            });
+
+            mesh.gpu_mesh = mesh_index;
         }
+
+        // println!("{:?}", self.gpu_meshes);
+        // println!("{:?}", self.gpu_materials);
+
+        self.gpu_meshes_buffer
+            .update_memory(device, self.gpu_meshes.as_slice());
+        self.gpu_materials_buffer
+            .update_memory(device, self.gpu_materials.as_slice());
 
         self.instances.push(ModelInstance { model, transform });
     }
@@ -184,5 +252,19 @@ impl Renderer {
         self.next_bindless_index_buffer_index += 1;
 
         new_buffer_index
+    }
+
+    fn add_material(&mut self, gpu_material: GpuMaterial) -> u32 {
+        let material_index = self.gpu_materials.len() as u32;
+        self.gpu_materials.push(gpu_material);
+
+        material_index
+    }
+
+    fn add_mesh(&mut self, gpu_mesh: GpuMesh) -> u32 {
+        let gpu_index = self.gpu_meshes.len() as u32;
+        self.gpu_meshes.push(gpu_mesh);
+
+        gpu_index
     }
 }

@@ -1,7 +1,7 @@
 use crate::device::*;
 use ash::vk;
 
-pub const MAX_BINDLESS_DESCRIPTOR_COUNT: usize = 512 * 1024;
+pub const MAX_BINDLESS_DESCRIPTOR_COUNT: usize = 512 * 512;
 pub const BINDLESS_DESCRIPTOR_INDEX: u32 = 0;
 
 pub fn create_bindless_descriptor_set_layout(device: &Device) -> vk::DescriptorSetLayout {
@@ -27,9 +27,25 @@ pub fn create_bindless_descriptor_set_layout(device: &Device) -> vk::DescriptorS
             .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32)
             .stage_flags(vk::ShaderStageFlags::ALL)
             .build(),
+        // Materials (not bindless)
+        vk::DescriptorSetLayoutBinding::builder()
+            .binding(3)
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32) // Hack: actually 1
+            .stage_flags(vk::ShaderStageFlags::ALL)
+            .build(),
+        // Meshes (not bindless)
+        vk::DescriptorSetLayoutBinding::builder()
+            .binding(4)
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32) // Hack: actually 1
+            .stage_flags(vk::ShaderStageFlags::ALL)
+            .build(),
     ];
 
     let binding_flags: Vec<vk::DescriptorBindingFlags> = vec![
+        vk::DescriptorBindingFlags::PARTIALLY_BOUND,
+        vk::DescriptorBindingFlags::PARTIALLY_BOUND,
         vk::DescriptorBindingFlags::PARTIALLY_BOUND,
         vk::DescriptorBindingFlags::PARTIALLY_BOUND,
         vk::DescriptorBindingFlags::PARTIALLY_BOUND

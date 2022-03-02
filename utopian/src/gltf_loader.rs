@@ -6,6 +6,8 @@ use crate::texture::*;
 
 pub const DEFAULT_TEXTURE_MAP: u32 = u32::MAX;
 
+// Note: indexes into the Model specific texture array,
+// not bindless indexes.
 pub struct Material {
     pub diffuse_map: u32,
     pub normal_map: u32,
@@ -16,8 +18,7 @@ pub struct Material {
 pub struct Mesh {
     pub primitive: Primitive,
     pub material: Material,
-    pub vertex_buffer_bindless_idx: u32,
-    pub index_buffer_bindless_idx: u32,
+    pub gpu_mesh: u32,
 }
 
 pub struct Model {
@@ -109,8 +110,7 @@ pub fn load_node(
                     metallic_roughness_map: metallic_roughness_index,
                     occlusion_map: occlusion_index,
                 },
-                vertex_buffer_bindless_idx: 0,
-                index_buffer_bindless_idx: 0,
+                gpu_mesh: 0,
             });
 
             model.transforms.push(node_transform);

@@ -51,8 +51,7 @@ impl ModelLoader {
                     metallic_roughness_map: DEFAULT_TEXTURE_MAP,
                     occlusion_map: DEFAULT_TEXTURE_MAP,
                 },
-                vertex_buffer_bindless_idx: 0,
-                index_buffer_bindless_idx: 0,
+                gpu_mesh: 0,
             }],
             transforms: vec![Mat4::IDENTITY],
             textures: vec![],
@@ -138,8 +137,7 @@ impl ModelLoader {
                 metallic_roughness_map: DEFAULT_TEXTURE_MAP,
                 occlusion_map: DEFAULT_TEXTURE_MAP,
             },
-            vertex_buffer_bindless_idx: 0,
-            index_buffer_bindless_idx: 0,
+            gpu_mesh: 0,
         });
         model.transforms.push(Mat4::IDENTITY);
 
