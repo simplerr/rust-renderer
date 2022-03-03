@@ -220,7 +220,7 @@ impl Raytracing {
         let mut acceleration_instances: Vec<vk::AccelerationStructureInstanceKHR> = vec![];
         let mut blas_idx = 0;
         for instance in instances {
-            for (i, _mesh) in instance.model.meshes.iter().enumerate() {
+            for (i, mesh) in instance.model.meshes.iter().enumerate() {
                 let world_matrix = instance.transform * instance.model.transforms[i];
                 let (scale, rotation, translation) = world_matrix.to_scale_rotation_translation();
                 let rotation_matrix = Mat3::from_quat(rotation);
@@ -257,7 +257,7 @@ impl Raytracing {
                     acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
                         device_handle: blas_device_address,
                     },
-                    instance_custom_index_and_mask: vk::Packed24_8::new(0, 0xff),
+                    instance_custom_index_and_mask: vk::Packed24_8::new(mesh.gpu_mesh, 0xff),
                     instance_shader_binding_table_record_offset_and_flags: vk::Packed24_8::new(
                         0,
                         vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw() as u8,

@@ -111,8 +111,6 @@ impl Renderer {
         // Add the images from the new model to the bindless descriptor set and
         // also update the mappings for each primitive to be indexes corresponding
         // to the ordering in the bindless descriptor set texture array.
-        // Note: After this remapping the indexes no longer corresponds to the
-        // images in model.textures[].
         for mesh in &mut model.meshes {
             let diffuse_bindless_index = match mesh.material.diffuse_map {
                 DEFAULT_TEXTURE_MAP => self.default_diffuse_map_index,
