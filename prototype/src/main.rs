@@ -170,6 +170,9 @@ impl Application {
         directory_watcher
             .watch("utopian/shaders/", RecursiveMode::Recursive)
             .unwrap();
+        directory_watcher
+            .watch("prototype/shaders", RecursiveMode::Recursive)
+            .unwrap();
 
         Application {
             base,
@@ -335,14 +338,14 @@ impl Application {
             "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf",
         );
 
-        let _sphere =
+        let sphere =
             utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
 
-        self.renderer.add_model(
-            &self.base.device,
-            sponza,
-            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
-        );
+        // self.renderer.add_model(
+        //     &self.base.device,
+        //     sponza,
+        //     glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        // );
 
         self.renderer.add_model(
             &self.base.device,
@@ -351,22 +354,23 @@ impl Application {
                 * glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
         );
 
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     sphere,
-        //     glam::Mat4::from_translation(glam::Vec3::new(3.0, 0.0, 0.0)),
-        // );
+        self.renderer.add_model(
+            &self.base.device,
+            sphere,
+            glam::Mat4::from_translation(glam::Vec3::new(3.0, 0.0, 0.0)),
+        );
 
         self.renderer.add_model(
             &self.base.device,
             utopian::ModelLoader::load_cube(&self.base.device),
             //glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
             glam::Mat4::from_scale_rotation_translation(
-                Vec3::new(0.5, 0.5, 0.5),
-                Quat::from_rotation_x(-55.0f32.to_radians())
-                    * Quat::from_rotation_y(-150.0f32.to_radians())
-                    * Quat::from_rotation_z(20.0f32.to_radians()),
-                glam::Vec3::new(4.0, 0.5, 0.0),
+                Vec3::new(20.0, 0.5, 20.0),
+                Quat::IDENTITY,
+                // Quat::from_rotation_x(-55.0f32.to_radians())
+                //     * Quat::from_rotation_y(-150.0f32.to_radians())
+                //     * Quat::from_rotation_z(20.0f32.to_radians()),
+                glam::Vec3::new(4.0, -0.5, 0.0),
             ),
         );
 
