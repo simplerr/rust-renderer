@@ -482,7 +482,11 @@ impl Application {
             let mut recompile_shaders = false;
             match self.watcher_rx.try_recv() {
                 Ok(_event) => match self.watcher_rx.recv() {
-                    Ok(_event) => recompile_shaders = true,
+                    Ok(event) => {
+                        if let notify::DebouncedEvent::Write(..) = event {
+                            recompile_shaders = true
+                        }
+                    }
                     Err(e) => println!("recv Err {:?}", e),
                 },
                 Err(_) => (),
