@@ -49,7 +49,7 @@ impl Camera {
         }
     }
 
-    pub fn update(&mut self, input: &Input) {
+    pub fn update(&mut self, input: &Input) -> bool {
         let transform = self.camera_rig.final_transform;
 
         let mut movement = Vec3::new(0.0, 0.0, 0.0);
@@ -68,14 +68,18 @@ impl Camera {
 
         self.camera_rig.driver_mut::<Position>().translate(movement);
 
+        let mut view_changed = false;
         if input.right_mouse_down {
             self.camera_rig
                 .driver_mut::<YawPitch>()
                 .rotate_yaw_pitch(-0.3 * input.mouse_delta.x, -0.3 * input.mouse_delta.y);
+            view_changed = true;
         }
 
         // Todo: proper frame delta time
         self.camera_rig.update(1.0);
+
+        movement != Vec3::new(0.0, 0.0, 0.0) || view_changed
     }
 
     pub fn get_view(&self) -> Mat4 {

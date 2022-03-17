@@ -22,7 +22,8 @@ pub struct PipelineDesc {
 pub struct Raytracing {
     top_level_acceleration: vk::AccelerationStructureKHR,
     bottom_level_accelerations: Vec<vk::AccelerationStructureKHR>,
-    storage_image: Image,
+    output_image: Image,
+    accumulation_image: Image,
     pipeline: vk::Pipeline,
     pipeline_layout: vk::PipelineLayout,
     raygen_sbt_buffer: Buffer,
@@ -40,7 +41,13 @@ impl Raytracing {
         screen_size: vk::Extent2D,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Self {
-        let storage_image = Raytracing::create_storage_image(device, screen_size);
+        let output_image = Raytracing::create_storage_image(
+            device,
+            screen_size,
+            vk::Format::B8G8R8A8_UNORM, // Matches the swapchain image format
+        );
+        let accumulation_image =
+            Raytracing::create_storage_image(device, screen_size, vk::Format::R32G32B32A32_SFLOAT);
 
         let pipeline_desc = PipelineDesc {
             raygen_path: "utopian/shaders/raytracing_basic/basic.rgen",
@@ -70,12 +77,18 @@ impl Raytracing {
         );
 
         descriptor_set.write_uniform_buffer(&device, "camera".to_string(), &camera_uniform_buffer);
-        descriptor_set.write_storage_image(&device, "image".to_string(), &storage_image);
+        descriptor_set.write_storage_image(&device, "output_image".to_string(), &output_image);
+        descriptor_set.write_storage_image(
+            &device,
+            "accumulation_image".to_string(),
+            &accumulation_image,
+        );
 
         Raytracing {
             bottom_level_accelerations: vec![],
             top_level_acceleration: vk::AccelerationStructureKHR::null(),
-            storage_image,
+            output_image,
+            accumulation_image,
             pipeline,
             pipeline_layout,
             raygen_sbt_buffer,
@@ -369,12 +382,16 @@ impl Raytracing {
         // Todo: cleanup scratch buffer and instances buffer
     }
 
-    pub fn create_storage_image(device: &Device, screen_size: vk::Extent2D) -> Image {
+    pub fn create_storage_image(
+        device: &Device,
+        screen_size: vk::Extent2D,
+        format: vk::Format,
+    ) -> Image {
         let storage_image = Image::new(
             device,
             screen_size.width,
             screen_size.height,
-            vk::Format::B8G8R8A8_UNORM, // Matches the swapchain image format
+            format,
             vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE,
             vk::ImageAspectFlags::COLOR,
         );
@@ -614,13 +631,13 @@ impl Raytracing {
             );
 
             present_image.transition_layout(device, cb, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
-            self.storage_image
+            self.output_image
                 .transition_layout(device, cb, vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
 
-            self.storage_image.copy(device, cb, &present_image);
+            self.output_image.copy(device, cb, &present_image);
 
             present_image.transition_layout(device, cb, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
-            self.storage_image
+            self.output_image
                 .transition_layout(device, cb, vk::ImageLayout::GENERAL);
         }
     }

@@ -18,6 +18,9 @@ struct CameraUniformData {
     inverse_view: glam::Mat4,
     inverse_projection: glam::Mat4,
     eye_pos: glam::Vec3,
+    samples_per_frame: u32,
+    total_samples: u32,
+    num_bounces: u32,
 }
 
 #[allow(dead_code)]
@@ -96,6 +99,9 @@ impl Application {
             inverse_view: camera.get_view().inverse(),
             inverse_projection: camera.get_projection().inverse(),
             eye_pos: camera.get_position(),
+            samples_per_frame: 1,
+            total_samples: 0,
+            num_bounces: 100,
         };
 
         let slice = unsafe { std::slice::from_raw_parts(&camera_data, 1) };
@@ -192,7 +198,7 @@ impl Application {
                 fps: 0,
                 elapsed_frames: 0,
             },
-            raytracing_enabled: false,
+            raytracing_enabled: true,
             _directory_watcher: directory_watcher,
             watcher_rx,
         }
@@ -333,6 +339,11 @@ impl Application {
             "prototype/data/models/Sponza/glTF/Sponza.gltf",
         );
 
+        let cornell_box = utopian::gltf_loader::load_gltf(
+            &self.base.device,
+            "prototype/data/models/CornellBox-Original.gltf",
+        );
+
         let flight_helmet = utopian::gltf_loader::load_gltf(
             &self.base.device,
             "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf",
@@ -349,16 +360,22 @@ impl Application {
 
         self.renderer.add_model(
             &self.base.device,
+            cornell_box,
+            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        );
+
+        self.renderer.add_model(
+            &self.base.device,
             flight_helmet,
             glam::Mat4::from_rotation_y(-75.0f32.to_radians())
                 * glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
         );
 
-        self.renderer.add_model(
-            &self.base.device,
-            sphere,
-            glam::Mat4::from_translation(glam::Vec3::new(3.0, 0.0, 0.0)),
-        );
+        // self.renderer.add_model(
+        //     &self.base.device,
+        //     sphere,
+        //     glam::Mat4::from_translation(glam::Vec3::new(3.0, 0.0, 0.0)),
+        // );
 
         self.renderer.add_model(
             &self.base.device,
@@ -383,6 +400,8 @@ impl Application {
         camera_pos: &mut Vec3,
         camera_dir: &mut Vec3,
         fps: u32,
+        samples_per_frame: &mut u32,
+        num_bounces: &mut u32,
     ) {
         egui::Window::new("rust-renderer 0.0.1")
             .resizable(true)
@@ -407,6 +426,14 @@ impl Application {
                     ui.label("z:");
                     ui.add(egui::widgets::DragValue::new(&mut camera_dir.z));
                 });
+                ui.horizontal(|ui| {
+                    ui.label("Samples per frame:");
+                    ui.add(egui::widgets::Slider::new(samples_per_frame, 0..=10));
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Num ray bounces:");
+                    ui.add(egui::widgets::Slider::new(num_bounces, 0..=150));
+                });
             });
     }
 
@@ -430,12 +457,23 @@ impl Application {
 
             self.egui_integration.begin_frame();
 
+            // Todo: refactor so not everything needs to be passed as argument
+            let old_samples_per_frame = self.camera_data.samples_per_frame;
+            let old_num_bounces = self.camera_data.num_bounces;
             Application::update_ui(
                 &self.egui_integration.context(),
                 &mut self.camera.get_position(),
                 &mut self.camera.get_forward(),
                 self.fps_timer.calculate(),
+                &mut self.camera_data.samples_per_frame,
+                &mut self.camera_data.num_bounces,
             );
+
+            if self.camera_data.samples_per_frame != old_samples_per_frame
+                || self.camera_data.num_bounces != old_num_bounces
+            {
+                self.camera_data.total_samples = 0;
+            }
 
             if input.key_pressed(winit::event::VirtualKeyCode::Space) {
                 self.raytracing_enabled = !self.raytracing_enabled;
@@ -451,6 +489,7 @@ impl Application {
             }
 
             if recompile_shaders || input.key_pressed(winit::event::VirtualKeyCode::R) {
+                self.camera_data.total_samples = 0;
                 self.pipeline.recreate_pipeline(
                     &self.base.device,
                     self.renderpass,
@@ -463,7 +502,9 @@ impl Application {
                 );
             }
 
-            self.camera.update(&input);
+            if self.camera.update(&input) {
+                self.camera_data.total_samples = 0;
+            }
 
             self.camera_data.view = self.camera.get_view();
             self.camera_data.projection = self.camera.get_projection();
@@ -471,16 +512,20 @@ impl Application {
             self.camera_data.inverse_projection = self.camera.get_projection().inverse();
             self.camera_data.eye_pos = self.camera.get_position();
 
-            self.camera_ubo.update_memory(
-                &self.base.device,
-                std::slice::from_raw_parts(&self.camera_data, 1),
-            );
+            if self.raytracing_enabled {
+                self.camera_data.total_samples += self.camera_data.samples_per_frame;
+            }
 
             Application::record_commands(
                 &self.base.device,
                 self.base.draw_command_buffer,
                 self.base.draw_commands_reuse_fence,
                 |device, command_buffer| {
+                    self.camera_ubo.update_memory(
+                        &self.base.device,
+                        std::slice::from_raw_parts(&self.camera_data, 1),
+                    );
+
                     if self.raytracing_enabled {
                         self.raytracing.record_commands(
                             &device,
