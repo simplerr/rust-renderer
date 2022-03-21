@@ -50,6 +50,7 @@ impl ModelLoader {
                     normal_map: DEFAULT_TEXTURE_MAP,
                     metallic_roughness_map: DEFAULT_TEXTURE_MAP,
                     occlusion_map: DEFAULT_TEXTURE_MAP,
+                    base_color_factor: Vec4::new(1.0, 1.0, 1.0, 1.0),
                 },
                 gpu_mesh: 0,
             }],
@@ -136,6 +137,7 @@ impl ModelLoader {
                 normal_map: DEFAULT_TEXTURE_MAP,
                 metallic_roughness_map: DEFAULT_TEXTURE_MAP,
                 occlusion_map: DEFAULT_TEXTURE_MAP,
+                base_color_factor: Vec4::new(1.0, 1.0, 1.0, 1.0),
             },
             gpu_mesh: 0,
         });

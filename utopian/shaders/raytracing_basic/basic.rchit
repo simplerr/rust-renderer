@@ -24,6 +24,7 @@ void main()
    vec3 world_normal = normalize(vec3(normal.xyz * gl_WorldToObjectEXT));
    vec2 uv = v0.uv * barycentrics.x + v1.uv * barycentrics.y + v2.uv * barycentrics.z;
    vec3 color = texture(samplerColor[material.diffuse_map], uv).xyz;
+   color *= material.base_color_factor.rgb;
 
    vec3 scatterDirection = world_normal + randomPointInUnitSphere(rayPayload.randomSeed);
    const bool isScattered = dot(gl_WorldRayDirectionEXT, world_normal) < 0;

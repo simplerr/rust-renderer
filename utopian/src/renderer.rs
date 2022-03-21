@@ -1,5 +1,6 @@
 use crate::*;
 use ash::vk;
+use glam::Vec4;
 
 pub const MAX_NUM_GPU_MATERIALS: usize = 1024;
 pub const MAX_NUM_GPU_MESHES: usize = 1024;
@@ -33,6 +34,7 @@ struct GpuMaterial {
     normal_map: u32,
     metallic_roughness_map: u32,
     occlusion_map: u32,
+    base_color_factor: Vec4,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -154,6 +156,7 @@ impl Renderer {
                 normal_map: normal_bindless_index,
                 metallic_roughness_map: metallic_roughness_bindless_index,
                 occlusion_map: occlusion_bindless_index,
+                base_color_factor: mesh.material.base_color_factor,
             });
 
             let mesh_index = self.add_mesh(GpuMesh {

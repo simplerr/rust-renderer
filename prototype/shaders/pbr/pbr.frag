@@ -70,7 +70,7 @@ void main() {
 
     PixelParams pixel;
     pixel.position = in_pos;
-    pixel.baseColor = diffuse_color.rgb;
+    pixel.baseColor = diffuse_color.rgb * material.base_color_factor.rgb;
     pixel.normal = normal;
     pixel.metallic = metallic;
     pixel.roughness = roughness;

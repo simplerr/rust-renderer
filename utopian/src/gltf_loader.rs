@@ -13,6 +13,7 @@ pub struct Material {
     pub normal_map: u32,
     pub metallic_roughness_map: u32,
     pub occlusion_map: u32,
+    pub base_color_factor: Vec4,
 }
 
 pub struct Mesh {
@@ -53,7 +54,6 @@ pub fn load_node(
             let tex_coords = if let Some(tex_coords) = reader.read_tex_coords(0) {
                 tex_coords.into_f32().map(Vec2::from).collect()
             } else {
-                println!("Missing texture coordinates in primitive");
                 vec![Vec2::new(0.0, 0.0); positions.len()]
             };
 
@@ -61,6 +61,12 @@ pub fn load_node(
                 tangents.map(Vec4::from).collect()
             } else {
                 vec![Vec4::new(0.0, 0.0, 0.0, 0.0); positions.len()]
+            };
+
+            let colors: Vec<_> = if let Some(colors) = reader.read_colors(0) {
+                colors.into_rgba_f32().map(Vec4::from).collect()
+            } else {
+                vec![Vec4::new(1.0, 1.0, 1.0, 1.0); positions.len()]
             };
 
             let mut vertices: Vec<Vertex> = vec![];
@@ -71,7 +77,7 @@ pub fn load_node(
                     normal: normals[i].extend(0.0),
                     uv: tex_coords[i],
                     tangent: tangents[i],
-                    color: Vec4::new(1.0, 1.0, 1.0, 1.0),
+                    color: colors[i],
                 });
             }
 
@@ -102,6 +108,8 @@ pub fn load_node(
                     texture.texture().index() as u32
                 });
 
+            let base_color_factor = pbr.base_color_factor();
+
             model.meshes.push(Mesh {
                 primitive: Primitive::new(device, indices, vertices),
                 material: Material {
@@ -109,6 +117,7 @@ pub fn load_node(
                     normal_map: normal_index,
                     metallic_roughness_map: metallic_roughness_index,
                     occlusion_map: occlusion_index,
+                    base_color_factor: Vec4::from(base_color_factor),
                 },
                 gpu_mesh: 0,
             });

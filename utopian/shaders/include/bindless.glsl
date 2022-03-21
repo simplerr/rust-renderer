@@ -16,6 +16,7 @@ struct Material
    uint normal_map;
    uint metallic_roughness_map;
    uint occlusion_map;
+   vec4 base_color_factor;
 };
 
 struct Mesh
