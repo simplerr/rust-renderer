@@ -51,6 +51,8 @@ impl ModelLoader {
                     metallic_roughness_map: DEFAULT_TEXTURE_MAP,
                     occlusion_map: DEFAULT_TEXTURE_MAP,
                     base_color_factor: Vec4::new(1.0, 1.0, 1.0, 1.0),
+                    material_type: MaterialType::Lambertian,
+                    material_property: 0.0,
                 },
                 gpu_mesh: 0,
             }],
@@ -138,6 +140,8 @@ impl ModelLoader {
                 metallic_roughness_map: DEFAULT_TEXTURE_MAP,
                 occlusion_map: DEFAULT_TEXTURE_MAP,
                 base_color_factor: Vec4::new(1.0, 1.0, 1.0, 1.0),
+                material_type: MaterialType::Lambertian,
+                material_property: 0.0,
             },
             gpu_mesh: 0,
         });

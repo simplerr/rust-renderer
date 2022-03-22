@@ -26,8 +26,27 @@ void main()
    vec3 color = texture(samplerColor[material.diffuse_map], uv).xyz;
    color *= material.base_color_factor.rgb;
 
-   vec3 scatterDirection = world_normal + randomPointInUnitSphere(rayPayload.randomSeed);
-   const bool isScattered = dot(gl_WorldRayDirectionEXT, world_normal) < 0;
+   vec3 scatterDirection;
+   bool isScattered = false;
+
+   // Lambertian
+   if (material.raytrace_properties.x == 0) {
+      scatterDirection = world_normal + randomPointInUnitSphere(rayPayload.randomSeed);
+      isScattered = dot(gl_WorldRayDirectionEXT, world_normal) < 0;
+   }
+   // Metal
+   else if (material.raytrace_properties.x == 1) {
+      scatterDirection = reflect(normalize(gl_WorldRayDirectionEXT), world_normal);
+      scatterDirection += material.raytrace_properties.y * randomPointInUnitSphere(rayPayload.randomSeed);
+
+      // Note: the dot product below should be used but it's causing weird artifacts at sphere edges
+      isScattered = true; // dot(scatterDirection, world_normal) > 0;
+      color = vec3(1.0); // Note: Hardcode white color
+   }
+   // Dielectric
+   else {
+      color = vec3(1,0,0);
+   }
 
    rayPayload = Payload(vec4(color, gl_HitTEXT), vec4(scatterDirection, isScattered ? 1 : 0), rayPayload.randomSeed);
 }

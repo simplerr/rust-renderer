@@ -17,6 +17,11 @@ struct Material
    uint metallic_roughness_map;
    uint occlusion_map;
    vec4 base_color_factor;
+
+   // Ray tracing properties
+   // x = type (0 = lambertian, 1 = metal, 2 = dielectric)
+   // y = metal -> fuzz, dielectric -> index of refractions
+   vec4 raytrace_properties;
 };
 
 struct Mesh

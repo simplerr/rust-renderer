@@ -6,6 +6,13 @@ use crate::texture::*;
 
 pub const DEFAULT_TEXTURE_MAP: u32 = u32::MAX;
 
+#[derive(Copy, Clone)]
+pub enum MaterialType {
+    Lambertian = 0,
+    Metal = 1,
+    Dielectric = 2,
+}
+
 // Note: indexes into the Model specific texture array,
 // not bindless indexes.
 pub struct Material {
@@ -14,6 +21,10 @@ pub struct Material {
     pub metallic_roughness_map: u32,
     pub occlusion_map: u32,
     pub base_color_factor: Vec4,
+
+    // Ray tracing properties
+    pub material_type: MaterialType, // 0 = lambertian, 1 = metal, 2 = dielectric
+    pub material_property: f32, // metal = fuzz, dielectric = index of refraction
 }
 
 pub struct Mesh {
@@ -118,6 +129,8 @@ pub fn load_node(
                     metallic_roughness_map: metallic_roughness_index,
                     occlusion_map: occlusion_index,
                     base_color_factor: Vec4::from(base_color_factor),
+                    material_type: MaterialType::Lambertian,
+                    material_property: 0.0,
                 },
                 gpu_mesh: 0,
             });

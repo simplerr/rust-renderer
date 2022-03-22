@@ -349,8 +349,12 @@ impl Application {
             "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf",
         );
 
-        let sphere =
+        let mut metal_sphere =
             utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
+        metal_sphere.meshes[0].material.material_type = utopian::gltf_loader::MaterialType::Metal;
+        let mut dielectric_sphere =
+            utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
+        dielectric_sphere.meshes[0].material.material_type = utopian::gltf_loader::MaterialType::Dielectric;
 
         // self.renderer.add_model(
         //     &self.base.device,
@@ -371,25 +375,35 @@ impl Application {
                 * glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.5, 0.0)),
         );
 
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     sphere,
-        //     glam::Mat4::from_translation(glam::Vec3::new(3.0, 0.0, 0.0)),
-        // );
+        self.renderer.add_model(
+            &self.base.device,
+            metal_sphere,
+            glam::Mat4::from_scale_rotation_translation(
+                glam::Vec3::new(0.15, 0.15, 0.15),
+                Quat::IDENTITY,
+                glam::Vec3::new(0.22, 1.0, 0.29),
+            ),
+        );
 
         self.renderer.add_model(
             &self.base.device,
-            utopian::ModelLoader::load_cube(&self.base.device),
-            //glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+            dielectric_sphere,
             glam::Mat4::from_scale_rotation_translation(
-                Vec3::new(20.0, 0.5, 20.0),
+                glam::Vec3::new(0.15, 0.15, 0.15),
                 Quat::IDENTITY,
-                // Quat::from_rotation_x(-55.0f32.to_radians())
-                //     * Quat::from_rotation_y(-150.0f32.to_radians())
-                //     * Quat::from_rotation_z(20.0f32.to_radians()),
-                glam::Vec3::new(4.0, -0.5, 0.0),
+                glam::Vec3::new(-0.57, 0.45, 0.72),
             ),
         );
+
+        // self.renderer.add_model(
+        //     &self.base.device,
+        //     utopian::ModelLoader::load_cube(&self.base.device),
+        //     glam::Mat4::from_scale_rotation_translation(
+        //         Vec3::new(20.0, 0.5, 20.0),
+        //         Quat::IDENTITY,
+        //         glam::Vec3::new(4.0, -0.5, 0.0),
+        //     ),
+        // );
 
         self.raytracing
             .initialize(&self.base.device, &self.renderer.instances);
