@@ -37,7 +37,7 @@ struct GpuMaterial {
     base_color_factor: Vec4,
 
     // Ray tracing properties
-    // x = type (0 = lambertian, 1 = metal, 2 = dielectric)
+    // x = type (0 = lambertian, 1 = metal, 2 = dielectric, 3 = diffuse light)
     // y = metal -> fuzz, dielectric -> index of refractions
     raytrace_properties: Vec4,
 }
@@ -162,7 +162,12 @@ impl Renderer {
                 metallic_roughness_map: metallic_roughness_bindless_index,
                 occlusion_map: occlusion_bindless_index,
                 base_color_factor: mesh.material.base_color_factor,
-                raytrace_properties: Vec4::new(mesh.material.material_type as u32 as f32, mesh.material.material_property, 0.0, 0.0),
+                raytrace_properties: Vec4::new(
+                    mesh.material.material_type as u32 as f32,
+                    mesh.material.material_property,
+                    0.0,
+                    0.0,
+                ),
             });
 
             let mesh_index = self.add_mesh(GpuMesh {

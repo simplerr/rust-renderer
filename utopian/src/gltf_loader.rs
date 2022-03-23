@@ -11,6 +11,7 @@ pub enum MaterialType {
     Lambertian = 0,
     Metal = 1,
     Dielectric = 2,
+    DiffuseLight = 3,
 }
 
 // Note: indexes into the Model specific texture array,
@@ -23,8 +24,8 @@ pub struct Material {
     pub base_color_factor: Vec4,
 
     // Ray tracing properties
-    pub material_type: MaterialType, // 0 = lambertian, 1 = metal, 2 = dielectric
-    pub material_property: f32, // metal = fuzz, dielectric = index of refraction
+    pub material_type: MaterialType, // 0 = lambertian, 1 = metal, 2 = dielectric, 3 = diffuse light
+    pub material_property: f32,      // metal = fuzz, dielectric = index of refraction
 }
 
 pub struct Mesh {

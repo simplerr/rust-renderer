@@ -19,7 +19,7 @@ struct Material
    vec4 base_color_factor;
 
    // Ray tracing properties
-   // x = type (0 = lambertian, 1 = metal, 2 = dielectric)
+   // x = type (0 = lambertian, 1 = metal, 2 = dielectric, 3 = diffuse light)
    // y = metal -> fuzz, dielectric -> index of refractions
    vec4 raytrace_properties;
 };

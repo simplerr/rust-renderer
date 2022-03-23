@@ -354,7 +354,9 @@ impl Application {
         metal_sphere.meshes[0].material.material_type = utopian::gltf_loader::MaterialType::Metal;
         let mut dielectric_sphere =
             utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
-        dielectric_sphere.meshes[0].material.material_type = utopian::gltf_loader::MaterialType::Dielectric;
+        dielectric_sphere.meshes[0].material.material_type =
+            utopian::gltf_loader::MaterialType::Dielectric;
+        dielectric_sphere.meshes[0].material.material_property = 1.5;
 
         // self.renderer.add_model(
         //     &self.base.device,
@@ -366,6 +368,19 @@ impl Application {
             &self.base.device,
             cornell_box,
             glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        );
+
+        let mut light = utopian::ModelLoader::load_cube(&self.base.device);
+        light.meshes[0].material.material_type = utopian::gltf_loader::MaterialType::DiffuseLight;
+
+        self.renderer.add_model(
+            &self.base.device,
+            light,
+            glam::Mat4::from_scale_rotation_translation(
+                Vec3::new(0.50, 0.05, 0.35),
+                Quat::IDENTITY,
+                glam::Vec3::new(0.0, 1.95, 0.0),
+            ),
         );
 
         self.renderer.add_model(
@@ -394,16 +409,6 @@ impl Application {
                 glam::Vec3::new(-0.57, 0.45, 0.72),
             ),
         );
-
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     utopian::ModelLoader::load_cube(&self.base.device),
-        //     glam::Mat4::from_scale_rotation_translation(
-        //         Vec3::new(20.0, 0.5, 20.0),
-        //         Quat::IDENTITY,
-        //         glam::Vec3::new(4.0, -0.5, 0.0),
-        //     ),
-        // );
 
         self.raytracing
             .initialize(&self.base.device, &self.renderer.instances);
