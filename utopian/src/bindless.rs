@@ -61,14 +61,12 @@ pub fn create_bindless_descriptor_set_layout(device: &Device) -> vk::DescriptorS
         .push_next(&mut binding_flags_create_info)
         .build();
 
-    let descriptor_set_layout = unsafe {
+    unsafe {
         device
             .handle
             .create_descriptor_set_layout(&descriptor_sets_layout_info, None)
             .expect("Error creating descriptor set layout")
-    };
-
-    descriptor_set_layout
+    }
 }
 
 pub fn create_bindless_descriptor_set(

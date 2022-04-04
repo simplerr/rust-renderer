@@ -250,9 +250,7 @@ impl Pipeline {
                 .expect("Unable to create graphics pipeline")
         };
 
-        let graphic_pipeline = graphics_pipelines[0];
-
-        graphic_pipeline
+        graphics_pipelines[0]
     }
 
     pub fn recreate_pipeline(

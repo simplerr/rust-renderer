@@ -24,11 +24,11 @@ impl Texture {
         Texture::create(device, &image_data, width, height)
     }
 
-    pub fn create(device: &Device, pixels: &Vec<u8>, width: u32, height: u32) -> Texture {
+    pub fn create(device: &Device, pixels: &[u8], width: u32, height: u32) -> Texture {
         let staging_buffer = Buffer::new(
             device,
-            pixels.as_slice(),
-            std::mem::size_of_val(pixels.as_slice()) as u64,
+            pixels,
+            std::mem::size_of_val(pixels) as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
         );
 

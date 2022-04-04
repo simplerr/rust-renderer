@@ -52,9 +52,9 @@ struct GpuMesh {
 
 impl Renderer {
     pub fn new(device: &Device) -> Renderer {
-        let bindless_descriptor_set_layout = create_bindless_descriptor_set_layout(&device);
+        let bindless_descriptor_set_layout = create_bindless_descriptor_set_layout(device);
         let bindless_descriptor_set =
-            create_bindless_descriptor_set(&device, bindless_descriptor_set_layout);
+            create_bindless_descriptor_set(device, bindless_descriptor_set_layout);
 
         let gpu_materials_buffer = Buffer::new(
             device,
@@ -106,12 +106,12 @@ impl Renderer {
         let default_metallic_roughness_map =
             Texture::load(device, "utopian/data/textures/defaults/white_texture.png");
 
-        self.default_diffuse_map_index = self.add_bindless_texture(&device, &default_diffuse_map);
-        self.default_normal_map_index = self.add_bindless_texture(&device, &default_normal_map);
+        self.default_diffuse_map_index = self.add_bindless_texture(device, &default_diffuse_map);
+        self.default_normal_map_index = self.add_bindless_texture(device, &default_normal_map);
         self.default_occlusion_map_index =
-            self.add_bindless_texture(&device, &default_occlusion_map);
+            self.add_bindless_texture(device, &default_occlusion_map);
         self.default_metallic_roughness_map_index =
-            self.add_bindless_texture(&device, &default_metallic_roughness_map);
+            self.add_bindless_texture(device, &default_metallic_roughness_map);
     }
 
     pub fn add_model(&mut self, device: &Device, mut model: Model, transform: glam::Mat4) {
@@ -122,7 +122,7 @@ impl Renderer {
             let diffuse_bindless_index = match mesh.material.diffuse_map {
                 DEFAULT_TEXTURE_MAP => self.default_diffuse_map_index,
                 _ => self.add_bindless_texture(
-                    &device,
+                    device,
                     &model.textures[mesh.material.diffuse_map as usize],
                 ),
             };
@@ -130,7 +130,7 @@ impl Renderer {
             let normal_bindless_index = match mesh.material.normal_map {
                 DEFAULT_TEXTURE_MAP => self.default_normal_map_index,
                 _ => self.add_bindless_texture(
-                    &device,
+                    device,
                     &model.textures[mesh.material.normal_map as usize],
                 ),
             };
@@ -138,7 +138,7 @@ impl Renderer {
             let metallic_roughness_bindless_index = match mesh.material.metallic_roughness_map {
                 DEFAULT_TEXTURE_MAP => self.default_metallic_roughness_map_index,
                 _ => self.add_bindless_texture(
-                    &device,
+                    device,
                     &model.textures[mesh.material.metallic_roughness_map as usize],
                 ),
             };
@@ -146,7 +146,7 @@ impl Renderer {
             let occlusion_bindless_index = match mesh.material.occlusion_map {
                 DEFAULT_TEXTURE_MAP => self.default_occlusion_map_index,
                 _ => self.add_bindless_texture(
-                    &device,
+                    device,
                     &model.textures[mesh.material.occlusion_map as usize],
                 ),
             };

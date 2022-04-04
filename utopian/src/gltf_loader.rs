@@ -44,7 +44,7 @@ pub fn load_node(
     device: &Device,
     node: &gltf::Node,
     model: &mut Model,
-    buffers: &Vec<gltf::buffer::Data>,
+    buffers: &[gltf::buffer::Data],
     parent_transform: Mat4,
 ) {
     let node_transform =

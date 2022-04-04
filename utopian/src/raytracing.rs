@@ -76,10 +76,10 @@ impl Raytracing {
             reflection.get_set_mappings(binding.set),
         );
 
-        descriptor_set.write_uniform_buffer(&device, "camera".to_string(), &camera_uniform_buffer);
-        descriptor_set.write_storage_image(&device, "output_image".to_string(), &output_image);
+        descriptor_set.write_uniform_buffer(device, "camera".to_string(), camera_uniform_buffer);
+        descriptor_set.write_storage_image(device, "output_image".to_string(), &output_image);
         descriptor_set.write_storage_image(
-            &device,
+            device,
             "accumulation_image".to_string(),
             &accumulation_image,
         );
@@ -100,7 +100,7 @@ impl Raytracing {
         }
     }
 
-    pub fn initialize(&mut self, device: &Device, instances: &Vec<ModelInstance>) {
+    pub fn initialize(&mut self, device: &Device, instances: &[ModelInstance]) {
         for instance in instances {
             for mesh in &instance.model.meshes {
                 self.bottom_level_accelerations.push(
@@ -112,11 +112,11 @@ impl Raytracing {
         let tlas = Raytracing::create_top_level_acceleration_structure(
             device,
             &self.bottom_level_accelerations,
-            &instances,
+            instances,
         );
 
         self.descriptor_set
-            .write_acceleration_structure(&device, "topLevelAS".to_string(), tlas);
+            .write_acceleration_structure(device, "topLevelAS".to_string(), tlas);
 
         self.top_level_acceleration = tlas;
     }
@@ -227,8 +227,8 @@ impl Raytracing {
 
     pub fn create_top_level_acceleration_structure(
         device: &Device,
-        blas: &Vec<vk::AccelerationStructureKHR>,
-        instances: &Vec<ModelInstance>,
+        blas: &[vk::AccelerationStructureKHR],
+        instances: &[ModelInstance],
     ) -> vk::AccelerationStructureKHR {
         let mut acceleration_instances: Vec<vk::AccelerationStructureInstanceKHR> = vec![];
         let mut blas_idx = 0;
@@ -634,7 +634,7 @@ impl Raytracing {
             self.output_image
                 .transition_layout(device, cb, vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
 
-            self.output_image.copy(device, cb, &present_image);
+            self.output_image.copy(device, cb, present_image);
 
             present_image.transition_layout(device, cb, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
             self.output_image

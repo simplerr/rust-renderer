@@ -192,13 +192,11 @@ impl VulkanBase {
             .enabled_layer_names(&layer_names_raw)
             .enabled_extension_names(&extension_names_raw);
 
-        let instance = unsafe {
+        unsafe {
             entry
                 .create_instance(&create_info, None)
                 .expect("Failed to create Vulkan instance")
-        };
-
-        instance
+        }
     }
 
     fn create_debug_utils(
@@ -219,14 +217,13 @@ impl VulkanBase {
             )
             .pfn_user_callback(Some(vulkan_debug_callback));
 
-        let debug_utils_loader = DebugUtils::new(&entry, &instance);
-        let debug_callback = unsafe {
+        let debug_utils_loader = DebugUtils::new(entry, instance);
+
+        unsafe {
             debug_utils_loader
                 .create_debug_utils_messenger(&debug_info, None)
                 .unwrap()
-        };
-
-        debug_callback
+        }
     }
 
     fn create_surface(
@@ -234,9 +231,8 @@ impl VulkanBase {
         instance: &ash::Instance,
         window: &winit::window::Window,
     ) -> (vk::SurfaceKHR, Surface) {
-        let surface =
-            unsafe { ash_window::create_surface(&entry, &instance, &window, None).unwrap() };
-        let surface_loader = Surface::new(&entry, &instance);
+        let surface = unsafe { ash_window::create_surface(entry, instance, window, None).unwrap() };
+        let surface_loader = Surface::new(entry, instance);
 
         (surface, surface_loader)
     }
@@ -275,7 +271,7 @@ impl VulkanBase {
                 .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
                 .expect("Did not find expected present mode");
 
-            let swapchain_loader = Swapchain::new(&instance, &device);
+            let swapchain_loader = Swapchain::new(instance, device);
 
             let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
                 .surface(surface)

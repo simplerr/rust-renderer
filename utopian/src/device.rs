@@ -100,10 +100,10 @@ impl Device {
                 Device::create_setup_command_buffer(&device, queue_family_index);
 
             let (rt_pipeline_properties, as_features) =
-                Device::retrieve_rt_properties(&instance, physical_device);
+                Device::retrieve_rt_properties(instance, physical_device);
 
-            let acceleration_structure_ext = khr::AccelerationStructure::new(&instance, &device);
-            let raytracing_pipeline_ext = khr::RayTracingPipeline::new(&instance, &device);
+            let acceleration_structure_ext = khr::AccelerationStructure::new(instance, &device);
+            let raytracing_pipeline_ext = khr::RayTracingPipeline::new(instance, &device);
 
             println!("{:#?}", rt_pipeline_properties);
             println!("{:#?}", as_features);
@@ -186,7 +186,7 @@ impl Device {
                 .expect("Begin command buffer failed.")
         };
 
-        recording_function(&self, self.setup_cmd_buf);
+        recording_function(self, self.setup_cmd_buf);
 
         unsafe {
             self.handle

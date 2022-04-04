@@ -131,14 +131,12 @@ impl Image {
             ..Default::default()
         };
 
-        let image_view = unsafe {
+        unsafe {
             device
                 .handle
                 .create_image_view(&image_view_info, None)
                 .unwrap()
-        };
-
-        image_view
+        }
     }
 
     pub fn copy(&self, device: &Device, cb: vk::CommandBuffer, dest: &Image) {

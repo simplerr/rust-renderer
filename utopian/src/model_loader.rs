@@ -13,6 +13,7 @@ pub fn add_triangle(indices: &mut Vec<u32>, v1: u32, v2: u32, v3: u32) {
     indices.push(v3);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn add_vertex(
     vertices: &mut Vec<Vertex>,
     x: f32,
@@ -42,7 +43,7 @@ impl ModelLoader {
         add_vertex(&mut vertices, -1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0);
         add_vertex(&mut vertices, 1.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0);
 
-        let model = Model {
+        Model {
             meshes: vec![Mesh {
                 primitive: Primitive::new(device, indices, vertices),
                 material: Material {
@@ -58,10 +59,9 @@ impl ModelLoader {
             }],
             transforms: vec![Mat4::IDENTITY],
             textures: vec![],
-        };
-
-        model
+        }
     }
+
     pub fn load_cube(device: &Device) -> Model {
         let mut model = Model {
             meshes: vec![],

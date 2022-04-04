@@ -71,22 +71,22 @@ impl Reflection {
         // Retrieve binding and set mappings
         let binding_mappings: HashMap<String, Binding> = descriptor_sets_combined
             .iter()
-            .filter_map(|(set_key, set_val)| {
+            .map(|(set_key, set_val)| {
                 let bindings: HashMap<String, Binding> = set_val
                     .iter()
-                    .filter_map(|(binding_key, binding_val)| {
-                        Some((
+                    .map(|(binding_key, binding_val)| {
+                        (
                             binding_val.name.clone(),
                             Binding {
                                 set: *set_key,
                                 binding: *binding_key,
                                 info: binding_val.clone(),
                             },
-                        ))
+                        )
                     })
                     .collect();
 
-                Some(bindings)
+                bindings
             })
             .flatten()
             .collect();
@@ -240,13 +240,11 @@ pub fn create_layouts_from_reflection(
                 .bindings(&descriptor_set_layout_bindings)
                 .build();
 
-            let descriptor_set_layout = unsafe {
+            unsafe {
                 device
                     .create_descriptor_set_layout(&descriptor_sets_layout_info, None)
                     .expect("Error creating descriptor set layout")
-            };
-
-            descriptor_set_layout
+            }
         })
         .collect();
 
@@ -257,22 +255,20 @@ pub fn create_layouts_from_reflection(
 
     let mut push_constant_ranges: Vec<vk::PushConstantRange> = vec![];
 
-    for push_constant_reflection in &reflection.push_constant_reflections {
+    // Note: Only supports a single push constant shared between all shader stages
+    if !reflection.push_constant_reflections.is_empty() {
         push_constant_ranges.push(
             vk::PushConstantRange::builder()
-                .size(push_constant_reflection.size)
-                .offset(push_constant_reflection.offset)
+                .size(reflection.push_constant_reflections[0].size)
+                .offset(reflection.push_constant_reflections[0].offset)
                 .stage_flags(vk::ShaderStageFlags::ALL)
                 .build(),
         );
-
-        // Note: Only supports a single push constant shared between all shader stages!
-        break;
     }
 
     let pipeline_layout_create_info: vk::PipelineLayoutCreateInfoBuilder;
 
-    if push_constant_ranges.len() > 0 {
+    if !push_constant_ranges.is_empty() {
         pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
             .set_layouts(&descriptor_sets_layouts)
             .push_constant_ranges(&push_constant_ranges);
@@ -298,11 +294,9 @@ pub fn create_shader_module(mut spv_file: Cursor<&[u8]>, device: &ash::Device) -
     let shader_code = read_spv(&mut spv_file).expect("Failed to read shader spv file");
     let shader_info = vk::ShaderModuleCreateInfo::builder().code(&shader_code);
 
-    let shader_module = unsafe {
+    unsafe {
         device
             .create_shader_module(&shader_info, None)
             .expect("Error creating shader module")
-    };
-
-    shader_module
+    }
 }

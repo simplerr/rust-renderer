@@ -9,8 +9,6 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::sync::mpsc;
 use std::time::Duration;
 
-use utopian;
-
 #[derive(Clone, Debug, Copy)]
 struct CameraUniformData {
     view: glam::Mat4,
@@ -109,7 +107,7 @@ impl Application {
 
         let camera_uniform_buffer = utopian::Buffer::new(
             &base.device,
-            &slice,
+            slice,
             std::mem::size_of_val(&camera_data) as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
         );
@@ -160,8 +158,8 @@ impl Application {
             base.device.handle.clone(),
             allocator,
             base.swapchain_loader.clone(),
-            base.swapchain.clone(),
-            base.surface_format.clone(),
+            base.swapchain,
+            base.surface_format,
         );
 
         let raytracing = utopian::Raytracing::new(
@@ -251,14 +249,12 @@ impl Application {
             .subpasses(std::slice::from_ref(&subpass))
             .dependencies(&dependencies);
 
-        let renderpass = unsafe {
+        unsafe {
             base.device
                 .handle
                 .create_render_pass(&renderpass_create_info, None)
                 .expect("Failed to create renderpass")
-        };
-
-        renderpass
+        }
     }
 
     fn create_framebuffers(
@@ -323,7 +319,7 @@ impl Application {
                 .begin_command_buffer(command_buffer, &command_buffer_begin_info)
                 .expect("Begin command buffer failed.");
 
-            render_commands(&device, command_buffer);
+            render_commands(device, command_buffer);
 
             device
                 .handle
@@ -373,7 +369,6 @@ impl Application {
             flight_helmet,
             glam::Mat4::from_translation(glam::Vec3::new(-0.33, 0.4, 0.3)),
         );
-
 
         // ============
         // Sponza scene
@@ -435,7 +430,7 @@ impl Application {
         egui::Window::new("rust-renderer 0.0.1")
             .resizable(true)
             .scroll(true)
-            .show(&egui_context, |ui| {
+            .show(egui_context, |ui| {
                 ui.label(format!("FPS: {}", fps));
                 ui.label("Camera position");
                 ui.horizontal(|ui| {
@@ -509,16 +504,16 @@ impl Application {
             }
 
             let mut recompile_shaders = false;
-            match self.watcher_rx.try_recv() {
-                Ok(_event) => match self.watcher_rx.recv() {
+
+            if let Ok(_event) = self.watcher_rx.try_recv() {
+                match self.watcher_rx.recv() {
                     Ok(event) => {
                         if let notify::DebouncedEvent::Write(..) = event {
                             recompile_shaders = true
                         }
                     }
                     Err(e) => println!("recv Err {:?}", e),
-                },
-                Err(_) => (),
+                }
             }
 
             if recompile_shaders || input.key_pressed(winit::event::VirtualKeyCode::R) {
@@ -535,7 +530,7 @@ impl Application {
                 );
             }
 
-            if self.camera.update(&input) {
+            if self.camera.update(input) {
                 self.camera_data.total_samples = 0;
             }
 
@@ -561,7 +556,7 @@ impl Application {
 
                     if self.raytracing_enabled {
                         self.raytracing.record_commands(
-                            &device,
+                            device,
                             command_buffer,
                             self.renderer.bindless_descriptor_set,
                             &self.base.present_images[present_index as usize],

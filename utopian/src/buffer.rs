@@ -69,7 +69,7 @@ impl Buffer {
 
             let mut slice = Align::new(buffer_ptr, align_of::<T>() as u64, buffer_memory_req.size);
 
-            slice.copy_from_slice(&data);
+            slice.copy_from_slice(data);
 
             device.handle.unmap_memory(device_memory);
 
@@ -101,7 +101,7 @@ impl Buffer {
 
             let mut slice = Align::new(buffer_ptr, align_of::<T>() as u64, self.memory_req.size);
 
-            slice.copy_from_slice(&data);
+            slice.copy_from_slice(data);
 
             device.handle.unmap_memory(self.device_memory);
         }
