@@ -47,7 +47,8 @@ struct Application {
     camera: utopian::Camera,
     renderer: utopian::Renderer,
     raytracing: utopian::Raytracing,
-    egui_integration: egui_winit_ash_integration::Integration<Arc<Mutex<Allocator>>>,
+    egui_integration:
+        egui_winit_ash_integration::Integration<Arc<Mutex<gpu_allocator::vulkan::Allocator>>>,
     fps_timer: FpsTimer,
     raytracing_enabled: bool,
 

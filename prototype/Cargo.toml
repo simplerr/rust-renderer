@@ -9,12 +9,12 @@ edition = "2021"
 utopian = { path = "../utopian" }
 
 winit = "0.26.0"
-ash = { version = "0.35.0", features = ["linked", "debug"]}
-ash-window = "0.9"
+ash = { version = "0.37.0", features = ["linked", "debug"]}
+ash-window = "0.10"
 shaderc = "0.7.3"
 glam = "0.20.2"
 egui = "0.14.2"
-gpu-allocator = "0.16.0"
+gpu-allocator = "0.18.0"
 egui-winit-ash-integration = { git = "https://github.com/simplerr/egui-winit-ash-integration" } # "0.2.0"
 rspirv-reflect = { git = "https://github.com/simplerr/rspirv-reflect.git" } # "0.6.0"
 notify = "4.0.16"

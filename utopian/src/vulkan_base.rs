@@ -168,7 +168,7 @@ impl VulkanBase {
     }
 
     fn create_instance(entry: &ash::Entry, window: &winit::window::Window) -> ash::Instance {
-        let app_name = CStr::from_bytes_with_nul(b"vulkan-rust-test\0").unwrap();
+        let app_name = CStr::from_bytes_with_nul(b"rust-renderer\0").unwrap();
         let layer_names = [CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap()];
         let layer_names_raw: Vec<*const c_char> = layer_names
             .iter()
@@ -176,8 +176,7 @@ impl VulkanBase {
             .collect();
 
         let surface_extensions = ash_window::enumerate_required_extensions(&window).unwrap();
-        let mut extension_names_raw: Vec<*const c_char> =
-            surface_extensions.iter().map(|ext| ext.as_ptr()).collect();
+        let mut extension_names_raw: Vec<*const i8> = Vec::from(surface_extensions);
         extension_names_raw.push(DebugUtils::name().as_ptr());
 
         let app_info = vk::ApplicationInfo::builder()
