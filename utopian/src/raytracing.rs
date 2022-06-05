@@ -8,6 +8,7 @@ use crate::bindless::*;
 use crate::buffer::*;
 use crate::descriptor_set::*;
 use crate::device::*;
+use crate::gltf_loader::*;
 use crate::image::*;
 use crate::primitive::*;
 use crate::renderer::*;
@@ -102,11 +103,9 @@ impl Raytracing {
 
     pub fn initialize(&mut self, device: &Device, instances: &[ModelInstance]) {
         for instance in instances {
-            for mesh in &instance.model.meshes {
-                self.bottom_level_accelerations.push(
-                    Raytracing::create_bottom_level_acceleration_structure(device, &mesh.primitive),
-                );
-            }
+            self.bottom_level_accelerations.push(
+                Raytracing::create_bottom_level_acceleration_structure(device, &instance.model),
+            );
         }
 
         let tlas = Raytracing::create_top_level_acceleration_structure(
@@ -123,38 +122,49 @@ impl Raytracing {
 
     pub fn create_bottom_level_acceleration_structure(
         device: &Device,
-        primitive: &Primitive,
+        model: &Model,
     ) -> vk::AccelerationStructureKHR {
-        let vertex_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
-            device_address: primitive.vertex_buffer.get_device_address(device),
-        };
-        let index_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
-            device_address: primitive.index_buffer.get_device_address(device),
-        };
+        let acceleration_structure_geometries: Vec<vk::AccelerationStructureGeometryKHR> = model
+            .meshes
+            .iter()
+            .map(|mesh| {
+                let vertex_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
+                    device_address: mesh.primitive.vertex_buffer.get_device_address(device),
+                };
+                let index_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
+                    device_address: mesh.primitive.index_buffer.get_device_address(device),
+                };
 
-        let geometry = vk::AccelerationStructureGeometryKHR::builder()
-            .flags(vk::GeometryFlagsKHR::OPAQUE)
-            .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
-            .geometry(vk::AccelerationStructureGeometryDataKHR {
-                triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
-                    .vertex_format(vk::Format::R32G32B32_SFLOAT)
-                    .vertex_data(vertex_buffer_device_address)
-                    .vertex_stride(mem::size_of::<Vertex>() as _)
-                    .max_vertex(primitive.vertices.len() as _)
-                    .index_type(vk::IndexType::UINT32)
-                    .index_data(index_buffer_device_address)
-                    .build(),
+                let geometry = vk::AccelerationStructureGeometryKHR::builder()
+                    .flags(vk::GeometryFlagsKHR::OPAQUE)
+                    .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
+                    .geometry(vk::AccelerationStructureGeometryDataKHR {
+                        triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
+                            .vertex_format(vk::Format::R32G32B32_SFLOAT)
+                            .vertex_data(vertex_buffer_device_address)
+                            .vertex_stride(mem::size_of::<Vertex>() as _)
+                            .max_vertex(mesh.primitive.vertices.len() as _)
+                            .index_type(vk::IndexType::UINT32)
+                            .index_data(index_buffer_device_address)
+                            .build(),
+                    })
+                    .build();
+                geometry
             })
-            .build();
+            .collect();
+
+        let max_primitive_counts: Vec<_> = model
+            .meshes
+            .iter()
+            .map(|mesh| (mesh.primitive.indices.len() / 3) as u32)
+            .collect();
 
         // Get size info
         let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
             .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
             .flags(ash::vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
-            .geometries(std::slice::from_ref(&geometry))
+            .geometries(&acceleration_structure_geometries)
             .build();
-
-        let num_triangles = (primitive.indices.len() / 3) as u32;
 
         let build_sizes = unsafe {
             device
@@ -162,7 +172,7 @@ impl Raytracing {
                 .get_acceleration_structure_build_sizes(
                     vk::AccelerationStructureBuildTypeKHR::DEVICE,
                     &build_geometry_info,
-                    &[num_triangles],
+                    &max_primitive_counts,
                 )
         };
 
@@ -200,7 +210,7 @@ impl Raytracing {
         let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
             .ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL)
             .flags(ash::vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
-            .geometries(std::slice::from_ref(&geometry))
+            .geometries(&acceleration_structure_geometries)
             .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
             .dst_acceleration_structure(acceleration_structure)
             .scratch_data(vk::DeviceOrHostAddressKHR {
@@ -208,9 +218,15 @@ impl Raytracing {
             })
             .build();
 
-        let build_range_info = vec![ash::vk::AccelerationStructureBuildRangeInfoKHR::builder()
-            .primitive_count(num_triangles)
-            .build()];
+        let build_range_infos: Vec<ash::vk::AccelerationStructureBuildRangeInfoKHR> = model
+            .meshes
+            .iter()
+            .map(|mesh| {
+                ash::vk::AccelerationStructureBuildRangeInfoKHR::builder()
+                    .primitive_count((mesh.primitive.indices.len() / 3) as u32)
+                    .build()
+            })
+            .collect();
 
         unsafe {
             device.execute_and_submit(|device, cb| {
@@ -219,7 +235,7 @@ impl Raytracing {
                     .cmd_build_acceleration_structures(
                         cb,
                         std::slice::from_ref(&build_geometry_info),
-                        std::slice::from_ref(&build_range_info.as_slice()),
+                        std::slice::from_ref(&build_range_infos.as_slice()),
                     );
             });
         }
