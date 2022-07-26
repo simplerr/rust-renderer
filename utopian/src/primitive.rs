@@ -12,6 +12,7 @@ pub struct Vertex {
     pub uv: Vec2,
     pub color: Vec4,
     pub tangent: Vec4,
+    pub material_index: u32,
 }
 
 pub struct Primitive {
@@ -29,6 +30,7 @@ impl Vertex {
             uv: Vec2::new(0.0, 0.0),
             color: Vec4::new(1.0, 1.0, 1.0, 1.0),
             tangent: Vec4::new(0.0, 0.0, 0.0, 0.0),
+            material_index: 0,
         }
     }
 }

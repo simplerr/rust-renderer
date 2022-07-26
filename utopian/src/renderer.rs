@@ -117,6 +117,11 @@ impl Renderer {
     }
 
     pub fn add_model(&mut self, device: &Device, mut model: Model, transform: glam::Mat4) {
+        let vertex_buffer_bindless_idx =
+            self.add_bindless_vertex_buffer(device, &model.primitive.vertex_buffer);
+        let index_buffer_bindless_idx =
+            self.add_bindless_index_buffer(device, &model.primitive.index_buffer);
+
         // Add the images from the new model to the bindless descriptor set and
         // also update the mappings for each primitive to be indexes corresponding
         // to the ordering in the bindless descriptor set texture array.
@@ -153,11 +158,6 @@ impl Renderer {
                 ),
             };
 
-            let vertex_buffer_bindless_idx =
-                self.add_bindless_vertex_buffer(device, &mesh.primitive.vertex_buffer);
-            let index_buffer_bindless_idx =
-                self.add_bindless_index_buffer(device, &mesh.primitive.index_buffer);
-
             let material_index = self.add_material(GpuMaterial {
                 diffuse_map: diffuse_bindless_index,
                 normal_map: normal_bindless_index,
@@ -173,12 +173,20 @@ impl Renderer {
             });
 
             let mesh_index = self.add_mesh(GpuMesh {
+                // Todo: this shall also contain start_index and index_count
                 vertex_buffer: vertex_buffer_bindless_idx,
                 index_buffer: index_buffer_bindless_idx,
                 material: material_index,
             });
 
+            // Todo:!
+            // for mut vertex in &mut mesh.primitive.vertices {
+            //     vertex.material_index = material_index;
+            // }
+            // mesh.primitive.vertex_buffer.update_memory(device, &mesh.primitive.vertices);
+
             mesh.gpu_mesh = mesh_index;
+            println!("Updated gpu_mesh: {:?}", mesh.gpu_mesh);
         }
 
         // println!("{:?}", self.gpu_meshes);

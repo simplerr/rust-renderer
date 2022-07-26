@@ -6,7 +6,7 @@ use crate::texture::*;
 
 pub const DEFAULT_TEXTURE_MAP: u32 = u32::MAX;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum MaterialType {
     Lambertian = 0,
     Metal = 1,
@@ -16,6 +16,7 @@ pub enum MaterialType {
 
 // Note: indexes into the Model specific texture array,
 // not bindless indexes.
+#[derive(Debug)]
 pub struct Material {
     pub diffuse_map: u32,
     pub normal_map: u32,
@@ -28,8 +29,11 @@ pub struct Material {
     pub material_property: f32,      // metal = fuzz, dielectric = index of refraction
 }
 
+#[derive(Debug)]
 pub struct Mesh {
-    pub primitive: Primitive,
+    //pub primitive: Primitive,
+    pub first_index: u32,
+    pub index_count: u32,
     pub material: Material,
     pub gpu_mesh: u32,
 }
@@ -38,20 +42,33 @@ pub struct Model {
     pub meshes: Vec<Mesh>,
     pub textures: Vec<Texture>,
     pub transforms: Vec<Mat4>,
+    pub primitive: Primitive,
 }
 
 pub fn load_node(
     device: &Device,
     node: &gltf::Node,
-    model: &mut Model,
     buffers: &[gltf::buffer::Data],
     parent_transform: Mat4,
+    vertices: &mut Vec<Vertex>,
+    indices: &mut Vec<u32>,
+    transforms: &mut Vec<Mat4>,
+    meshes: &mut Vec<Mesh>,
 ) {
     let node_transform =
         parent_transform * glam::Mat4::from_cols_array_2d(&node.transform().matrix());
 
     for child in node.children() {
-        load_node(device, &child, model, buffers, node_transform);
+        load_node(
+            device,
+            &child,
+            buffers,
+            node_transform,
+            vertices,
+            indices,
+            transforms,
+            meshes,
+        );
     }
 
     if let Some(mesh) = node.mesh() {
@@ -60,7 +77,7 @@ pub fn load_node(
         for primitive in primitives {
             let reader = primitive.reader(|i| Some(&buffers[i.index()]));
 
-            let indices: Vec<_> = reader.read_indices().unwrap().into_u32().collect();
+            let mut new_indices: Vec<_> = reader.read_indices().unwrap().into_u32().collect();
             let positions: Vec<_> = reader.read_positions().unwrap().map(Vec3::from).collect();
             let normals: Vec<_> = reader.read_normals().unwrap().map(Vec3::from).collect();
             let tex_coords = if let Some(tex_coords) = reader.read_tex_coords(0) {
@@ -81,15 +98,16 @@ pub fn load_node(
                 vec![Vec4::new(1.0, 1.0, 1.0, 1.0); positions.len()]
             };
 
-            let mut vertices: Vec<Vertex> = vec![];
+            let mut new_vertices: Vec<Vertex> = vec![];
 
             for (i, _) in positions.iter().enumerate() {
-                vertices.push(Vertex {
+                new_vertices.push(Vertex {
                     pos: positions[i].extend(0.0),
                     normal: normals[i].extend(0.0),
                     uv: tex_coords[i],
                     tangent: tangents[i],
                     color: colors[i],
+                    material_index: 0,
                 });
             }
 
@@ -122,8 +140,16 @@ pub fn load_node(
 
             let base_color_factor = pbr.base_color_factor();
 
-            model.meshes.push(Mesh {
-                primitive: Primitive::new(device, indices, vertices),
+            let first_index = indices.len() as u32;
+            let index_count = new_indices.len() as u32;
+
+            vertices.append(&mut new_vertices);
+            indices.append(&mut new_indices);
+
+            meshes.push(Mesh {
+                first_index,
+                index_count,
+                //primitive: Primitive::new(device, indices, vertices),
                 material: Material {
                     diffuse_map: diffuse_index,
                     normal_map: normal_index,
@@ -136,7 +162,7 @@ pub fn load_node(
                 gpu_mesh: 0,
             });
 
-            model.transforms.push(node_transform);
+            transforms.push(node_transform);
         }
     }
 }
@@ -147,11 +173,11 @@ pub fn load_gltf(device: &Device, path: &str) -> Model {
         Err(err) => panic!("Loading model {} failed with error: {}", path, err),
     };
 
-    let mut model = Model {
-        meshes: vec![],
-        transforms: vec![],
-        textures: vec![],
-    };
+    let mut vertices: Vec<Vertex> = vec![];
+    let mut indices: Vec<u32> = vec![];
+    let mut meshes: Vec<Mesh> = vec![];
+    let mut textures: Vec<Texture> = vec![];
+    let mut transforms: Vec<Mat4> = vec![];
 
     for image in &mut images {
         // Convert images from rgb8 to rgba8
@@ -176,14 +202,31 @@ pub fn load_gltf(device: &Device, path: &str) -> Model {
 
         let texture = Texture::create(device, &image.pixels, image.width, image.height);
 
-        model.textures.push(texture);
+        textures.push(texture);
     }
 
     for scene in gltf.scenes() {
         for node in scene.nodes() {
-            load_node(device, &node, &mut model, &buffers, Mat4::IDENTITY);
+            load_node(
+                device,
+                &node,
+                &buffers,
+                Mat4::IDENTITY,
+                &mut vertices,
+                &mut indices,
+                &mut transforms,
+                &mut meshes,
+            );
         }
     }
 
-    model
+    println!("indices: {:?}, vertices: {:?}, meshes: {:#?}, transforms: {:?}, textures: {:?}",
+             indices.len(), vertices.len(), meshes, transforms.len(), textures.len());
+
+    Model {
+        primitive: Primitive::new(device, indices, vertices),
+        meshes,
+        transforms,
+        textures,
+    }
 }

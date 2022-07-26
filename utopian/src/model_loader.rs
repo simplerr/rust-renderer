@@ -31,6 +31,7 @@ pub fn add_vertex(
         uv: Vec2::new(u, v),
         color: Vec4::new(1.0, 1.0, 1.0, 1.0),
         tangent: Vec4::new(0.0, 0.0, 0.0, 0.0),
+        material_index: 0,
     });
 }
 
@@ -45,7 +46,8 @@ impl ModelLoader {
 
         Model {
             meshes: vec![Mesh {
-                primitive: Primitive::new(device, indices, vertices),
+                first_index: 0,
+                index_count: indices.len() as u32,
                 material: Material {
                     diffuse_map: DEFAULT_TEXTURE_MAP,
                     normal_map: DEFAULT_TEXTURE_MAP,
@@ -57,18 +59,13 @@ impl ModelLoader {
                 },
                 gpu_mesh: 0,
             }],
-            transforms: vec![Mat4::IDENTITY],
             textures: vec![],
+            transforms: vec![Mat4::IDENTITY],
+            primitive: Primitive::new(device, indices, vertices),
         }
     }
 
     pub fn load_cube(device: &Device) -> Model {
-        let mut model = Model {
-            meshes: vec![],
-            transforms: vec![],
-            textures: vec![],
-        };
-
         let mut indices = vec![];
         let mut vertices = vec![];
 
@@ -132,21 +129,24 @@ impl ModelLoader {
         add_vertex(&mut vertices, 0.5, 0.5, 0.5, 1.0, 0.0, 0.0, 1.0, 0.0);
         add_vertex(&mut vertices, 0.5, -0.5, 0.5, 1.0, 0.0, 0.0, 0.0, 0.0);
 
-        model.meshes.push(Mesh {
+        Model {
+            meshes: vec![Mesh {
+                first_index: 0,
+                index_count: indices.len() as u32,
+                material: Material {
+                    diffuse_map: DEFAULT_TEXTURE_MAP,
+                    normal_map: DEFAULT_TEXTURE_MAP,
+                    metallic_roughness_map: DEFAULT_TEXTURE_MAP,
+                    occlusion_map: DEFAULT_TEXTURE_MAP,
+                    base_color_factor: Vec4::new(1.0, 1.0, 1.0, 1.0),
+                    material_type: MaterialType::Lambertian,
+                    material_property: 0.0,
+                },
+                gpu_mesh: 0,
+            }],
+            textures: vec![],
+            transforms: vec![Mat4::IDENTITY],
             primitive: Primitive::new(device, indices, vertices),
-            material: Material {
-                diffuse_map: DEFAULT_TEXTURE_MAP,
-                normal_map: DEFAULT_TEXTURE_MAP,
-                metallic_roughness_map: DEFAULT_TEXTURE_MAP,
-                occlusion_map: DEFAULT_TEXTURE_MAP,
-                base_color_factor: Vec4::new(1.0, 1.0, 1.0, 1.0),
-                material_type: MaterialType::Lambertian,
-                material_property: 0.0,
-            },
-            gpu_mesh: 0,
-        });
-        model.transforms.push(Mat4::IDENTITY);
-
-        model
+        }
     }
 }

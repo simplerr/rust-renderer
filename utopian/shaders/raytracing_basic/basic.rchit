@@ -27,6 +27,8 @@ void main()
    Vertex v1 = verticesSSBO[mesh.vertex_buffer].vertices[indices.y];
    Vertex v2 = verticesSSBO[mesh.vertex_buffer].vertices[indices.z];
 
+   //Material material = materialsSSBO.materials[v0.material_index];
+
    const vec3 barycentrics = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
    vec3 normal = v0.normal.xyz * barycentrics.x + v1.normal.xyz * barycentrics.y + v2.normal.xyz * barycentrics.z;
    vec3 world_normal = normalize(vec3(normal.xyz * gl_WorldToObjectEXT));

@@ -8,6 +8,7 @@ struct Vertex
    vec2 uv;
    vec4 color;
    vec4 tangent;
+   uint material_index;
 };
 
 struct Material

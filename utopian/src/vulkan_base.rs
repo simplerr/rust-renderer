@@ -184,7 +184,7 @@ impl VulkanBase {
             .application_version(0)
             .engine_name(app_name)
             .engine_version(0)
-            .api_version(vk::make_api_version(0, 1, 2, 0));
+            .api_version(vk::make_api_version(0, 1, 3, 0));
 
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)

@@ -124,40 +124,63 @@ impl Raytracing {
         device: &Device,
         model: &Model,
     ) -> vk::AccelerationStructureKHR {
-        let acceleration_structure_geometries: Vec<vk::AccelerationStructureGeometryKHR> = model
-            .meshes
-            .iter()
-            .map(|mesh| {
-                let vertex_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
-                    device_address: mesh.primitive.vertex_buffer.get_device_address(device),
-                };
-                let index_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
-                    device_address: mesh.primitive.index_buffer.get_device_address(device),
-                };
+        let vertex_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
+            device_address: model.primitive.vertex_buffer.get_device_address(device),
+        };
+        let index_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
+            device_address: model.primitive.index_buffer.get_device_address(device),
+        };
 
-                let geometry = vk::AccelerationStructureGeometryKHR::builder()
-                    .flags(vk::GeometryFlagsKHR::OPAQUE)
-                    .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
-                    .geometry(vk::AccelerationStructureGeometryDataKHR {
-                        triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
-                            .vertex_format(vk::Format::R32G32B32_SFLOAT)
-                            .vertex_data(vertex_buffer_device_address)
-                            .vertex_stride(mem::size_of::<Vertex>() as _)
-                            .max_vertex(mesh.primitive.vertices.len() as _)
-                            .index_type(vk::IndexType::UINT32)
-                            .index_data(index_buffer_device_address)
-                            .build(),
-                    })
-                    .build();
-                geometry
+        let acceleration_structure_geometries = vec![vk::AccelerationStructureGeometryKHR::builder()
+            .flags(vk::GeometryFlagsKHR::OPAQUE)
+            .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
+            .geometry(vk::AccelerationStructureGeometryDataKHR {
+                triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
+                    .vertex_format(vk::Format::R32G32B32_SFLOAT)
+                    .vertex_data(vertex_buffer_device_address)
+                    .vertex_stride(mem::size_of::<Vertex>() as _)
+                    .max_vertex(model.primitive.vertices.len() as _)
+                    .index_type(vk::IndexType::UINT32)
+                    .index_data(index_buffer_device_address)
+                    .build(),
             })
-            .collect();
+            .build()];
 
-        let max_primitive_counts: Vec<_> = model
-            .meshes
-            .iter()
-            .map(|mesh| (mesh.primitive.indices.len() / 3) as u32)
-            .collect();
+        // let acceleration_structure_geometries: Vec<vk::AccelerationStructureGeometryKHR> = model
+        //     .meshes
+        //     .iter()
+        //     .map(|mesh| {
+        //         let vertex_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
+        //             device_address: mesh.primitive.vertex_buffer.get_device_address(device),
+        //         };
+        //         let index_buffer_device_address = vk::DeviceOrHostAddressConstKHR {
+        //             device_address: mesh.primitive.index_buffer.get_device_address(device),
+        //         };
+        //
+        //         let geometry = vk::AccelerationStructureGeometryKHR::builder()
+        //             .flags(vk::GeometryFlagsKHR::OPAQUE)
+        //             .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
+        //             .geometry(vk::AccelerationStructureGeometryDataKHR {
+        //                 triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
+        //                     .vertex_format(vk::Format::R32G32B32_SFLOAT)
+        //                     .vertex_data(vertex_buffer_device_address)
+        //                     .vertex_stride(mem::size_of::<Vertex>() as _)
+        //                     .max_vertex(mesh.primitive.vertices.len() as _)
+        //                     .index_type(vk::IndexType::UINT32)
+        //                     .index_data(index_buffer_device_address)
+        //                     .build(),
+        //             })
+        //             .build();
+        //         geometry
+        //     })
+        //     .collect();
+
+        let max_primitive_counts = vec![(model.primitive.indices.len() / 3) as u32];
+        // let max_primitive_counts: Vec<_> = model
+        //     .meshes
+        //     .iter()
+        //     .map(|mesh| (mesh.primitive.indices.len() / 3) as u32)
+        //     .collect();
 
         // Get size info
         let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
@@ -218,15 +241,20 @@ impl Raytracing {
             })
             .build();
 
-        let build_range_infos: Vec<ash::vk::AccelerationStructureBuildRangeInfoKHR> = model
-            .meshes
-            .iter()
-            .map(|mesh| {
-                ash::vk::AccelerationStructureBuildRangeInfoKHR::builder()
-                    .primitive_count((mesh.primitive.indices.len() / 3) as u32)
-                    .build()
-            })
-            .collect();
+        let build_range_infos: Vec<ash::vk::AccelerationStructureBuildRangeInfoKHR> = vec![
+            ash::vk::AccelerationStructureBuildRangeInfoKHR::builder()
+                .primitive_count((model.primitive.indices.len() / 3) as u32)
+                .build()
+        ];
+        // let build_range_infos: Vec<ash::vk::AccelerationStructureBuildRangeInfoKHR> = model
+        //     .meshes
+        //     .iter()
+        //     .map(|mesh| {
+        //         ash::vk::AccelerationStructureBuildRangeInfoKHR::builder()
+        //             .primitive_count((mesh.primitive.indices.len() / 3) as u32)
+        //             .build()
+        //     })
+        //     .collect();
 
         unsafe {
             device.execute_and_submit(|device, cb| {
@@ -251,52 +279,55 @@ impl Raytracing {
         let mut acceleration_instances: Vec<vk::AccelerationStructureInstanceKHR> = vec![];
         let mut blas_idx = 0;
         for instance in instances {
-            for (i, mesh) in instance.model.meshes.iter().enumerate() {
-                let world_matrix = instance.transform * instance.model.transforms[i];
-                let (scale, rotation, translation) = world_matrix.to_scale_rotation_translation();
-                let rotation_matrix = Mat3::from_quat(rotation);
+            //for (i, mesh) in instance.model.meshes.iter().enumerate() {
+            //println!("transforms[i]: {:?}", instance.model.transforms[i]);
+            let world_matrix = instance.transform * instance.model.transforms[0];
+            //let world_matrix = instance.transform * instance.model.transforms[i];
+            let (scale, rotation, translation) = world_matrix.to_scale_rotation_translation();
+            let rotation_matrix = Mat3::from_quat(rotation);
 
-                let transform = vk::TransformMatrixKHR {
-                    matrix: [
-                        rotation_matrix.x_axis.x * scale.x,
-                        rotation_matrix.y_axis.x * scale.y,
-                        rotation_matrix.z_axis.x * scale.z,
-                        translation.x,
-                        rotation_matrix.x_axis.y * scale.x,
-                        rotation_matrix.y_axis.y * scale.y,
-                        rotation_matrix.z_axis.y * scale.z,
-                        translation.y,
-                        rotation_matrix.x_axis.z * scale.x,
-                        rotation_matrix.y_axis.z * scale.y,
-                        rotation_matrix.z_axis.z * scale.z,
-                        translation.z,
-                    ],
-                };
+            let transform = vk::TransformMatrixKHR {
+                matrix: [
+                    rotation_matrix.x_axis.x * scale.x,
+                    rotation_matrix.y_axis.x * scale.y,
+                    rotation_matrix.z_axis.x * scale.z,
+                    translation.x,
+                    rotation_matrix.x_axis.y * scale.x,
+                    rotation_matrix.y_axis.y * scale.y,
+                    rotation_matrix.z_axis.y * scale.z,
+                    translation.y,
+                    rotation_matrix.x_axis.z * scale.x,
+                    rotation_matrix.y_axis.z * scale.y,
+                    rotation_matrix.z_axis.z * scale.z,
+                    translation.z,
+                ],
+            };
 
-                let blas_device_address = unsafe {
-                    device
-                        .acceleration_structure_ext
-                        .get_acceleration_structure_device_address(
-                            &vk::AccelerationStructureDeviceAddressInfoKHR::builder()
-                                .acceleration_structure(blas[blas_idx])
-                                .build(),
-                        )
-                };
+            let blas_device_address = unsafe {
+                device
+                    .acceleration_structure_ext
+                    .get_acceleration_structure_device_address(
+                        &vk::AccelerationStructureDeviceAddressInfoKHR::builder()
+                            .acceleration_structure(blas[blas_idx])
+                            .build(),
+                    )
+            };
 
-                acceleration_instances.push(vk::AccelerationStructureInstanceKHR {
-                    transform,
-                    acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
-                        device_handle: blas_device_address,
-                    },
-                    instance_custom_index_and_mask: vk::Packed24_8::new(mesh.gpu_mesh, 0xff),
-                    instance_shader_binding_table_record_offset_and_flags: vk::Packed24_8::new(
-                        0,
-                        vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw() as u8,
-                    ),
-                });
+            acceleration_instances.push(vk::AccelerationStructureInstanceKHR {
+                transform,
+                acceleration_structure_reference: vk::AccelerationStructureReferenceKHR {
+                    device_handle: blas_device_address,
+                },
+                //instance_custom_index_and_mask: vk::Packed24_8::new(mesh.gpu_mesh, 0xff),
+                instance_custom_index_and_mask: vk::Packed24_8::new(0, 0xff),
+                instance_shader_binding_table_record_offset_and_flags: vk::Packed24_8::new(
+                    0,
+                    vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw() as u8,
+                ),
+            });
 
-                blas_idx += 1;
-            }
+            //}
+            blas_idx += 1;
         }
 
         let instances_buffer = Buffer::new(
