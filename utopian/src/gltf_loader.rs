@@ -32,6 +32,7 @@ pub struct Material {
 #[derive(Debug)]
 pub struct Mesh {
     //pub primitive: Primitive,
+    pub first_vertex: u32,
     pub first_index: u32,
     pub index_count: u32,
     pub material: Material,
@@ -140,6 +141,7 @@ pub fn load_node(
 
             let base_color_factor = pbr.base_color_factor();
 
+            let first_vertex = vertices.len() as u32;
             let first_index = indices.len() as u32;
             let index_count = new_indices.len() as u32;
 
@@ -147,6 +149,7 @@ pub fn load_node(
             indices.append(&mut new_indices);
 
             meshes.push(Mesh {
+                first_vertex,
                 first_index,
                 index_count,
                 //primitive: Primitive::new(device, indices, vertices),

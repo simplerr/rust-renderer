@@ -651,7 +651,10 @@ impl Application {
                             );
 
                             for (i, mesh) in instance.model.meshes.iter().enumerate() {
-                                println!("Render gpu_mesh: {:?}", mesh.gpu_mesh);
+                                // println!(
+                                //     "Render gpu_mesh: {:?}, index_count: {:?}, first_index: {:?}",
+                                //     mesh.gpu_mesh, mesh.index_count, mesh.first_index
+                                // );
                                 let push_data = PushConstants {
                                     world: instance.transform * instance.model.transforms[i],
                                     color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
@@ -673,11 +676,10 @@ impl Application {
                                 device.handle.cmd_draw_indexed(
                                     command_buffer,
                                     mesh.index_count,
-                                    //mesh.primitive.indices.len() as u32,
                                     1,
                                     mesh.first_index,
+                                    mesh.first_vertex as i32,
                                     0,
-                                    1,
                                 );
                             }
                         }

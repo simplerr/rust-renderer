@@ -46,6 +46,7 @@ impl ModelLoader {
 
         Model {
             meshes: vec![Mesh {
+                first_vertex: 0,
                 first_index: 0,
                 index_count: indices.len() as u32,
                 material: Material {
@@ -131,6 +132,7 @@ impl ModelLoader {
 
         Model {
             meshes: vec![Mesh {
+                first_vertex: 0,
                 first_index: 0,
                 index_count: indices.len() as u32,
                 material: Material {
