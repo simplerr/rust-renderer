@@ -20,12 +20,14 @@ float schlick_reflectance(float cosine, float ref_idx)
 void main()
 {
    Mesh mesh = meshesSSBO.meshes[gl_InstanceCustomIndexEXT];
-   Material material = materialsSSBO.materials[mesh.material];
+   //Material material = materialsSSBO.materials[mesh.material];
 
    ivec3 indices = indicesSSBO[mesh.index_buffer].indices[gl_PrimitiveID];
    Vertex v0 = verticesSSBO[mesh.vertex_buffer].vertices[indices.x];
    Vertex v1 = verticesSSBO[mesh.vertex_buffer].vertices[indices.y];
    Vertex v2 = verticesSSBO[mesh.vertex_buffer].vertices[indices.z];
+
+   Material material = materialsSSBO.materials[v0.material_index];
 
    //Material material = materialsSSBO.materials[v0.material_index];
 
@@ -83,6 +85,7 @@ void main()
       isScattered = true;
       color = vec3(1.0);
    }
+   //color = world_normal;
 
    rayPayload = Payload(vec4(color, gl_HitTEXT), vec4(scatterDirection, isScattered ? 1 : 0), rayPayload.randomSeed);
 }

@@ -90,7 +90,7 @@ impl Application {
             width as f32 / height as f32,
             0.01,
             20000.0,
-            0.002,
+            0.002 * 100.0,
         );
 
         let camera_data = CameraUniformData {
@@ -379,6 +379,7 @@ impl Application {
         let sponza = utopian::gltf_loader::load_gltf(
             &self.base.device,
             "prototype/data/models/Sponza/glTF/Sponza.gltf",
+            //"prototype/data/models/flying_world_-_battle_of_the_trash_god/scene.gltf",
         );
 
         let mut metal_sphere =
@@ -656,7 +657,7 @@ impl Application {
                                 //     mesh.gpu_mesh, mesh.index_count, mesh.first_index
                                 // );
                                 let push_data = PushConstants {
-                                    world: instance.transform * instance.model.transforms[i],
+                                    world: instance.transform,// * instance.model.transforms[i],
                                     color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
                                     mesh_index: mesh.gpu_mesh,
                                     pad: [0; 3],
@@ -678,7 +679,8 @@ impl Application {
                                     mesh.index_count,
                                     1,
                                     mesh.first_index,
-                                    mesh.first_vertex as i32,
+                                    0,
+                                    //mesh.first_vertex as i32,
                                     0,
                                 );
                             }

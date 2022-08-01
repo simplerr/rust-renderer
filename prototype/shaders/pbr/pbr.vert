@@ -10,13 +10,15 @@ layout (location = 1) in vec4 normal;
 layout (location = 2) in vec2 uv;
 layout (location = 3) in vec4 color;
 layout (location = 4) in vec4 tangent;
+layout (location = 5) in uint material_index;
 
 layout (location = 0) out vec3 out_pos;
 layout (location = 1) out vec2 out_uv;
 layout (location = 2) out vec3 out_normal;
 layout (location = 3) out vec4 out_color;
 layout (location = 4) out vec4 out_tangent;
-layout (location = 5) out mat3 out_tbn;
+layout (location = 5) flat out uint out_material_index;
+layout (location = 6) out mat3 out_tbn;
 
 layout (std140, set = 1, binding = 0) uniform UBO_camera
 {
@@ -54,6 +56,7 @@ void main() {
     out_color = vertex.color;
     out_normal = mat3(transpose(inverse(pushConsts.world))) * vertex.normal.xyz;
     out_tangent = vertex.tangent;
+    out_material_index = vertex.material_index;
     gl_Position = camera.projection * camera.view * pushConsts.world * vec4(vertex.pos.xyz, 1.0);
 #else
     vec3 bitangentL = cross(normal.xyz, tangent.xyz);
@@ -67,6 +70,7 @@ void main() {
     out_color = color;
     out_normal = mat3(transpose(inverse(pushConsts.world))) * normal.xyz;
     out_tangent = tangent;
+    out_material_index = material_index;
     gl_Position = camera.projection * camera.view * pushConsts.world * vec4(pos.xyz, 1.0);
 #endif
 

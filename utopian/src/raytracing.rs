@@ -131,20 +131,45 @@ impl Raytracing {
             device_address: model.primitive.index_buffer.get_device_address(device),
         };
 
-        let acceleration_structure_geometries = vec![vk::AccelerationStructureGeometryKHR::builder()
-            .flags(vk::GeometryFlagsKHR::OPAQUE)
-            .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
-            .geometry(vk::AccelerationStructureGeometryDataKHR {
-                triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
-                    .vertex_format(vk::Format::R32G32B32_SFLOAT)
-                    .vertex_data(vertex_buffer_device_address)
-                    .vertex_stride(mem::size_of::<Vertex>() as _)
-                    .max_vertex(model.primitive.vertices.len() as _)
-                    .index_type(vk::IndexType::UINT32)
-                    .index_data(index_buffer_device_address)
-                    .build(),
-            })
-            .build()];
+        // println!(
+        //     "a: {:?}, b: {:?}",
+        //     model.primitive.vertices.len() as u32,
+        //     model
+        //         .primitive
+        //         .indices
+        //         .as_slice()
+        //         .iter()
+        //         .copied()
+        //         .max()
+        //         .expect("error") as u32
+        // );
+
+        let acceleration_structure_geometries =
+            vec![vk::AccelerationStructureGeometryKHR::builder()
+                .flags(vk::GeometryFlagsKHR::OPAQUE)
+                .geometry_type(vk::GeometryTypeKHR::TRIANGLES)
+                .geometry(vk::AccelerationStructureGeometryDataKHR {
+                    triangles: vk::AccelerationStructureGeometryTrianglesDataKHR::builder()
+                        .vertex_format(vk::Format::R32G32B32_SFLOAT)
+                        .vertex_data(vertex_buffer_device_address)
+                        .vertex_stride(mem::size_of::<Vertex>() as _)
+                        //.max_vertex(model.primitive.vertices.len() as _)
+                        //.max_vertex(model.primitive.indices.len() as _)
+                        .max_vertex(
+                            model
+                                .primitive
+                                .indices
+                                .as_slice()
+                                .iter()
+                                .copied()
+                                .max()
+                                .expect("error") as _,
+                        )
+                        .index_type(vk::IndexType::UINT32)
+                        .index_data(index_buffer_device_address)
+                        .build(),
+                })
+                .build()];
 
         // let acceleration_structure_geometries: Vec<vk::AccelerationStructureGeometryKHR> = model
         //     .meshes
@@ -241,11 +266,10 @@ impl Raytracing {
             })
             .build();
 
-        let build_range_infos: Vec<ash::vk::AccelerationStructureBuildRangeInfoKHR> = vec![
-            ash::vk::AccelerationStructureBuildRangeInfoKHR::builder()
+        let build_range_infos: Vec<ash::vk::AccelerationStructureBuildRangeInfoKHR> =
+            vec![ash::vk::AccelerationStructureBuildRangeInfoKHR::builder()
                 .primitive_count((model.primitive.indices.len() / 3) as u32)
-                .build()
-        ];
+                .build()];
         // let build_range_infos: Vec<ash::vk::AccelerationStructureBuildRangeInfoKHR> = model
         //     .meshes
         //     .iter()
@@ -281,7 +305,7 @@ impl Raytracing {
         for instance in instances {
             //for (i, mesh) in instance.model.meshes.iter().enumerate() {
             //println!("transforms[i]: {:?}", instance.model.transforms[i]);
-            let world_matrix = instance.transform * instance.model.transforms[0];
+            let world_matrix = instance.transform;// * instance.model.transforms[0];
             //let world_matrix = instance.transform * instance.model.transforms[i];
             let (scale, rotation, translation) = world_matrix.to_scale_rotation_translation();
             let rotation_matrix = Mat3::from_quat(rotation);
@@ -319,7 +343,8 @@ impl Raytracing {
                     device_handle: blas_device_address,
                 },
                 //instance_custom_index_and_mask: vk::Packed24_8::new(mesh.gpu_mesh, 0xff),
-                instance_custom_index_and_mask: vk::Packed24_8::new(0, 0xff),
+                //instance_custom_index_and_mask: vk::Packed24_8::new(0, 0xff),
+                instance_custom_index_and_mask: vk::Packed24_8::new(instance.model.meshes[0].gpu_mesh, 0xff),
                 instance_shader_binding_table_record_offset_and_flags: vk::Packed24_8::new(
                     0,
                     vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw() as u8,

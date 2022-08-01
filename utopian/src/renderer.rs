@@ -179,14 +179,17 @@ impl Renderer {
                 material: material_index,
             });
 
-            // Todo:!
-            // for mut vertex in &mut mesh.primitive.vertices {
-            //     vertex.material_index = material_index;
-            // }
-            // mesh.primitive.vertex_buffer.update_memory(device, &mesh.primitive.vertices);
+            for i in mesh.first_index..mesh.first_index + mesh.index_count {
+                model.primitive.vertices[model.primitive.indices[i as usize] as usize]
+                    .material_index = material_index;
+            }
+
+            model
+                .primitive
+                .vertex_buffer
+                .update_memory(device, &model.primitive.vertices);
 
             mesh.gpu_mesh = mesh_index;
-            println!("Updated gpu_mesh: {:?}", mesh.gpu_mesh);
         }
 
         // println!("{:?}", self.gpu_meshes);

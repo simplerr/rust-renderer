@@ -11,7 +11,8 @@ layout (location = 1) in vec2 in_uv;
 layout (location = 2) in vec3 in_normal;
 layout (location = 3) in vec4 in_color;
 layout (location = 4) in vec4 in_tangent;
-layout (location = 5) in mat3 in_tbn;
+layout (location = 5) flat in uint in_material_index;
+layout (location = 6) in mat3 in_tbn;
 
 layout (location = 0) out vec4 out_color;
 
@@ -49,7 +50,8 @@ Light lights[numLights] = {
 };
 
 void main() {
-    Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
+    //Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
+    Mesh mesh = meshesSSBO.meshes[in_material_index];
     Material material = materialsSSBO.materials[mesh.material];
 
     vec4 diffuse_color = texture(samplerColor[material.diffuse_map], in_uv);
@@ -62,11 +64,11 @@ void main() {
     diffuse_color.rgb = pow(diffuse_color.rgb, vec3(2.2));
 
     vec3 normal = normalize(in_normal);
-    if (in_tangent.xyz != vec3(0.0f))
-    {
-         normal = normalize(normal_map.xyz * 2.0 - 1.0);
-         normal = normalize(in_tbn * normal);
-    }
+    /* if (in_tangent.xyz != vec3(0.0f)) */
+    /* { */
+    /*      normal = normalize(normal_map.xyz * 2.0 - 1.0); */
+    /*      normal = normalize(in_tbn * normal); */
+    /* } */
 
     PixelParams pixel;
     pixel.position = in_pos;
@@ -92,6 +94,5 @@ void main() {
     color = pow(color, vec3(1.0/2.2));
 
     out_color = vec4(color, 1.0f);
-    //out_color = vec4(normal, 1.0f);
 }
 

@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec2, Vec3, Vec4};
+use glam::{Mat3, Mat4, Vec2, Vec3, Vec4};
 
 use crate::device::*;
 use crate::primitive::*;
@@ -78,7 +78,7 @@ pub fn load_node(
         for primitive in primitives {
             let reader = primitive.reader(|i| Some(&buffers[i.index()]));
 
-            let mut new_indices: Vec<_> = reader.read_indices().unwrap().into_u32().collect();
+            let new_indices: Vec<_> = reader.read_indices().unwrap().into_u32().collect();
             let positions: Vec<_> = reader.read_positions().unwrap().map(Vec3::from).collect();
             let normals: Vec<_> = reader.read_normals().unwrap().map(Vec3::from).collect();
             let tex_coords = if let Some(tex_coords) = reader.read_tex_coords(0) {
@@ -103,8 +103,12 @@ pub fn load_node(
 
             for (i, _) in positions.iter().enumerate() {
                 new_vertices.push(Vertex {
-                    pos: positions[i].extend(0.0),
-                    normal: normals[i].extend(0.0),
+                    // pos: positions[i].extend(0.0),
+                    // normal: normals[i].extend(0.0),
+                    pos: node_transform * positions[i].extend(1.0),
+                    //normal: (Mat3::from_mat4(Mat4::transpose(&Mat4::inverse(&node_transform))) * normals[i]).normalize().extend(0.0),
+                    normal: node_transform * normals[i].extend(0.0).normalize(),
+                    //tangent: (node_transform * tangents[i].truncate().extend(0.0)).normalize(),
                     uv: tex_coords[i],
                     tangent: tangents[i],
                     color: colors[i],
@@ -144,6 +148,8 @@ pub fn load_node(
             let first_vertex = vertices.len() as u32;
             let first_index = indices.len() as u32;
             let index_count = new_indices.len() as u32;
+
+            let mut new_indices = new_indices.into_iter().map(|x| x + first_vertex).collect();
 
             vertices.append(&mut new_vertices);
             indices.append(&mut new_indices);
@@ -223,8 +229,14 @@ pub fn load_gltf(device: &Device, path: &str) -> Model {
         }
     }
 
-    println!("indices: {:?}, vertices: {:?}, meshes: {:#?}, transforms: {:?}, textures: {:?}",
-             indices.len(), vertices.len(), meshes, transforms.len(), textures.len());
+    // println!(
+    //     "indices: {:?}, vertices: {:?}, meshes: {:#?}, transforms: {:?}, textures: {:?}",
+    //     indices.len(),
+    //     vertices.len(),
+    //     meshes,
+    //     transforms.len(),
+    //     textures.len()
+    // );
 
     Model {
         primitive: Primitive::new(device, indices, vertices),

@@ -155,6 +155,12 @@ impl Pipeline {
                 format: vk::Format::R32G32B32A32_SFLOAT,
                 offset: offset_of!(Vertex, tangent) as u32,
             },
+            vk::VertexInputAttributeDescription {
+                location: 5,
+                binding: 0,
+                format: vk::Format::R32_UINT,
+                offset: offset_of!(Vertex, material_index) as u32,
+            },
         ];
 
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
