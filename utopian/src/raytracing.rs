@@ -167,12 +167,13 @@ impl Raytracing {
         };
 
         // Todo: this should be created using device local memory
-        let blas_buffer = Buffer::new(
+        let blas_buffer = Buffer::new::<u8>(
             device,
-            &[0],
+            None,
             build_sizes.acceleration_structure_size,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         );
 
         let create_info = vk::AccelerationStructureCreateInfoKHR::builder()
@@ -188,11 +189,12 @@ impl Raytracing {
                 .expect("Creation of acceleration structure failed")
         };
 
-        let scratch_buffer = Buffer::new(
+        let scratch_buffer = Buffer::new::<u8>(
             device,
-            &[0],
+            None,
             build_sizes.build_scratch_size,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::STORAGE_BUFFER,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         );
 
         let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
@@ -283,10 +285,12 @@ impl Raytracing {
 
         let instances_buffer = Buffer::new(
             device,
-            acceleration_instances.as_slice(),
+            Some(acceleration_instances.as_slice()),
+            //Some(acceleration_instances.as_ptr() as *const u8),
             std::mem::size_of_val(&*acceleration_instances) as u64,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         );
 
         let geometry = vk::AccelerationStructureGeometryKHR::builder()
@@ -322,12 +326,13 @@ impl Raytracing {
         };
 
         // Todo: this should be created using device local memory
-        let tlas_buffer = Buffer::new(
+        let tlas_buffer = Buffer::new::<u8>(
             device,
-            &[0],
+            None,
             build_sizes.acceleration_structure_size,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         );
 
         let create_info = vk::AccelerationStructureCreateInfoKHR::builder()
@@ -343,11 +348,12 @@ impl Raytracing {
                 .expect("Creation of acceleration structure failed")
         };
 
-        let scratch_buffer = Buffer::new(
+        let scratch_buffer = Buffer::new::<u8>(
             device,
-            &[0],
+            None,
             build_sizes.build_scratch_size,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::STORAGE_BUFFER,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         );
 
         let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
@@ -538,26 +544,29 @@ impl Raytracing {
 
         let raygen_sbt_buffer = Buffer::new(
             device,
-            &shader_handle_storage[0..handle_size],
+            Some(&shader_handle_storage[0..handle_size]),
             handle_size as u64,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         );
 
         let miss_sbt_buffer = Buffer::new(
             device,
-            &shader_handle_storage[handle_size..handle_size * 2],
+            Some(&shader_handle_storage[handle_size..handle_size * 2]),
             handle_size as u64,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         );
 
         let hit_sbt_buffer = Buffer::new(
             device,
-            &shader_handle_storage[handle_size * 2..handle_size * 3],
+            Some(&shader_handle_storage[handle_size * 2..handle_size * 3]),
             handle_size as u64,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         );
 
         (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer)

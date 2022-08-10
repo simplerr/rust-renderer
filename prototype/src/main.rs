@@ -108,9 +108,10 @@ impl Application {
 
         let camera_uniform_buffer = utopian::Buffer::new(
             &base.device,
-            slice,
+            Some(slice),
             std::mem::size_of_val(&camera_data) as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
         );
 
         let pipeline = utopian::Pipeline::new(

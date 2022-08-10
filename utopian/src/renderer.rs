@@ -56,18 +56,20 @@ impl Renderer {
         let bindless_descriptor_set =
             create_bindless_descriptor_set(device, bindless_descriptor_set_layout);
 
-        let gpu_materials_buffer = Buffer::new(
+        let gpu_materials_buffer = Buffer::new::<u8>(
             device,
-            &[0],
+            None,
             (MAX_NUM_GPU_MATERIALS * std::mem::size_of::<GpuMaterial>()) as u64,
             vk::BufferUsageFlags::STORAGE_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
         );
 
-        let gpu_meshes_buffer = Buffer::new(
+        let gpu_meshes_buffer = Buffer::new::<u8>(
             device,
-            &[0],
+            None,
             (MAX_NUM_GPU_MESHES * std::mem::size_of::<GpuMesh>()) as u64,
             vk::BufferUsageFlags::STORAGE_BUFFER,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
         );
 
         DescriptorSet::write_storage_buffer(

@@ -9,15 +9,16 @@ pub struct Buffer {
     pub buffer: vk::Buffer,
     pub device_memory: vk::DeviceMemory,
     pub memory_req: vk::MemoryRequirements,
+    pub memory_property_flags: vk::MemoryPropertyFlags,
     pub size: u64,
 }
 
 impl Buffer {
-    pub fn new<T: Copy>(
+    pub fn create_buffer(
         device: &Device,
-        data: &[T],
         size: u64, // todo: get rid of this
         usage_flags: vk::BufferUsageFlags,
+        memory_property_flags: vk::MemoryPropertyFlags,
     ) -> Buffer {
         unsafe {
             let buffer_info = vk::BufferCreateInfo::builder()
@@ -32,10 +33,7 @@ impl Buffer {
 
             let buffer_memory_req = device.handle.get_buffer_memory_requirements(buffer);
             let buffer_memory_index = device
-                .find_memory_type_index(
-                    &buffer_memory_req,
-                    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-                )
+                .find_memory_type_index(&buffer_memory_req, memory_property_flags)
                 .expect("Unable to find suitable memory type for the buffer");
 
             let mut allocate_info_builder = vk::MemoryAllocateInfo::builder()
@@ -57,22 +55,6 @@ impl Buffer {
                 .allocate_memory(&allocate_info, None)
                 .expect("Unable to allocate memory for the buffer");
 
-            let buffer_ptr = device
-                .handle
-                .map_memory(
-                    device_memory,
-                    0,
-                    buffer_memory_req.size,
-                    vk::MemoryMapFlags::empty(),
-                )
-                .expect("Failed to map buffer memory");
-
-            let mut slice = Align::new(buffer_ptr, align_of::<T>() as u64, buffer_memory_req.size);
-
-            slice.copy_from_slice(data);
-
-            device.handle.unmap_memory(device_memory);
-
             device
                 .handle
                 .bind_buffer_memory(buffer, device_memory, 0)
@@ -81,29 +63,129 @@ impl Buffer {
             Buffer {
                 buffer,
                 device_memory,
-                size,
                 memory_req: buffer_memory_req,
+                memory_property_flags,
+                size,
             }
         }
     }
 
+    pub fn new<T: Copy>(
+        device: &Device,
+        initial_data: Option<&[T]>,
+        size: u64, // todo: get rid of this
+        usage_flags: vk::BufferUsageFlags,
+        memory_property_flags: vk::MemoryPropertyFlags,
+    ) -> Buffer {
+        let buffer = Buffer::create_buffer(
+            device,
+            size,
+            usage_flags | vk::BufferUsageFlags::TRANSFER_DST,
+            memory_property_flags,
+        );
+
+        if let Some(initial_data) = initial_data {
+            let staging_buffer = Buffer::create_buffer(
+                device,
+                size,
+                vk::BufferUsageFlags::TRANSFER_SRC,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            );
+
+            staging_buffer.update_memory(device, initial_data);
+
+            device.execute_and_submit(|device, cb| {
+                let regions = vk::BufferCopy::builder()
+                    .size(size)
+                    .src_offset(0)
+                    .dst_offset(0)
+                    .build();
+
+                unsafe {
+                    device.handle.cmd_copy_buffer(
+                        cb,
+                        staging_buffer.buffer,
+                        buffer.buffer,
+                        &[regions],
+                    );
+                }
+            });
+
+            unsafe {
+                device
+                    .handle
+                    .free_memory(staging_buffer.device_memory, None);
+                device.handle.destroy_buffer(staging_buffer.buffer, None);
+            }
+        }
+
+        buffer
+    }
+
     pub fn update_memory<T: Copy>(&self, device: &Device, data: &[T]) {
         unsafe {
-            let buffer_ptr = device
-                .handle
-                .map_memory(
-                    self.device_memory,
-                    0,
-                    self.memory_req.size,
-                    vk::MemoryMapFlags::empty(),
-                )
-                .expect("Failed to map buffer memory");
+            if self.memory_property_flags != vk::MemoryPropertyFlags::DEVICE_LOCAL {
+                let buffer_ptr = device
+                    .handle
+                    .map_memory(
+                        self.device_memory,
+                        0,
+                        self.memory_req.size,
+                        vk::MemoryMapFlags::empty(),
+                    )
+                    .expect("Failed to map buffer memory");
 
-            let mut slice = Align::new(buffer_ptr, align_of::<T>() as u64, self.memory_req.size);
+                let mut slice =
+                    Align::new(buffer_ptr, align_of::<T>() as u64, self.memory_req.size);
 
-            slice.copy_from_slice(data);
+                slice.copy_from_slice(data);
 
-            device.handle.unmap_memory(self.device_memory);
+                device.handle.unmap_memory(self.device_memory);
+            } else {
+                let staging_buffer = Buffer::create_buffer(
+                    device,
+                    self.size,
+                    vk::BufferUsageFlags::TRANSFER_SRC,
+                    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+                );
+
+                let buffer_ptr = device
+                    .handle
+                    .map_memory(
+                        staging_buffer.device_memory,
+                        0,
+                        self.memory_req.size,
+                        vk::MemoryMapFlags::empty(),
+                    )
+                    .expect("Failed to map buffer memory");
+
+                let mut slice =
+                    Align::new(buffer_ptr, align_of::<T>() as u64, self.memory_req.size);
+
+                slice.copy_from_slice(data);
+
+                device.handle.unmap_memory(staging_buffer.device_memory);
+
+                device.execute_and_submit(|device, cb| {
+                    let regions = vk::BufferCopy::builder()
+                        .size(self.size)
+                        .src_offset(0)
+                        .dst_offset(0)
+                        .build();
+
+                    device.handle.cmd_copy_buffer(
+                        cb,
+                        staging_buffer.buffer,
+                        self.buffer,
+                        &[regions],
+                    );
+                });
+
+                device
+                    .handle
+                    .free_memory(staging_buffer.device_memory, None);
+                device.handle.destroy_buffer(staging_buffer.buffer, None);
+            }
         }
     }
 

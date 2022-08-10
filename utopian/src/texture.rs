@@ -27,9 +27,10 @@ impl Texture {
     pub fn create(device: &Device, pixels: &[u8], width: u32, height: u32) -> Texture {
         let staging_buffer = Buffer::new(
             device,
-            pixels,
+            Some(pixels),
             std::mem::size_of_val(pixels) as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
         );
 
         let image = Image::new(
