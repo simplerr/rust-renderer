@@ -83,8 +83,8 @@ impl Application {
         let framebuffers = Application::create_framebuffers(&base, renderpass);
 
         let camera = utopian::Camera::new(
-            Vec3::new(0.0, 0.9, 2.0), // Cornell box scene
-            //Vec3::new(-10.28, 2.10, -0.18), // Sponza scene
+            //Vec3::new(0.0, 0.9, 2.0), // Cornell box scene
+            Vec3::new(-10.28, 2.10, -0.18), // Sponza scene
             Vec3::new(0.0, 0.5, 0.0),
             60.0,
             width as f32 / height as f32,
@@ -101,7 +101,7 @@ impl Application {
             eye_pos: camera.get_position(),
             samples_per_frame: 1,
             total_samples: 0,
-            num_bounces: 100,
+            num_bounces: 5,
         };
 
         let slice = unsafe { std::slice::from_raw_parts(&camera_data, 1) };
@@ -336,85 +336,85 @@ impl Application {
         // Cornell box scene
         // =================
 
-        let cornell_box = utopian::gltf_loader::load_gltf(
-            &self.base.device,
-            "prototype/data/models/CornellBox-Original.gltf",
-        );
-
-        let flight_helmet = utopian::gltf_loader::load_gltf(
-            &self.base.device,
-            "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf",
-        );
-
-        self.renderer.add_model(
-            &self.base.device,
-            cornell_box,
-            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
-        );
-
-        let mut light = utopian::ModelLoader::load_cube(&self.base.device);
-        light.meshes[0].material.material_type = utopian::gltf_loader::MaterialType::DiffuseLight;
-
-        self.renderer.add_model(
-            &self.base.device,
-            light,
-            glam::Mat4::from_scale_rotation_translation(
-                Vec3::new(0.50, 0.05, 0.35),
-                Quat::IDENTITY,
-                glam::Vec3::new(0.0, 1.95, 0.0),
-            ),
-        );
-
-        self.renderer.add_model(
-            &self.base.device,
-            flight_helmet,
-            glam::Mat4::from_translation(glam::Vec3::new(-0.33, 0.4, 0.3)),
-        );
+        // let cornell_box = utopian::gltf_loader::load_gltf(
+        //     &self.base.device,
+        //     "prototype/data/models/CornellBox-Original.gltf",
+        // );
+        //
+        // let flight_helmet = utopian::gltf_loader::load_gltf(
+        //     &self.base.device,
+        //     "prototype/data/models/FlightHelmet/glTF/FlightHelmet.gltf",
+        // );
+        //
+        // self.renderer.add_model(
+        //     &self.base.device,
+        //     cornell_box,
+        //     glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        // );
+        //
+        // let mut light = utopian::ModelLoader::load_cube(&self.base.device);
+        // light.meshes[0].material.material_type = utopian::gltf_loader::MaterialType::DiffuseLight;
+        //
+        // self.renderer.add_model(
+        //     &self.base.device,
+        //     light,
+        //     glam::Mat4::from_scale_rotation_translation(
+        //         Vec3::new(0.50, 0.05, 0.35),
+        //         Quat::IDENTITY,
+        //         glam::Vec3::new(0.0, 1.95, 0.0),
+        //     ),
+        // );
+        //
+        // self.renderer.add_model(
+        //     &self.base.device,
+        //     flight_helmet,
+        //     glam::Mat4::from_translation(glam::Vec3::new(-0.33, 0.4, 0.3)),
+        // );
 
         // ============
         // Sponza scene
         // ============
 
-        // let sponza = utopian::gltf_loader::load_gltf(
-        //     &self.base.device,
-        //     "prototype/data/models/Sponza/glTF/Sponza.gltf",
-        // );
+        let sponza = utopian::gltf_loader::load_gltf(
+            &self.base.device,
+            "prototype/data/models/Sponza/glTF/Sponza.gltf",
+        );
 
-        // let mut metal_sphere =
-        //     utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
-        // metal_sphere.meshes[0].material.material_type = utopian::gltf_loader::MaterialType::Metal;
-        // let mut dielectric_sphere =
-        //     utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
-        // dielectric_sphere.meshes[0].material.material_type =
-        //     utopian::gltf_loader::MaterialType::Dielectric;
-        // dielectric_sphere.meshes[0].material.material_property = 1.5;
-        //
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     sponza,
-        //     glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
-        // );
+        let mut metal_sphere =
+            utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
+        metal_sphere.meshes[0].material.material_type = utopian::gltf_loader::MaterialType::Metal;
+        let mut dielectric_sphere =
+            utopian::gltf_loader::load_gltf(&self.base.device, "prototype/data/models/sphere.gltf");
+        dielectric_sphere.meshes[0].material.material_type =
+            utopian::gltf_loader::MaterialType::Dielectric;
+        dielectric_sphere.meshes[0].material.material_property = 1.5;
 
-        // let size = 0.6;
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     metal_sphere,
-        //     glam::Mat4::from_scale_rotation_translation(
-        //         glam::Vec3::new(size, size, size),
-        //         Quat::IDENTITY,
-        //         glam::Vec3::new(-3.0, 0.65, -1.0),
-        //     ),
-        // );
+        self.renderer.add_model(
+            &self.base.device,
+            sponza,
+            glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        );
 
-        // self.renderer.add_model(
-        //     &self.base.device,
-        //     dielectric_sphere,
-        //     glam::Mat4::from_scale_rotation_translation(
-        //         glam::Vec3::new(size, size, size),
-        //         Quat::IDENTITY,
-        //         glam::Vec3::new(-3.0, 0.65, 0.7),
-        //     ),
-        // );
+        let size = 0.6;
+        self.renderer.add_model(
+            &self.base.device,
+            metal_sphere,
+            glam::Mat4::from_scale_rotation_translation(
+                glam::Vec3::new(size, size, size),
+                Quat::IDENTITY,
+                glam::Vec3::new(-3.0, 0.65, -1.0),
+            ),
+        );
+
+        self.renderer.add_model(
+            &self.base.device,
+            dielectric_sphere,
+            glam::Mat4::from_scale_rotation_translation(
+                glam::Vec3::new(size, size, size),
+                Quat::IDENTITY,
+                glam::Vec3::new(-3.0, 0.65, 0.7),
+            ),
+        );
 
         self.raytracing
             .initialize(&self.base.device, &self.renderer.instances);
