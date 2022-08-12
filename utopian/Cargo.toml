@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 winit = "0.26.0"
+gpu-allocator = "0.18.0"
 ash = { version = "0.37.0", features = ["linked", "debug"]}
 ash-window = "0.10"
 shaderc = "0.7.3"

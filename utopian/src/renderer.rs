@@ -61,7 +61,7 @@ impl Renderer {
             None,
             (MAX_NUM_GPU_MATERIALS * std::mem::size_of::<GpuMaterial>()) as u64,
             vk::BufferUsageFlags::STORAGE_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            gpu_allocator::MemoryLocation::GpuToCpu,
         );
 
         let gpu_meshes_buffer = Buffer::new::<u8>(
@@ -69,7 +69,7 @@ impl Renderer {
             None,
             (MAX_NUM_GPU_MESHES * std::mem::size_of::<GpuMesh>()) as u64,
             vk::BufferUsageFlags::STORAGE_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            gpu_allocator::MemoryLocation::GpuToCpu,
         );
 
         DescriptorSet::write_storage_buffer(

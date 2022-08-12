@@ -1,15 +1,14 @@
-use ash::util::*;
 use ash::vk;
-use std::mem::align_of;
+use gpu_allocator::vulkan::*;
 
 use crate::device::*;
 use crate::image::*;
 
 pub struct Buffer {
     pub buffer: vk::Buffer,
-    pub device_memory: vk::DeviceMemory,
+    pub allocation: Allocation,
     pub memory_req: vk::MemoryRequirements,
-    pub memory_property_flags: vk::MemoryPropertyFlags,
+    pub memory_location: gpu_allocator::MemoryLocation,
     pub size: u64,
 }
 
@@ -18,7 +17,7 @@ impl Buffer {
         device: &Device,
         size: u64, // todo: get rid of this
         usage_flags: vk::BufferUsageFlags,
-        memory_property_flags: vk::MemoryPropertyFlags,
+        memory_location: gpu_allocator::MemoryLocation,
     ) -> Buffer {
         unsafe {
             let buffer_info = vk::BufferCreateInfo::builder()
@@ -32,39 +31,29 @@ impl Buffer {
                 .expect("Failed to create buffer");
 
             let buffer_memory_req = device.handle.get_buffer_memory_requirements(buffer);
-            let buffer_memory_index = device
-                .find_memory_type_index(&buffer_memory_req, memory_property_flags)
-                .expect("Unable to find suitable memory type for the buffer");
 
-            let mut allocate_info_builder = vk::MemoryAllocateInfo::builder()
-                .allocation_size(buffer_memory_req.size)
-                .memory_type_index(buffer_memory_index);
-
-            let mut allocate_flags_info = vk::MemoryAllocateFlagsInfo::builder()
-                .flags(vk::MemoryAllocateFlags::DEVICE_ADDRESS)
-                .build();
-
-            if usage_flags.contains(vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS) {
-                allocate_info_builder = allocate_info_builder.push_next(&mut allocate_flags_info);
-            }
-
-            let allocate_info = allocate_info_builder.build();
-
-            let device_memory = device
-                .handle
-                .allocate_memory(&allocate_info, None)
-                .expect("Unable to allocate memory for the buffer");
+            let allocation = device
+                .gpu_allocator
+                .lock()
+                .unwrap()
+                .allocate(&AllocationCreateDesc {
+                    name: "Example allocation",
+                    requirements: buffer_memory_req,
+                    location: memory_location,
+                    linear: true,
+                })
+                .unwrap();
 
             device
                 .handle
-                .bind_buffer_memory(buffer, device_memory, 0)
-                .expect("Failed to bind device memory to buffer");
+                .bind_buffer_memory(buffer, allocation.memory(), allocation.offset())
+                .unwrap();
 
             Buffer {
                 buffer,
-                device_memory,
+                allocation,
                 memory_req: buffer_memory_req,
-                memory_property_flags,
+                memory_location,
                 size,
             }
         }
@@ -75,96 +64,40 @@ impl Buffer {
         initial_data: Option<&[T]>,
         size: u64, // todo: get rid of this
         usage_flags: vk::BufferUsageFlags,
-        memory_property_flags: vk::MemoryPropertyFlags,
+        location: gpu_allocator::MemoryLocation,
     ) -> Buffer {
-        let buffer = Buffer::create_buffer(
+        let mut buffer = Buffer::create_buffer(
             device,
             size,
             usage_flags | vk::BufferUsageFlags::TRANSFER_DST,
-            memory_property_flags,
+            location,
         );
 
         if let Some(initial_data) = initial_data {
-            let staging_buffer = Buffer::create_buffer(
-                device,
-                size,
-                vk::BufferUsageFlags::TRANSFER_SRC,
-                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            );
-
-            staging_buffer.update_memory(device, initial_data);
-
-            device.execute_and_submit(|device, cb| {
-                let regions = vk::BufferCopy::builder()
-                    .size(size)
-                    .src_offset(0)
-                    .dst_offset(0)
-                    .build();
-
-                unsafe {
-                    device.handle.cmd_copy_buffer(
-                        cb,
-                        staging_buffer.buffer,
-                        buffer.buffer,
-                        &[regions],
-                    );
-                }
-            });
-
-            unsafe {
-                device
-                    .handle
-                    .free_memory(staging_buffer.device_memory, None);
-                device.handle.destroy_buffer(staging_buffer.buffer, None);
-            }
+            buffer.update_memory(device, initial_data);
         }
 
         buffer
     }
 
-    pub fn update_memory<T: Copy>(&self, device: &Device, data: &[T]) {
+    pub fn update_memory<T: Copy>(&mut self, device: &Device, data: &[T]) {
         unsafe {
-            if self.memory_property_flags != vk::MemoryPropertyFlags::DEVICE_LOCAL {
-                let buffer_ptr = device
-                    .handle
-                    .map_memory(
-                        self.device_memory,
-                        0,
-                        self.memory_req.size,
-                        vk::MemoryMapFlags::empty(),
-                    )
-                    .expect("Failed to map buffer memory");
+            let data_u8 =
+                std::slice::from_raw_parts(data.as_ptr() as *const u8, self.size as usize);
 
-                let mut slice =
-                    Align::new(buffer_ptr, align_of::<T>() as u64, self.memory_req.size);
-
-                slice.copy_from_slice(data);
-
-                device.handle.unmap_memory(self.device_memory);
+            if self.memory_location != gpu_allocator::MemoryLocation::GpuOnly {
+                self.allocation.mapped_slice_mut().unwrap()[0..data_u8.len()]
+                    .copy_from_slice(data_u8);
             } else {
-                let staging_buffer = Buffer::create_buffer(
+                let mut staging_buffer = Buffer::create_buffer(
                     device,
                     self.size,
                     vk::BufferUsageFlags::TRANSFER_SRC,
-                    vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+                    gpu_allocator::MemoryLocation::GpuToCpu,
                 );
 
-                let buffer_ptr = device
-                    .handle
-                    .map_memory(
-                        staging_buffer.device_memory,
-                        0,
-                        self.memory_req.size,
-                        vk::MemoryMapFlags::empty(),
-                    )
-                    .expect("Failed to map buffer memory");
-
-                let mut slice =
-                    Align::new(buffer_ptr, align_of::<T>() as u64, self.memory_req.size);
-
-                slice.copy_from_slice(data);
-
-                device.handle.unmap_memory(staging_buffer.device_memory);
+                staging_buffer.allocation.mapped_slice_mut().unwrap()[0..data_u8.len()]
+                    .copy_from_slice(data_u8);
 
                 device.execute_and_submit(|device, cb| {
                     let regions = vk::BufferCopy::builder()
@@ -182,8 +115,11 @@ impl Buffer {
                 });
 
                 device
-                    .handle
-                    .free_memory(staging_buffer.device_memory, None);
+                    .gpu_allocator
+                    .lock()
+                    .unwrap()
+                    .free(staging_buffer.allocation)
+                    .unwrap();
                 device.handle.destroy_buffer(staging_buffer.buffer, None);
             }
         }

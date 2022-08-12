@@ -2,6 +2,9 @@ use ash::extensions::khr;
 use ash::extensions::khr::Surface;
 use ash::extensions::khr::Swapchain;
 use ash::vk;
+use std::sync::{Arc, Mutex};
+use gpu_allocator::vulkan::*;
+use gpu_allocator::AllocatorDebugSettings;
 
 pub struct Device {
     pub handle: ash::Device,
@@ -14,6 +17,7 @@ pub struct Device {
     pub rt_pipeline_properties: vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
     pub acceleration_structure_ext: khr::AccelerationStructure,
     pub raytracing_pipeline_ext: khr::RayTracingPipeline,
+    pub gpu_allocator: Arc<Mutex<gpu_allocator::vulkan::Allocator>>,
 }
 
 impl Device {
@@ -108,6 +112,20 @@ impl Device {
             println!("{:#?}", rt_pipeline_properties);
             println!("{:#?}", as_features);
 
+            let gpu_allocator = Allocator::new(&AllocatorCreateDesc {
+                instance: instance.clone(),
+                device: device.clone(),
+                physical_device,
+                debug_settings: AllocatorDebugSettings {
+                    log_leaks_on_shutdown: true,
+                    log_memory_information: true,
+                    log_allocations: true,
+                    ..Default::default()
+                },
+                buffer_device_address: true,
+            })
+            .expect("Failed to create GPU allocator");
+
             Device {
                 handle: device,
                 physical_device,
@@ -119,6 +137,7 @@ impl Device {
                 rt_pipeline_properties,
                 acceleration_structure_ext,
                 raytracing_pipeline_ext,
+                gpu_allocator: Arc::new(Mutex::new(gpu_allocator)),
             }
         }
     }

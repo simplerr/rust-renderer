@@ -43,7 +43,7 @@ impl Primitive {
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::STORAGE_BUFFER,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            gpu_allocator::MemoryLocation::GpuOnly,
         );
 
         let vertex_buffer = Buffer::new(
@@ -54,7 +54,7 @@ impl Primitive {
                 | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                 | vk::BufferUsageFlags::STORAGE_BUFFER,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            gpu_allocator::MemoryLocation::GpuOnly,
         );
 
         // Todo: device local index and vertex buffers

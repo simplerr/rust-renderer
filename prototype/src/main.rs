@@ -1,6 +1,5 @@
 use ash::vk;
 use glam::{Quat, Vec3};
-use gpu_allocator::vulkan::*;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -111,7 +110,7 @@ impl Application {
             Some(slice),
             std::mem::size_of_val(&camera_data) as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            gpu_allocator::MemoryLocation::GpuToCpu,
         );
 
         let pipeline = utopian::Pipeline::new(
@@ -139,18 +138,6 @@ impl Application {
             &camera_uniform_buffer,
         );
 
-        // Prepare gpu-allocator's Allocator
-        let allocator = Allocator::new(&AllocatorCreateDesc {
-            instance: base.instance.clone(),
-            device: base.device.handle.clone(),
-            physical_device: base.device.physical_device,
-            debug_settings: Default::default(),
-            buffer_device_address: false,
-        })
-        .unwrap();
-
-        let allocator = Arc::new(Mutex::new(allocator));
-
         let egui_integration = egui_winit_ash_integration::Integration::new(
             width,
             height,
@@ -158,7 +145,7 @@ impl Application {
             egui::FontDefinitions::default(),
             egui::Style::default(),
             base.device.handle.clone(),
-            allocator,
+            base.device.gpu_allocator.clone(),
             base.swapchain_loader.clone(),
             base.swapchain,
             base.surface_format,

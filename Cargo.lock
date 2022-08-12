@@ -1604,6 +1604,7 @@ dependencies = [
  "dolly",
  "glam",
  "gltf",
+ "gpu-allocator",
  "image",
  "rspirv-reflect",
  "shaderc",

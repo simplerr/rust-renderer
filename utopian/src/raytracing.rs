@@ -173,7 +173,7 @@ impl Raytracing {
             build_sizes.acceleration_structure_size,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            gpu_allocator::MemoryLocation::GpuOnly,
         );
 
         let create_info = vk::AccelerationStructureCreateInfoKHR::builder()
@@ -194,7 +194,7 @@ impl Raytracing {
             None,
             build_sizes.build_scratch_size,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::STORAGE_BUFFER,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            gpu_allocator::MemoryLocation::GpuOnly,
         );
 
         let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
@@ -290,7 +290,7 @@ impl Raytracing {
             std::mem::size_of_val(&*acceleration_instances) as u64,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            gpu_allocator::MemoryLocation::GpuOnly,
         );
 
         let geometry = vk::AccelerationStructureGeometryKHR::builder()
@@ -332,7 +332,7 @@ impl Raytracing {
             build_sizes.acceleration_structure_size,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            gpu_allocator::MemoryLocation::GpuOnly,
         );
 
         let create_info = vk::AccelerationStructureCreateInfoKHR::builder()
@@ -353,7 +353,7 @@ impl Raytracing {
             None,
             build_sizes.build_scratch_size,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS | vk::BufferUsageFlags::STORAGE_BUFFER,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            gpu_allocator::MemoryLocation::GpuOnly,
         );
 
         let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
@@ -548,7 +548,7 @@ impl Raytracing {
             handle_size as u64,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            gpu_allocator::MemoryLocation::GpuOnly,
         );
 
         let miss_sbt_buffer = Buffer::new(
@@ -557,7 +557,7 @@ impl Raytracing {
             handle_size as u64,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            gpu_allocator::MemoryLocation::GpuOnly,
         );
 
         let hit_sbt_buffer = Buffer::new(
@@ -566,7 +566,7 @@ impl Raytracing {
             handle_size as u64,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+            gpu_allocator::MemoryLocation::GpuOnly,
         );
 
         (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer)
