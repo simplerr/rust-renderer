@@ -89,7 +89,7 @@ impl Application {
             width as f32 / height as f32,
             0.01,
             20000.0,
-            0.002,
+            0.02,
         );
 
         let camera_data = CameraUniformData {

@@ -70,7 +70,6 @@ pub struct VulkanBase {
     pub instance: ash::Instance,
     pub device: Device,
     _command_pool: vk::CommandPool,
-    pub setup_command_buffer: vk::CommandBuffer,
     pub draw_command_buffer: vk::CommandBuffer,
     pub present_images: Vec<Image>,
     pub depth_image: Image,
@@ -105,8 +104,8 @@ impl VulkanBase {
                 &surface_loader,
             );
 
-        let (_command_pool, setup_command_buffer, draw_command_buffer) =
-            VulkanBase::create_command_buffers(&device.handle, device.queue_family_index);
+        let (_command_pool, draw_command_buffer) =
+            VulkanBase::create_command_buffer(&device.handle, device.queue_family_index);
 
         let (present_images, depth_image) = VulkanBase::setup_swapchain_images(
             &device,
@@ -135,7 +134,6 @@ impl VulkanBase {
             instance,
             device,
             _command_pool,
-            setup_command_buffer,
             draw_command_buffer,
             present_images,
             depth_image,
@@ -301,10 +299,10 @@ impl VulkanBase {
         }
     }
 
-    fn create_command_buffers(
+    fn create_command_buffer(
         device: &ash::Device,
         queue_family_index: u32,
-    ) -> (vk::CommandPool, vk::CommandBuffer, vk::CommandBuffer) {
+    ) -> (vk::CommandPool, vk::CommandBuffer) {
         let pool_create_info = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(queue_family_index);
@@ -316,7 +314,7 @@ impl VulkanBase {
         };
 
         let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
-            .command_buffer_count(2)
+            .command_buffer_count(1)
             .command_pool(pool)
             .level(vk::CommandBufferLevel::PRIMARY);
 
@@ -326,7 +324,7 @@ impl VulkanBase {
                 .expect("Failed to allocate command buffer")
         };
 
-        (pool, command_buffers[0], command_buffers[1])
+        (pool, command_buffers[0])
     }
 
     fn setup_swapchain_images(
