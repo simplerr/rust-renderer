@@ -83,7 +83,7 @@ impl Buffer {
     pub fn update_memory<T: Copy>(&mut self, device: &Device, data: &[T]) {
         unsafe {
             let data_u8 =
-                std::slice::from_raw_parts(data.as_ptr() as *const u8, self.size as usize);
+                std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * core::mem::size_of::<T>());
 
             if self.memory_location != gpu_allocator::MemoryLocation::GpuOnly {
                 self.allocation.mapped_slice_mut().unwrap()[0..data_u8.len()]
@@ -93,7 +93,7 @@ impl Buffer {
                     device,
                     self.size,
                     vk::BufferUsageFlags::TRANSFER_SRC,
-                    gpu_allocator::MemoryLocation::GpuToCpu,
+                    gpu_allocator::MemoryLocation::CpuToGpu,
                 );
 
                 staging_buffer.allocation.mapped_slice_mut().unwrap()[0..data_u8.len()]

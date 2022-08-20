@@ -110,7 +110,7 @@ impl Application {
             Some(slice),
             std::mem::size_of_val(&camera_data) as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
-            gpu_allocator::MemoryLocation::GpuToCpu,
+            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let pipeline = utopian::Pipeline::new(

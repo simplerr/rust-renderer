@@ -120,6 +120,7 @@ impl Device {
                     log_leaks_on_shutdown: true,
                     log_memory_information: true,
                     log_allocations: true,
+                    log_stack_traces: true,
                     ..Default::default()
                 },
                 buffer_device_address: true,

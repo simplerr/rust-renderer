@@ -30,7 +30,7 @@ impl Texture {
             Some(pixels),
             std::mem::size_of_val(pixels) as u64,
             vk::BufferUsageFlags::TRANSFER_SRC,
-            gpu_allocator::MemoryLocation::GpuToCpu,
+            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let image = Image::new(
