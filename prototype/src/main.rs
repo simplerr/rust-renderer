@@ -45,7 +45,7 @@ struct Application {
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
     renderer: utopian::Renderer,
-    raytracing: utopian::Raytracing,
+    raytracing: Option<utopian::Raytracing>,
     egui_integration:
         egui_winit_ash_integration::Integration<Arc<Mutex<gpu_allocator::vulkan::Allocator>>>,
     fps_timer: FpsTimer,
@@ -151,12 +151,16 @@ impl Application {
             base.surface_format,
         );
 
-        let raytracing = utopian::Raytracing::new(
-            &base.device,
-            &camera_uniform_buffer,
-            base.surface_resolution,
-            Some(renderer.bindless_descriptor_set_layout),
-        );
+        let raytracing_supported = base.device.raytracing_supported;
+        let raytracing = match raytracing_supported {
+            true => Some(utopian::Raytracing::new(
+                &base.device,
+                &camera_uniform_buffer,
+                base.surface_resolution,
+                Some(renderer.bindless_descriptor_set_layout),
+            )),
+            false => None,
+        };
 
         let (watcher_tx, watcher_rx) = mpsc::channel();
         let mut directory_watcher: RecommendedWatcher =
@@ -186,7 +190,7 @@ impl Application {
                 fps: 0,
                 elapsed_frames: 0,
             },
-            raytracing_enabled: true,
+            raytracing_enabled: raytracing_supported,
             _directory_watcher: directory_watcher,
             watcher_rx,
         }
@@ -404,8 +408,9 @@ impl Application {
             ),
         );
 
-        self.raytracing
-            .initialize(&self.base.device, &self.renderer.instances);
+        if let Some(raytracing) = &mut self.raytracing {
+            raytracing.initialize(&self.base.device, &self.renderer.instances);
+        }
     }
 
     fn update_ui(
@@ -489,7 +494,8 @@ impl Application {
             }
 
             if input.key_pressed(winit::event::VirtualKeyCode::Space) {
-                self.raytracing_enabled = !self.raytracing_enabled;
+                self.raytracing_enabled =
+                    !self.raytracing_enabled && self.base.device.raytracing_supported;
             }
 
             let mut recompile_shaders = false;
@@ -513,10 +519,12 @@ impl Application {
                     self.base.surface_resolution,
                     Some(self.renderer.bindless_descriptor_set_layout),
                 );
-                self.raytracing.recreate_pipeline(
-                    &self.base.device,
-                    Some(self.renderer.bindless_descriptor_set_layout),
-                );
+                if let Some(raytracing) = &mut self.raytracing {
+                    raytracing.recreate_pipeline(
+                        &self.base.device,
+                        Some(self.renderer.bindless_descriptor_set_layout),
+                    );
+                }
             }
 
             if self.camera.update(input) {
@@ -544,12 +552,14 @@ impl Application {
                     );
 
                     if self.raytracing_enabled {
-                        self.raytracing.record_commands(
-                            device,
-                            command_buffer,
-                            self.renderer.bindless_descriptor_set,
-                            &self.base.present_images[present_index as usize],
-                        );
+                        if let Some(raytracing) = &self.raytracing {
+                            raytracing.record_commands(
+                                device,
+                                command_buffer,
+                                self.renderer.bindless_descriptor_set,
+                                &self.base.present_images[present_index as usize],
+                            );
+                        }
                     } else {
                         let clear_values = [
                             vk::ClearValue {

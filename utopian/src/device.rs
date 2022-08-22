@@ -2,9 +2,9 @@ use ash::extensions::khr;
 use ash::extensions::khr::Surface;
 use ash::extensions::khr::Swapchain;
 use ash::vk;
-use std::sync::{Arc, Mutex};
 use gpu_allocator::vulkan::*;
 use gpu_allocator::AllocatorDebugSettings;
+use std::sync::{Arc, Mutex};
 
 pub struct Device {
     pub handle: ash::Device,
@@ -18,6 +18,7 @@ pub struct Device {
     pub acceleration_structure_ext: khr::AccelerationStructure,
     pub raytracing_pipeline_ext: khr::RayTracingPipeline,
     pub gpu_allocator: Arc<Mutex<gpu_allocator::vulkan::Allocator>>,
+    pub raytracing_supported: bool,
 }
 
 impl Device {
@@ -45,20 +46,47 @@ impl Device {
                 .get_physical_device_surface_support(physical_device, queue_family_index, surface)
                 .expect("Presentation of the queue family not supported by the surface");
 
+            println!("Supported extensions:");
+            let supported_extension_names: Vec<_> = instance
+                .enumerate_device_extension_properties(physical_device)
+                .unwrap()
+                .iter()
+                .map(|extension| {
+                    let name = std::ffi::CStr::from_ptr(extension.extension_name.as_ptr())
+                        .to_string_lossy()
+                        .as_ref()
+                        .to_owned();
+                    println!("{:?}", name);
+                    name
+                })
+                .collect();
+
             let mut device_extension_names_raw = vec![
                 Swapchain::name().as_ptr(),
                 vk::ExtDescriptorIndexingFn::name().as_ptr(),
             ];
 
-            device_extension_names_raw.extend([
+            let rt_extension_names_raw = vec![
+                vk::KhrRayTracingPipelineFn::name().as_ptr(),
                 vk::KhrAccelerationStructureFn::name().as_ptr(),
                 vk::KhrBufferDeviceAddressFn::name().as_ptr(),
-                vk::KhrRayTracingPipelineFn::name().as_ptr(),
                 vk::KhrDeferredHostOperationsFn::name().as_ptr(),
                 vk::KhrSpirv14Fn::name().as_ptr(),
                 vk::KhrShaderFloatControlsFn::name().as_ptr(),
                 vk::ExtScalarBlockLayoutFn::name().as_ptr(),
-            ]);
+            ];
+
+            let raytracing_supported = rt_extension_names_raw.iter().all(|name| {
+                let name = std::ffi::CStr::from_ptr(*name).to_string_lossy();
+                let supported = supported_extension_names.contains(&name.as_ref().to_owned());
+
+                if !supported {
+                    println!("Ray tracing extension not supported: {}", name);
+                    std::thread::sleep(std::time::Duration::from_millis(5000));
+                }
+
+                supported
+            });
 
             let mut descriptor_indexing_features =
                 vk::PhysicalDeviceDescriptorIndexingFeaturesEXT::default();
@@ -71,13 +99,19 @@ impl Device {
             let mut scalar_block_layout_features =
                 vk::PhysicalDeviceScalarBlockLayoutFeatures::default();
 
-            let mut features2 = vk::PhysicalDeviceFeatures2::builder()
+            let mut features2_builder = vk::PhysicalDeviceFeatures2::builder()
                 .push_next(&mut descriptor_indexing_features)
-                .push_next(&mut ray_tracing_pipeline_features)
-                .push_next(&mut acceleration_structure_features)
                 .push_next(&mut buffer_device_address_features)
-                .push_next(&mut scalar_block_layout_features)
-                .build();
+                .push_next(&mut scalar_block_layout_features);
+
+            if raytracing_supported {
+                device_extension_names_raw.extend(rt_extension_names_raw);
+                features2_builder = features2_builder
+                    .push_next(&mut ray_tracing_pipeline_features)
+                    .push_next(&mut acceleration_structure_features);
+            }
+
+            let mut features2 = features2_builder.build();
 
             instance.get_physical_device_features2(physical_device, &mut features2);
 
@@ -103,14 +137,14 @@ impl Device {
             let (cmd_pool, setup_cmd_buf) =
                 Device::create_setup_command_buffer(&device, queue_family_index);
 
-            let (rt_pipeline_properties, as_features) =
+            let (rt_pipeline_properties, _as_features) =
                 Device::retrieve_rt_properties(instance, physical_device);
 
             let acceleration_structure_ext = khr::AccelerationStructure::new(instance, &device);
             let raytracing_pipeline_ext = khr::RayTracingPipeline::new(instance, &device);
 
-            println!("{:#?}", rt_pipeline_properties);
-            println!("{:#?}", as_features);
+            // println!("{:#?}", rt_pipeline_properties);
+            // println!("{:#?}", as_features);
 
             let gpu_allocator = Allocator::new(&AllocatorCreateDesc {
                 instance: instance.clone(),
@@ -139,6 +173,7 @@ impl Device {
                 acceleration_structure_ext,
                 raytracing_pipeline_ext,
                 gpu_allocator: Arc::new(Mutex::new(gpu_allocator)),
+                raytracing_supported,
             }
         }
     }
