@@ -21,6 +21,12 @@ pub struct Device {
     pub raytracing_supported: bool,
 }
 
+impl Drop for Device {
+    fn drop(&mut self) {
+        unsafe { self.handle.device_wait_idle().unwrap() };
+    }
+}
+
 impl Device {
     pub fn new(
         instance: &ash::Instance,
