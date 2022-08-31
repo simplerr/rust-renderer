@@ -52,7 +52,7 @@ impl Device {
                 .get_physical_device_surface_support(physical_device, queue_family_index, surface)
                 .expect("Presentation of the queue family not supported by the surface");
 
-            println!("Supported extensions:");
+            //println!("Supported extensions:");
             let supported_extension_names: Vec<_> = instance
                 .enumerate_device_extension_properties(physical_device)
                 .unwrap()
@@ -62,7 +62,7 @@ impl Device {
                         .to_string_lossy()
                         .as_ref()
                         .to_owned();
-                    println!("{:?}", name);
+                    //println!("{:?}", name);
                     name
                 })
                 .collect();
@@ -70,6 +70,7 @@ impl Device {
             let mut device_extension_names_raw = vec![
                 Swapchain::name().as_ptr(),
                 vk::ExtDescriptorIndexingFn::name().as_ptr(),
+                vk::KhrDynamicRenderingFn::name().as_ptr(),
             ];
 
             let rt_extension_names_raw = vec![
@@ -104,11 +105,14 @@ impl Device {
                 vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR::default();
             let mut scalar_block_layout_features =
                 vk::PhysicalDeviceScalarBlockLayoutFeatures::default();
+            let mut dynamic_rendering_features =
+                vk::PhysicalDeviceDynamicRenderingFeatures::default();
 
             let mut features2_builder = vk::PhysicalDeviceFeatures2::builder()
                 .push_next(&mut descriptor_indexing_features)
                 .push_next(&mut buffer_device_address_features)
-                .push_next(&mut scalar_block_layout_features);
+                .push_next(&mut scalar_block_layout_features)
+                .push_next(&mut dynamic_rendering_features);
 
             if raytracing_supported {
                 device_extension_names_raw.extend(rt_extension_names_raw);

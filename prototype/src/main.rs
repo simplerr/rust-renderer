@@ -36,8 +36,6 @@ struct FpsTimer {
 
 struct Application {
     base: utopian::VulkanBase,
-    renderpass: vk::RenderPass,
-    framebuffers: Vec<vk::Framebuffer>,
     pipeline: utopian::Pipeline,
     descriptor_set_camera: utopian::DescriptorSet,
     camera_binding: utopian::shader::Binding,
@@ -78,9 +76,6 @@ impl Application {
 
         let renderer = utopian::Renderer::new(&base.device);
 
-        let renderpass = Application::create_renderpass(&base);
-        let framebuffers = Application::create_framebuffers(&base, renderpass);
-
         let camera = utopian::Camera::new(
             //Vec3::new(0.0, 0.9, 2.0), // Cornell box scene
             Vec3::new(-10.28, 2.10, -0.18), // Sponza scene
@@ -119,7 +114,8 @@ impl Application {
                 vertex_path: "prototype/shaders/pbr/pbr.vert",
                 fragment_path: "prototype/shaders/pbr/pbr.frag",
             },
-            renderpass,
+            &[base.present_images[0].format],
+            base.depth_image.format,
             base.surface_resolution,
             Some(renderer.bindless_descriptor_set_layout),
         );
@@ -174,8 +170,6 @@ impl Application {
 
         Application {
             base,
-            renderpass,
-            framebuffers,
             pipeline,
             descriptor_set_camera,
             camera_binding,
@@ -194,89 +188,6 @@ impl Application {
             _directory_watcher: directory_watcher,
             watcher_rx,
         }
-    }
-
-    fn create_renderpass(base: &utopian::vulkan_base::VulkanBase) -> vk::RenderPass {
-        let renderpass_attachments = [
-            vk::AttachmentDescription {
-                format: base.surface_format.format,
-                samples: vk::SampleCountFlags::TYPE_1,
-                load_op: vk::AttachmentLoadOp::CLEAR,
-                store_op: vk::AttachmentStoreOp::STORE,
-                final_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-                ..Default::default()
-            },
-            vk::AttachmentDescription {
-                format: vk::Format::D32_SFLOAT,
-                samples: vk::SampleCountFlags::TYPE_1,
-                load_op: vk::AttachmentLoadOp::CLEAR,
-                initial_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                ..Default::default()
-            },
-        ];
-        let color_attachment_refs = [vk::AttachmentReference {
-            attachment: 0,
-            layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        }];
-        let depth_attachment_ref = vk::AttachmentReference {
-            attachment: 1,
-            layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        };
-        let dependencies = [vk::SubpassDependency {
-            src_subpass: vk::SUBPASS_EXTERNAL,
-            src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_READ
-                | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-            dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            ..Default::default()
-        }];
-
-        let subpass = vk::SubpassDescription::builder()
-            .color_attachments(&color_attachment_refs)
-            .depth_stencil_attachment(&depth_attachment_ref)
-            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS);
-
-        let renderpass_create_info = vk::RenderPassCreateInfo::builder()
-            .attachments(&renderpass_attachments)
-            .subpasses(std::slice::from_ref(&subpass))
-            .dependencies(&dependencies);
-
-        unsafe {
-            base.device
-                .handle
-                .create_render_pass(&renderpass_create_info, None)
-                .expect("Failed to create renderpass")
-        }
-    }
-
-    fn create_framebuffers(
-        base: &utopian::vulkan_base::VulkanBase,
-        renderpass: vk::RenderPass,
-    ) -> Vec<vk::Framebuffer> {
-        let framebuffers: Vec<vk::Framebuffer> = base
-            .present_images
-            .iter()
-            .map(|present_image| {
-                let framebuffer_attachments =
-                    [present_image.image_view, base.depth_image.image_view];
-                let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
-                    .render_pass(renderpass)
-                    .attachments(&framebuffer_attachments)
-                    .width(base.surface_resolution.width)
-                    .height(base.surface_resolution.height)
-                    .layers(1);
-
-                unsafe {
-                    base.device
-                        .handle
-                        .create_framebuffer(&frame_buffer_create_info, None)
-                        .unwrap()
-                }
-            })
-            .collect();
-
-        framebuffers
     }
 
     fn record_commands<F: FnOnce(&utopian::Device, vk::CommandBuffer)>(
@@ -515,7 +426,8 @@ impl Application {
                 self.camera_data.total_samples = 0;
                 self.pipeline.recreate_pipeline(
                     &self.base.device,
-                    self.renderpass,
+                    &[self.base.present_images[0].format],
+                    self.base.depth_image.format,
                     self.base.surface_resolution,
                     Some(self.renderer.bindless_descriptor_set_layout),
                 );
@@ -561,34 +473,67 @@ impl Application {
                             );
                         }
                     } else {
-                        let clear_values = [
-                            vk::ClearValue {
-                                color: vk::ClearColorValue {
-                                    float32: [0.5, 0.5, 0.5, 0.0],
-                                },
-                            },
-                            vk::ClearValue {
-                                depth_stencil: vk::ClearDepthStencilValue {
-                                    depth: 1.0,
-                                    stencil: 0,
-                                },
-                            },
-                        ];
+                        let image_memory_barrier = vk::ImageMemoryBarrier::builder()
+                            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+                            .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                            .image(self.base.present_images[present_index as usize].image)
+                            .subresource_range(
+                                vk::ImageSubresourceRange::builder()
+                                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                                    .layer_count(1)
+                                    .level_count(1)
+                                    .build(),
+                            )
+                            .build();
 
-                        let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-                            .render_pass(self.renderpass)
-                            .framebuffer(self.framebuffers[present_index as usize])
+                        device.handle.cmd_pipeline_barrier(
+                            command_buffer,
+                            vk::PipelineStageFlags::TOP_OF_PIPE,
+                            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                            vk::DependencyFlags::empty(),
+                            &[],
+                            &[],
+                            &[image_memory_barrier],
+                        );
+
+                        let rendering_info = vk::RenderingInfo::builder()
+                            .layer_count(1)
+                            .color_attachments(&[vk::RenderingAttachmentInfo::builder()
+                                .image_view(
+                                    self.base.present_images[present_index as usize].image_view,
+                                )
+                                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                                .load_op(vk::AttachmentLoadOp::CLEAR)
+                                .store_op(vk::AttachmentStoreOp::STORE)
+                                .clear_value(vk::ClearValue {
+                                    color: vk::ClearColorValue {
+                                        float32: [0.5, 0.5, 0.5, 0.0],
+                                    },
+                                })
+                                .build()])
+                            .depth_attachment(
+                                &vk::RenderingAttachmentInfo::builder()
+                                    .image_view(self.base.depth_image.image_view)
+                                    .image_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                                    .load_op(vk::AttachmentLoadOp::CLEAR)
+                                    .store_op(vk::AttachmentStoreOp::STORE)
+                                    .clear_value(vk::ClearValue {
+                                        depth_stencil: vk::ClearDepthStencilValue {
+                                            depth: 1.0,
+                                            stencil: 0,
+                                        },
+                                    })
+                                    .build(),
+                            )
                             .render_area(vk::Rect2D {
                                 offset: vk::Offset2D { x: 0, y: 0 },
                                 extent: self.base.surface_resolution,
                             })
-                            .clear_values(&clear_values);
+                            .build();
 
-                        device.handle.cmd_begin_render_pass(
-                            command_buffer,
-                            &render_pass_begin_info,
-                            vk::SubpassContents::INLINE,
-                        );
+                        device
+                            .handle
+                            .cmd_begin_rendering(command_buffer, &rendering_info);
 
                         device.handle.cmd_bind_pipeline(
                             command_buffer,
@@ -676,7 +621,7 @@ impl Application {
                             }
                         }
 
-                        device.handle.cmd_end_render_pass(command_buffer);
+                        device.handle.cmd_end_rendering(command_buffer);
                     }
 
                     self.egui_integration
@@ -686,6 +631,7 @@ impl Application {
                     let (_, shapes) = self.egui_integration.end_frame(&self.base.window);
                     let clipped_meshes = self.egui_integration.context().tessellate(shapes);
                     self.egui_integration.paint(
+                        // This also does the transition of the swapchain image to PRESENT_SRC_KHR
                         command_buffer,
                         present_index as usize,
                         clipped_meshes,

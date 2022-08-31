@@ -8,6 +8,7 @@ pub struct Image {
     pub image_view: vk::ImageView,
     pub device_memory: vk::DeviceMemory,
     pub current_layout: vk::ImageLayout,
+    pub format: vk::Format,
     pub width: u32,
     pub height: u32,
 }
@@ -73,6 +74,7 @@ impl Image {
                 image_view,
                 device_memory,
                 current_layout: initial_layout,
+                format,
                 width,
                 height,
             }
@@ -94,6 +96,7 @@ impl Image {
             image_view,
             device_memory: vk::DeviceMemory::null(),
             current_layout: vk::ImageLayout::UNDEFINED,
+            format,
             width,
             height,
         }

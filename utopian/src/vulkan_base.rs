@@ -182,7 +182,7 @@ impl VulkanBase {
             .application_version(0)
             .engine_name(app_name)
             .engine_version(0)
-            .api_version(vk::make_api_version(0, 1, 2, 0));
+            .api_version(vk::make_api_version(0, 1, 3, 0));
 
         let create_info = vk::InstanceCreateInfo::builder()
             .application_info(&app_info)
@@ -407,6 +407,91 @@ impl VulkanBase {
 
             (present_complete_semaphore, rendering_complete_semaphore)
         }
+    }
+
+    // Replaced by dynamic rendering
+    pub fn create_renderpass(base: &VulkanBase) -> vk::RenderPass {
+        let renderpass_attachments = [
+            vk::AttachmentDescription {
+                format: base.surface_format.format,
+                samples: vk::SampleCountFlags::TYPE_1,
+                load_op: vk::AttachmentLoadOp::CLEAR,
+                store_op: vk::AttachmentStoreOp::STORE,
+                final_layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                ..Default::default()
+            },
+            vk::AttachmentDescription {
+                format: vk::Format::D32_SFLOAT,
+                samples: vk::SampleCountFlags::TYPE_1,
+                load_op: vk::AttachmentLoadOp::CLEAR,
+                initial_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                ..Default::default()
+            },
+        ];
+        let color_attachment_refs = [vk::AttachmentReference {
+            attachment: 0,
+            layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+        }];
+        let depth_attachment_ref = vk::AttachmentReference {
+            attachment: 1,
+            layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        };
+        let dependencies = [vk::SubpassDependency {
+            src_subpass: vk::SUBPASS_EXTERNAL,
+            src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_READ
+                | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+            dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            ..Default::default()
+        }];
+
+        let subpass = vk::SubpassDescription::builder()
+            .color_attachments(&color_attachment_refs)
+            .depth_stencil_attachment(&depth_attachment_ref)
+            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS);
+
+        let renderpass_create_info = vk::RenderPassCreateInfo::builder()
+            .attachments(&renderpass_attachments)
+            .subpasses(std::slice::from_ref(&subpass))
+            .dependencies(&dependencies);
+
+        unsafe {
+            base.device
+                .handle
+                .create_render_pass(&renderpass_create_info, None)
+                .expect("Failed to create renderpass")
+        }
+    }
+
+    // Replaced by dynamic rendering
+    pub fn create_framebuffers(
+        base: &VulkanBase,
+        renderpass: vk::RenderPass,
+    ) -> Vec<vk::Framebuffer> {
+        let framebuffers: Vec<vk::Framebuffer> = base
+            .present_images
+            .iter()
+            .map(|present_image| {
+                let framebuffer_attachments =
+                    [present_image.image_view, base.depth_image.image_view];
+                let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
+                    .render_pass(renderpass)
+                    .attachments(&framebuffer_attachments)
+                    .width(base.surface_resolution.width)
+                    .height(base.surface_resolution.height)
+                    .layers(1);
+
+                unsafe {
+                    base.device
+                        .handle
+                        .create_framebuffer(&frame_buffer_create_info, None)
+                        .unwrap()
+                }
+            })
+            .collect();
+
+        framebuffers
     }
 
     pub fn prepare_frame(&self) -> u32 {

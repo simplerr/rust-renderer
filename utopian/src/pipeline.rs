@@ -23,7 +23,8 @@ impl Pipeline {
     pub fn new(
         device: &ash::Device,
         pipeline_desc: PipelineDesc,
-        renderpass: vk::RenderPass,
+        color_attachment_formats: &[vk::Format],
+        depth_stencil_attachment_format: vk::Format,
         surface_resolution: vk::Extent2D,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Pipeline {
@@ -40,7 +41,8 @@ impl Pipeline {
         let graphic_pipeline = Pipeline::create_pipeline(
             device,
             shader_stage_create_infos,
-            renderpass,
+            color_attachment_formats,
+            depth_stencil_attachment_format,
             pipeline_layout,
             surface_resolution,
         );
@@ -115,7 +117,8 @@ impl Pipeline {
     fn create_pipeline(
         device: &ash::Device,
         shader_stage_create_infos: Vec<vk::PipelineShaderStageCreateInfo>,
-        renderpass: vk::RenderPass,
+        color_attachment_formats: &[vk::Format],
+        depth_stencil_attachment_format: vk::Format,
         pipeline_layout: vk::PipelineLayout,
         surface_resolution: vk::Extent2D,
     ) -> vk::Pipeline {
@@ -227,6 +230,12 @@ impl Pipeline {
         let dynamic_state_info =
             vk::PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_state);
 
+        let mut rendering_info = vk::PipelineRenderingCreateInfo::builder()
+            .color_attachment_formats(color_attachment_formats)
+            .depth_attachment_format(depth_stencil_attachment_format)
+            .stencil_attachment_format(depth_stencil_attachment_format)
+            .build();
+
         let graphic_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
             .stages(&shader_stage_create_infos)
             .vertex_input_state(&vertex_input_state_info)
@@ -238,7 +247,8 @@ impl Pipeline {
             .color_blend_state(&color_blend_state)
             .dynamic_state(&dynamic_state_info)
             .layout(pipeline_layout)
-            .render_pass(renderpass);
+            .render_pass(vk::RenderPass::null())
+            .push_next(&mut rendering_info);
 
         let graphics_pipelines = unsafe {
             device
@@ -256,7 +266,8 @@ impl Pipeline {
     pub fn recreate_pipeline(
         &mut self,
         device: &Device,
-        renderpass: vk::RenderPass,
+        color_attachment_formats: &[vk::Format],
+        depth_stencil_attachment_format: vk::Format,
         surface_resolution: vk::Extent2D,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) {
@@ -279,7 +290,8 @@ impl Pipeline {
                 let graphic_pipeline = Pipeline::create_pipeline(
                     &device.handle,
                     shader_stage_create_infos,
-                    renderpass,
+                    color_attachment_formats,
+                    depth_stencil_attachment_format,
                     pipeline_layout,
                     surface_resolution,
                 );
