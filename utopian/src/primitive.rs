@@ -1,8 +1,10 @@
 use ash::vk;
 use glam::{Vec2, Vec4};
+use std::mem;
 
 use crate::buffer::*;
 use crate::device::*;
+use crate::offset_of;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -65,5 +67,98 @@ impl Primitive {
             indices,
             vertices,
         }
+    }
+
+    pub fn get_vertex_input_binding_descriptions() -> Vec<vk::VertexInputBindingDescription> {
+        [vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: mem::size_of::<Vertex>() as u32,
+            input_rate: vk::VertexInputRate::VERTEX,
+        }]
+        .to_vec()
+    }
+
+    pub fn get_vertex_input_attribute_descriptions() -> Vec<vk::VertexInputAttributeDescription> {
+        [
+            vk::VertexInputAttributeDescription {
+                location: 0,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: offset_of!(Vertex, pos) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 1,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: offset_of!(Vertex, normal) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 2,
+                binding: 0,
+                format: vk::Format::R32G32_SFLOAT,
+                offset: offset_of!(Vertex, uv) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 3,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: offset_of!(Vertex, color) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 4,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: offset_of!(Vertex, tangent) as u32,
+            },
+        ]
+        .to_vec()
+    }
+
+    pub fn get_vertex_input_create_info() -> vk::PipelineVertexInputStateCreateInfo {
+        let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: mem::size_of::<Vertex>() as u32,
+            input_rate: vk::VertexInputRate::VERTEX,
+        }];
+
+        let vertex_input_attribute_descriptions = [
+            vk::VertexInputAttributeDescription {
+                location: 0,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: offset_of!(Vertex, pos) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 1,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: offset_of!(Vertex, normal) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 2,
+                binding: 0,
+                format: vk::Format::R32G32_SFLOAT,
+                offset: offset_of!(Vertex, uv) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 3,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: offset_of!(Vertex, color) as u32,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 4,
+                binding: 0,
+                format: vk::Format::R32G32B32A32_SFLOAT,
+                offset: offset_of!(Vertex, tangent) as u32,
+            },
+        ];
+
+        let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
+            .vertex_binding_descriptions(&vertex_input_binding_descriptions)
+            .build();
+
+        vertex_input_state_info
     }
 }

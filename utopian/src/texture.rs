@@ -21,31 +21,34 @@ impl Texture {
         let (width, height) = (image.width(), image.height());
         let image_data = image.into_raw();
 
-        Texture::create(device, &image_data, width, height)
+        Texture::create(device, Some(&image_data), width, height)
     }
 
-    pub fn create(device: &Device, pixels: &[u8], width: u32, height: u32) -> Texture {
-        let staging_buffer = Buffer::new(
-            device,
-            Some(pixels),
-            std::mem::size_of_val(pixels) as u64,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            gpu_allocator::MemoryLocation::CpuToGpu,
-        );
-
+    pub fn create(device: &Device, pixels: Option<&[u8]>, width: u32, height: u32) -> Texture {
         let image = Image::new(
             device,
             width,
             height,
             vk::Format::R8G8B8A8_UNORM,
-            vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
+            vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::SAMPLED
+                | vk::ImageUsageFlags::COLOR_ATTACHMENT,
             vk::ImageAspectFlags::COLOR,
         );
 
         device.execute_and_submit(|device, cb| {
             image.transition_layout(device, cb, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
 
-            staging_buffer.copy_to_image(device, cb, &image);
+            if let Some(pixels) = pixels {
+                let staging_buffer = Buffer::new(
+                    device,
+                    Some(pixels),
+                    std::mem::size_of_val(pixels) as u64,
+                    vk::BufferUsageFlags::TRANSFER_SRC,
+                    gpu_allocator::MemoryLocation::CpuToGpu,
+                );
+                staging_buffer.copy_to_image(device, cb, &image);
+            }
 
             image.transition_layout(device, cb, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
         });

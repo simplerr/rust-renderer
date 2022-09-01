@@ -27,6 +27,8 @@ layout (std140, set = 1, binding = 0) uniform UBO_camera
     uint num_bounces;
 } camera;
 
+layout (set = 1, binding = 1) uniform sampler2D inputTexture;
+
 layout(push_constant) uniform PushConsts {
     mat4 world;
     vec4 color;
@@ -92,6 +94,8 @@ void main() {
     color = pow(color, vec3(1.0/2.2));
 
     out_color = vec4(color, 1.0f);
+
+    out_color = texture(inputTexture, in_uv);
     //out_color = vec4(normal, 1.0f);
 }
 

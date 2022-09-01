@@ -36,7 +36,9 @@ struct FpsTimer {
 
 struct Application {
     base: utopian::VulkanBase,
-    pipeline: utopian::Pipeline,
+    colored_rect_pass: utopian::RenderPass,
+    colored_rect_texture: utopian::Texture,
+    pbr_pass: utopian::RenderPass,
     descriptor_set_camera: utopian::DescriptorSet,
     camera_binding: utopian::shader::Binding,
     camera_data: CameraUniformData,
@@ -108,30 +110,55 @@ impl Application {
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
-        let pipeline = utopian::Pipeline::new(
+        let colored_rect_texture = utopian::Texture::create(&base.device, None, 800, 600);
+
+        let colored_rect_pass = utopian::RenderPass::new(
+            &base.device.handle,
+            utopian::PipelineDesc {
+                vertex_path: "utopian/shaders/common/fullscreen.vert",
+                fragment_path: "utopian/shaders/colored_rect.frag",
+                vertex_input_binding_descriptions: vec![],
+                vertex_input_attribute_descriptions: vec![],
+            },
+            Some(renderer.bindless_descriptor_set_layout),
+            &[&colored_rect_texture.image],
+        );
+
+        let pbr_pass = utopian::RenderPass::new(
             &base.device.handle,
             utopian::PipelineDesc {
                 vertex_path: "prototype/shaders/pbr/pbr.vert",
                 fragment_path: "prototype/shaders/pbr/pbr.frag",
+                vertex_input_binding_descriptions:
+                    utopian::Primitive::get_vertex_input_binding_descriptions(),
+                vertex_input_attribute_descriptions:
+                    utopian::Primitive::get_vertex_input_attribute_descriptions(),
             },
-            &[base.present_images[0].format],
-            base.depth_image.format,
-            base.surface_resolution,
             Some(renderer.bindless_descriptor_set_layout),
+            &[&base.present_images[0]],
         );
 
-        let camera_binding = pipeline.reflection.get_binding("camera");
+        let camera_binding = pbr_pass.pipeline.reflection.get_binding("camera");
 
         let descriptor_set_camera = utopian::DescriptorSet::new(
             &base.device,
-            pipeline.descriptor_set_layouts[camera_binding.set as usize],
-            pipeline.reflection.get_set_mappings(camera_binding.set),
+            pbr_pass.pipeline.descriptor_set_layouts[camera_binding.set as usize],
+            pbr_pass
+                .pipeline
+                .reflection
+                .get_set_mappings(camera_binding.set),
         );
 
         descriptor_set_camera.write_uniform_buffer(
             &base.device,
             "camera".to_string(),
             &camera_uniform_buffer,
+        );
+
+        descriptor_set_camera.write_combined_image(
+            &base.device,
+            "inputTexture".to_string(),
+            &colored_rect_texture,
         );
 
         let egui_integration = egui_winit_ash_integration::Integration::new(
@@ -170,7 +197,9 @@ impl Application {
 
         Application {
             base,
-            pipeline,
+            colored_rect_pass,
+            colored_rect_texture,
+            pbr_pass,
             descriptor_set_camera,
             camera_binding,
             camera_data,
@@ -424,11 +453,10 @@ impl Application {
 
             if recompile_shaders || input.key_pressed(winit::event::VirtualKeyCode::R) {
                 self.camera_data.total_samples = 0;
-                self.pipeline.recreate_pipeline(
+                self.pbr_pass.pipeline.recreate_pipeline(
                     &self.base.device,
                     &[self.base.present_images[0].format],
                     self.base.depth_image.format,
-                    self.base.surface_resolution,
                     Some(self.renderer.bindless_descriptor_set_layout),
                 );
                 if let Some(raytracing) = &mut self.raytracing {
@@ -473,10 +501,28 @@ impl Application {
                             );
                         }
                     } else {
+                        // Test render to texture that is used as input in the next pass
+                        self.colored_rect_pass.prepare_render(
+                            device,
+                            command_buffer,
+                            &[&self.colored_rect_texture.image],
+                            None,
+                            //Some(&self.base.depth_image),
+                            vk::Extent2D {
+                                width: self.colored_rect_texture.image.width,
+                                height: self.colored_rect_texture.image.height,
+                            },
+                        );
+
+                        device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
+
+                        device.handle.cmd_end_rendering(command_buffer);
+
                         let image_memory_barrier = vk::ImageMemoryBarrier::builder()
-                            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-                            .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                            .image(self.base.present_images[present_index as usize].image)
+                            .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+                            .dst_access_mask(vk::AccessFlags::SHADER_READ)
+                            .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+                            .image(self.colored_rect_texture.image.image)
                             .subresource_range(
                                 vk::ImageSubresourceRange::builder()
                                     .aspect_mask(vk::ImageAspectFlags::COLOR)
@@ -488,82 +534,27 @@ impl Application {
 
                         device.handle.cmd_pipeline_barrier(
                             command_buffer,
-                            vk::PipelineStageFlags::TOP_OF_PIPE,
                             vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                            vk::PipelineStageFlags::FRAGMENT_SHADER,
                             vk::DependencyFlags::empty(),
                             &[],
                             &[],
                             &[image_memory_barrier],
                         );
 
-                        let rendering_info = vk::RenderingInfo::builder()
-                            .layer_count(1)
-                            .color_attachments(&[vk::RenderingAttachmentInfo::builder()
-                                .image_view(
-                                    self.base.present_images[present_index as usize].image_view,
-                                )
-                                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                                .load_op(vk::AttachmentLoadOp::CLEAR)
-                                .store_op(vk::AttachmentStoreOp::STORE)
-                                .clear_value(vk::ClearValue {
-                                    color: vk::ClearColorValue {
-                                        float32: [0.5, 0.5, 0.5, 0.0],
-                                    },
-                                })
-                                .build()])
-                            .depth_attachment(
-                                &vk::RenderingAttachmentInfo::builder()
-                                    .image_view(self.base.depth_image.image_view)
-                                    .image_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-                                    .load_op(vk::AttachmentLoadOp::CLEAR)
-                                    .store_op(vk::AttachmentStoreOp::STORE)
-                                    .clear_value(vk::ClearValue {
-                                        depth_stencil: vk::ClearDepthStencilValue {
-                                            depth: 1.0,
-                                            stencil: 0,
-                                        },
-                                    })
-                                    .build(),
-                            )
-                            .render_area(vk::Rect2D {
-                                offset: vk::Offset2D { x: 0, y: 0 },
-                                extent: self.base.surface_resolution,
-                            })
-                            .build();
-
-                        device
-                            .handle
-                            .cmd_begin_rendering(command_buffer, &rendering_info);
-
-                        device.handle.cmd_bind_pipeline(
+                        // PBR pass
+                        self.pbr_pass.prepare_render(
+                            device,
                             command_buffer,
-                            vk::PipelineBindPoint::GRAPHICS,
-                            self.pipeline.handle,
+                            &[&self.base.present_images[present_index as usize]],
+                            Some(&self.base.depth_image),
+                            self.base.surface_resolution,
                         );
-
-                        let viewports = [vk::Viewport {
-                            x: 0.0,
-                            y: self.base.surface_resolution.height as f32,
-                            width: self.base.surface_resolution.width as f32,
-                            height: -(self.base.surface_resolution.height as f32),
-                            min_depth: 0.0,
-                            max_depth: 1.0,
-                        }];
-
-                        let scissors = [vk::Rect2D {
-                            offset: vk::Offset2D { x: 0, y: 0 },
-                            extent: self.base.surface_resolution,
-                        }];
-
-                        device
-                            .handle
-                            .cmd_set_viewport(command_buffer, 0, &viewports);
-                        device.handle.cmd_set_scissor(command_buffer, 0, &scissors);
 
                         device.handle.cmd_bind_descriptor_sets(
                             command_buffer,
                             vk::PipelineBindPoint::GRAPHICS,
-                            self.pipeline.pipeline_layout,
+                            self.pbr_pass.pipeline.pipeline_layout,
                             self.camera_binding.set,
                             &[self.descriptor_set_camera.handle],
                             &[],
@@ -572,7 +563,7 @@ impl Application {
                         device.handle.cmd_bind_descriptor_sets(
                             command_buffer,
                             vk::PipelineBindPoint::GRAPHICS,
-                            self.pipeline.pipeline_layout,
+                            self.pbr_pass.pipeline.pipeline_layout,
                             utopian::BINDLESS_DESCRIPTOR_INDEX,
                             &[self.renderer.bindless_descriptor_set],
                             &[],
@@ -589,7 +580,7 @@ impl Application {
 
                                 device.handle.cmd_push_constants(
                                     command_buffer,
-                                    self.pipeline.pipeline_layout,
+                                    self.pbr_pass.pipeline.pipeline_layout,
                                     vk::ShaderStageFlags::ALL,
                                     0,
                                     std::slice::from_raw_parts(

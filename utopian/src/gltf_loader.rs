@@ -174,7 +174,7 @@ pub fn load_gltf(device: &Device, path: &str) -> Model {
             panic!("Unsupported image format!");
         }
 
-        let texture = Texture::create(device, &image.pixels, image.width, image.height);
+        let texture = Texture::create(device, Some(&image.pixels), image.width, image.height);
 
         model.textures.push(texture);
     }

@@ -1,14 +1,14 @@
 use ash::vk;
 use std::ffi::CStr;
 use std::io::Cursor;
-use std::mem;
 
-use crate::offset_of;
 use crate::*;
 
 pub struct PipelineDesc {
     pub vertex_path: &'static str,
     pub fragment_path: &'static str,
+    pub vertex_input_binding_descriptions: Vec<vk::VertexInputBindingDescription>,
+    pub vertex_input_attribute_descriptions: Vec<vk::VertexInputAttributeDescription>,
 }
 
 pub struct Pipeline {
@@ -25,7 +25,6 @@ impl Pipeline {
         pipeline_desc: PipelineDesc,
         color_attachment_formats: &[vk::Format],
         depth_stencil_attachment_format: vk::Format,
-        surface_resolution: vk::Extent2D,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Pipeline {
         let shader_modules_result = Pipeline::create_shader_modules(
@@ -44,7 +43,7 @@ impl Pipeline {
             color_attachment_formats,
             depth_stencil_attachment_format,
             pipeline_layout,
-            surface_resolution,
+            &pipeline_desc,
         );
 
         Pipeline {
@@ -120,68 +119,22 @@ impl Pipeline {
         color_attachment_formats: &[vk::Format],
         depth_stencil_attachment_format: vk::Format,
         pipeline_layout: vk::PipelineLayout,
-        surface_resolution: vk::Extent2D,
+        pipeline_desc: &PipelineDesc,
     ) -> vk::Pipeline {
-        let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
-            binding: 0,
-            stride: mem::size_of::<Vertex>() as u32,
-            input_rate: vk::VertexInputRate::VERTEX,
-        }];
-        let vertex_input_attribute_descriptions = [
-            vk::VertexInputAttributeDescription {
-                location: 0,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, pos) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 1,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, normal) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 2,
-                binding: 0,
-                format: vk::Format::R32G32_SFLOAT,
-                offset: offset_of!(Vertex, uv) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 3,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, color) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 4,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, tangent) as u32,
-            },
-        ];
-
         let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
-            .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
-            .vertex_binding_descriptions(&vertex_input_binding_descriptions);
+            .vertex_attribute_descriptions(
+                pipeline_desc.vertex_input_attribute_descriptions.as_slice(),
+            )
+            .vertex_binding_descriptions(
+                pipeline_desc.vertex_input_binding_descriptions.as_slice(),
+            );
         let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
             ..Default::default()
         };
-        let viewports = [vk::Viewport {
-            x: 0.0,
-            y: 0.0,
-            width: surface_resolution.width as f32,
-            height: surface_resolution.height as f32,
-            min_depth: 0.0,
-            max_depth: 1.0,
-        }];
-        let scissors = [vk::Rect2D {
-            offset: vk::Offset2D { x: 0, y: 0 },
-            extent: surface_resolution,
-        }];
         let viewport_state_info = vk::PipelineViewportStateCreateInfo::builder()
-            .scissors(&scissors)
-            .viewports(&viewports);
+            .viewport_count(1)
+            .scissor_count(1);
 
         let rasterization_info = vk::PipelineRasterizationStateCreateInfo {
             front_face: vk::FrontFace::COUNTER_CLOCKWISE,
@@ -268,7 +221,6 @@ impl Pipeline {
         device: &Device,
         color_attachment_formats: &[vk::Format],
         depth_stencil_attachment_format: vk::Format,
-        surface_resolution: vk::Extent2D,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) {
         // Todo: cleanup old resources
@@ -293,7 +245,7 @@ impl Pipeline {
                     color_attachment_formats,
                     depth_stencil_attachment_format,
                     pipeline_layout,
-                    surface_resolution,
+                    &self.pipeline_desc,
                 );
 
                 println!(
