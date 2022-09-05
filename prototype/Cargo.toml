@@ -10,6 +10,7 @@ utopian = { path = "../utopian" }
 
 winit = "0.26.0"
 ash = { version = "0.37.0", features = ["linked", "debug"]}
+vk-sync = { git = "https://github.com/simplerr/vk-sync-rs" }
 ash-window = "0.10"
 shaderc = "0.7.3"
 glam = "0.20.2"

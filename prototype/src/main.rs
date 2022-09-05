@@ -518,29 +518,25 @@ impl Application {
 
                         device.handle.cmd_end_rendering(command_buffer);
 
-                        let image_memory_barrier = vk::ImageMemoryBarrier::builder()
-                            .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-                            .dst_access_mask(vk::AccessFlags::SHADER_READ)
-                            .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-                            .image(self.colored_rect_texture.image.image)
-                            .subresource_range(
-                                vk::ImageSubresourceRange::builder()
-                                    .aspect_mask(vk::ImageAspectFlags::COLOR)
-                                    .layer_count(1)
-                                    .level_count(1)
-                                    .build(),
-                            )
-                            .build();
-
-                        device.handle.cmd_pipeline_barrier(
+                        vk_sync::cmd::pipeline_barrier(&device.handle,
                             command_buffer,
-                            vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-                            vk::PipelineStageFlags::FRAGMENT_SHADER,
-                            vk::DependencyFlags::empty(),
+                            None,
                             &[],
-                            &[],
-                            &[image_memory_barrier],
-                        );
+                            &[vk_sync::ImageBarrier {
+                                previous_accesses: &[vk_sync::AccessType::ColorAttachmentWrite],
+                                next_accesses: &[vk_sync::AccessType::FragmentShaderReadSampledImageOrUniformTexelBuffer],
+                                previous_layout: vk_sync::ImageLayout::Optimal,
+                                next_layout: vk_sync::ImageLayout::Optimal,
+                                discard_contents: false,
+                                src_queue_family_index: 0,
+                                dst_queue_family_index: 0,
+                                image: self.colored_rect_texture.image.image,
+                                range: vk::ImageSubresourceRange::builder()
+                                .aspect_mask(vk::ImageAspectFlags::COLOR)
+                                .layer_count(1)
+                                .level_count(1)
+                                .build(),
+                            }]);
 
                         // PBR pass
                         self.pbr_pass.prepare_render(

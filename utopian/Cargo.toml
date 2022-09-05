@@ -7,6 +7,7 @@ edition = "2021"
 winit = "0.26.0"
 gpu-allocator = "0.18.0"
 ash = { version = "0.37.0", features = ["linked", "debug"]}
+vk-sync = { git = "https://github.com/simplerr/vk-sync-rs" }
 ash-window = "0.10"
 shaderc = "0.7.3"
 rspirv-reflect = { git = "https://github.com/simplerr/rspirv-reflect.git" } # "0.6.0"

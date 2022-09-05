@@ -38,30 +38,25 @@ impl RenderPass {
         depth_attachment: Option<&Image>,
         extent: vk::Extent2D,
     ) {
-        let image_memory_barrier = vk::ImageMemoryBarrier::builder()
-            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-            .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .image(color_attachments[0].image) // Todo transition all images
-            .subresource_range(
-                vk::ImageSubresourceRange::builder()
-                    .aspect_mask(vk::ImageAspectFlags::COLOR)
-                    .layer_count(1)
-                    .level_count(1)
-                    .build(),
-            )
-            .build();
-
-        unsafe {
-            device.handle.cmd_pipeline_barrier(
-                command_buffer,
-                vk::PipelineStageFlags::TOP_OF_PIPE,
-                vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-                vk::DependencyFlags::empty(),
-                &[],
-                &[],
-                &[image_memory_barrier],
-            );
-        }
+        vk_sync::cmd::pipeline_barrier(&device.handle,
+            command_buffer,
+            None,
+            &[],
+            &[vk_sync::ImageBarrier {
+                previous_accesses: &[vk_sync::AccessType::Nothing],
+                next_accesses: &[vk_sync::AccessType::ColorAttachmentWrite],
+                previous_layout: vk_sync::ImageLayout::Optimal,
+                next_layout: vk_sync::ImageLayout::Optimal,
+                discard_contents: false,
+                src_queue_family_index: 0,
+                dst_queue_family_index: 0,
+                image: color_attachments[0].image, // Todo transition all images
+                range: vk::ImageSubresourceRange::builder()
+                .aspect_mask(vk::ImageAspectFlags::COLOR)
+                .layer_count(1)
+                .level_count(1)
+                .build(),
+            }]);
 
         let rendering_info = vk::RenderingInfo::builder()
             .layer_count(1)
