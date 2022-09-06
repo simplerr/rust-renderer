@@ -3,9 +3,11 @@ use ash::vk;
 use crate::device::*;
 use crate::image::*;
 use crate::pipeline::*;
+use crate::Renderer;
 
 pub struct RenderPass {
     pub pipeline: Pipeline,
+    pub render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
 }
 
 impl RenderPass {
@@ -14,6 +16,7 @@ impl RenderPass {
         pipeline_desc: PipelineDesc,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
         color_attachments: &[&Image],
+        render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
     ) -> RenderPass {
         let pipeline = Pipeline::new(
             &device,
@@ -27,7 +30,10 @@ impl RenderPass {
             bindless_descriptor_set_layout,
         );
 
-        RenderPass { pipeline }
+        RenderPass {
+            pipeline,
+            render_func,
+        }
     }
 
     pub fn prepare_render(
@@ -38,7 +44,8 @@ impl RenderPass {
         depth_attachment: Option<&Image>,
         extent: vk::Extent2D,
     ) {
-        vk_sync::cmd::pipeline_barrier(&device.handle,
+        vk_sync::cmd::pipeline_barrier(
+            &device.handle,
             command_buffer,
             None,
             &[],
@@ -52,11 +59,12 @@ impl RenderPass {
                 dst_queue_family_index: 0,
                 image: color_attachments[0].image, // Todo transition all images
                 range: vk::ImageSubresourceRange::builder()
-                .aspect_mask(vk::ImageAspectFlags::COLOR)
-                .layer_count(1)
-                .level_count(1)
-                .build(),
-            }]);
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .layer_count(1)
+                    .level_count(1)
+                    .build(),
+            }],
+        );
 
         let rendering_info = vk::RenderingInfo::builder()
             .layer_count(1)
