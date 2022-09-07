@@ -37,7 +37,6 @@ struct FpsTimer {
 struct Application {
     base: utopian::VulkanBase,
     graph: utopian::Graph,
-    colored_rect_pass: utopian::RenderPass,
     colored_rect_texture: utopian::Texture,
     pbr_pass: utopian::RenderPass,
     descriptor_set_camera: utopian::DescriptorSet,
@@ -113,19 +112,6 @@ impl Application {
 
         let colored_rect_texture = utopian::Texture::create(&base.device, None, 800, 600);
 
-        let colored_rect_pass = utopian::RenderPass::new(
-            &base.device.handle,
-            utopian::PipelineDesc {
-                vertex_path: "utopian/shaders/common/fullscreen.vert",
-                fragment_path: "utopian/shaders/colored_rect.frag",
-                vertex_input_binding_descriptions: vec![],
-                vertex_input_attribute_descriptions: vec![],
-            },
-            Some(renderer.bindless_descriptor_set_layout),
-            &[&colored_rect_texture.image],
-            None,
-        );
-
         let pbr_pass = utopian::RenderPass::new(
             &base.device.handle,
             utopian::PipelineDesc {
@@ -138,6 +124,8 @@ impl Application {
             },
             Some(renderer.bindless_descriptor_set_layout),
             &[&base.present_images[0]],
+            false,
+            None,
             None,
         );
 
@@ -158,6 +146,7 @@ impl Application {
             &camera_uniform_buffer,
         );
 
+        // Todo: this should be moved to the render graph some way
         descriptor_set_camera.write_combined_image(
             &base.device,
             "inputTexture".to_string(),
@@ -198,101 +187,121 @@ impl Application {
             .watch("prototype/shaders", RecursiveMode::Recursive)
             .unwrap();
 
-        let mut graph = utopian::Graph { passes: vec![] };
+        let mut graph = utopian::Graph {
+            passes: vec![],
+            resources: std::collections::HashMap::new(),
+        };
 
-        graph.add_pass(utopian::RenderPass::new(
-            &base.device.handle,
-            utopian::PipelineDesc {
-                vertex_path: "utopian/shaders/common/fullscreen.vert",
-                fragment_path: "utopian/shaders/colored_rect.frag",
-                vertex_input_binding_descriptions: vec![],
-                vertex_input_attribute_descriptions: vec![],
-            },
-            Some(renderer.bindless_descriptor_set_layout),
-            &[&colored_rect_texture.image],
-            None,
-        ));
+        graph.add_pass(
+            &[],
+            &[colored_rect_texture.image],
+            utopian::RenderPass::new(
+                &base.device.handle,
+                utopian::PipelineDesc {
+                    vertex_path: "utopian/shaders/common/fullscreen.vert",
+                    fragment_path: "utopian/shaders/colored_rect.frag",
+                    vertex_input_binding_descriptions: vec![],
+                    vertex_input_attribute_descriptions: vec![],
+                },
+                Some(renderer.bindless_descriptor_set_layout),
+                &[&colored_rect_texture.image],
+                false,
+                None,
+                Some(Box::new(
+                    move |device, command_buffer, renderer, pass| unsafe {
+                        device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
+                    },
+                )),
+            ),
+        );
 
-        graph.add_pass(utopian::RenderPass::new(
-            &base.device.handle,
-            utopian::PipelineDesc {
-                vertex_path: "prototype/shaders/pbr/pbr.vert",
-                fragment_path: "prototype/shaders/pbr/pbr.frag",
-                vertex_input_binding_descriptions:
-                    utopian::Primitive::get_vertex_input_binding_descriptions(),
-                vertex_input_attribute_descriptions:
-                    utopian::Primitive::get_vertex_input_attribute_descriptions(),
-            },
-            Some(renderer.bindless_descriptor_set_layout),
-            &[&base.present_images[0]],
-            Some(Box::new(move |device, command_buffer, renderer, pass| unsafe {
-                device.handle.cmd_bind_descriptor_sets(
-                    command_buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    pass.pipeline.pipeline_layout,
-                    camera_binding.set,
-                    &[descriptor_set_camera.handle],
-                    &[],
-                );
-
-                device.handle.cmd_bind_descriptor_sets(
-                    command_buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    pass.pipeline.pipeline_layout,
-                    utopian::BINDLESS_DESCRIPTOR_INDEX,
-                    &[renderer.bindless_descriptor_set],
-                    &[],
-                );
-
-                for instance in &renderer.instances {
-                    for (i, mesh) in instance.model.meshes.iter().enumerate() {
-                        let push_data = PushConstants {
-                            world: instance.transform * instance.model.transforms[i],
-                            color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
-                            mesh_index: mesh.gpu_mesh,
-                            pad: [0; 3],
-                        };
-
-                        device.handle.cmd_push_constants(
+        graph.add_pass(
+            &[colored_rect_texture.image],
+            &[base.present_images[0]], // Todo
+            utopian::RenderPass::new(
+                &base.device.handle,
+                utopian::PipelineDesc {
+                    vertex_path: "prototype/shaders/pbr/pbr.vert",
+                    fragment_path: "prototype/shaders/pbr/pbr.frag",
+                    vertex_input_binding_descriptions:
+                        utopian::Primitive::get_vertex_input_binding_descriptions(),
+                    vertex_input_attribute_descriptions:
+                        utopian::Primitive::get_vertex_input_attribute_descriptions(),
+                },
+                Some(renderer.bindless_descriptor_set_layout),
+                &[&base.present_images[0]], // Todo
+                true,
+                Some(base.depth_image),
+                Some(Box::new(
+                    move |device, command_buffer, renderer, pass| unsafe {
+                        device.handle.cmd_bind_descriptor_sets(
                             command_buffer,
+                            vk::PipelineBindPoint::GRAPHICS,
                             pass.pipeline.pipeline_layout,
-                            vk::ShaderStageFlags::ALL,
-                            0,
-                            std::slice::from_raw_parts(
-                                &push_data as *const _ as *const u8,
-                                std::mem::size_of_val(&push_data),
-                            ),
+                            camera_binding.set,
+                            &[descriptor_set_camera.handle],
+                            &[],
                         );
 
-                        device.handle.cmd_bind_vertex_buffers(
+                        device.handle.cmd_bind_descriptor_sets(
                             command_buffer,
-                            0,
-                            &[mesh.primitive.vertex_buffer.buffer],
-                            &[0],
+                            vk::PipelineBindPoint::GRAPHICS,
+                            pass.pipeline.pipeline_layout,
+                            utopian::BINDLESS_DESCRIPTOR_INDEX,
+                            &[renderer.bindless_descriptor_set],
+                            &[],
                         );
-                        device.handle.cmd_bind_index_buffer(
-                            command_buffer,
-                            mesh.primitive.index_buffer.buffer,
-                            0,
-                            vk::IndexType::UINT32,
-                        );
-                        device.handle.cmd_draw_indexed(
-                            command_buffer,
-                            mesh.primitive.indices.len() as u32,
-                            1,
-                            0,
-                            0,
-                            1,
-                        );
-                    }
-                }
-            })),
-        ));
+
+                        for instance in &renderer.instances {
+                            for (i, mesh) in instance.model.meshes.iter().enumerate() {
+                                let push_data = PushConstants {
+                                    world: instance.transform * instance.model.transforms[i],
+                                    color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
+                                    mesh_index: mesh.gpu_mesh,
+                                    pad: [0; 3],
+                                };
+
+                                device.handle.cmd_push_constants(
+                                    command_buffer,
+                                    pass.pipeline.pipeline_layout,
+                                    vk::ShaderStageFlags::ALL,
+                                    0,
+                                    std::slice::from_raw_parts(
+                                        &push_data as *const _ as *const u8,
+                                        std::mem::size_of_val(&push_data),
+                                    ),
+                                );
+
+                                device.handle.cmd_bind_vertex_buffers(
+                                    command_buffer,
+                                    0,
+                                    &[mesh.primitive.vertex_buffer.buffer],
+                                    &[0],
+                                );
+                                device.handle.cmd_bind_index_buffer(
+                                    command_buffer,
+                                    mesh.primitive.index_buffer.buffer,
+                                    0,
+                                    vk::IndexType::UINT32,
+                                );
+                                device.handle.cmd_draw_indexed(
+                                    command_buffer,
+                                    mesh.primitive.indices.len() as u32,
+                                    1,
+                                    0,
+                                    0,
+                                    1,
+                                );
+                            }
+                        }
+                    },
+                )),
+            ),
+        );
 
         Application {
             base,
             graph,
-            colored_rect_pass,
             colored_rect_texture,
             pbr_pass,
             descriptor_set_camera,
@@ -596,54 +605,12 @@ impl Application {
                             );
                         }
                     } else {
-                        // Test render to texture that is used as input in the next pass
-                        self.colored_rect_pass.prepare_render(
+                        self.graph.render(
                             device,
                             command_buffer,
-                            &[&self.colored_rect_texture.image],
-                            None,
-                            //Some(&self.base.depth_image),
-                            vk::Extent2D {
-                                width: self.colored_rect_texture.image.width,
-                                height: self.colored_rect_texture.image.height,
-                            },
+                            &self.renderer,
+                            &[self.base.present_images[present_index as usize]],
                         );
-
-                        device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
-                        device.handle.cmd_end_rendering(command_buffer);
-
-                        vk_sync::cmd::pipeline_barrier(&device.handle,
-                            command_buffer,
-                            None,
-                            &[],
-                            &[vk_sync::ImageBarrier {
-                                previous_accesses: &[vk_sync::AccessType::ColorAttachmentWrite],
-                                next_accesses: &[vk_sync::AccessType::FragmentShaderReadSampledImageOrUniformTexelBuffer],
-                                previous_layout: vk_sync::ImageLayout::Optimal,
-                                next_layout: vk_sync::ImageLayout::Optimal,
-                                discard_contents: false,
-                                src_queue_family_index: 0,
-                                dst_queue_family_index: 0,
-                                image: self.colored_rect_texture.image.image,
-                                range: vk::ImageSubresourceRange::builder()
-                                .aspect_mask(vk::ImageAspectFlags::COLOR)
-                                .layer_count(1)
-                                .level_count(1)
-                                .build(),
-                            }]);
-
-                        // PBR pass
-                        self.pbr_pass.prepare_render(
-                            device,
-                            command_buffer,
-                            &[&self.base.present_images[present_index as usize]],
-                            Some(&self.base.depth_image),
-                            self.base.surface_resolution,
-                        );
-
-                        self.graph.render_passes(device, command_buffer, &self.renderer);
-
-                        device.handle.cmd_end_rendering(command_buffer);
                     }
 
                     self.egui_integration

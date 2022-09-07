@@ -3,6 +3,8 @@ use ash::vk::{AccessFlags, ImageLayout, PipelineStageFlags};
 
 use crate::Device;
 
+// Todo: Hack
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
 pub struct Image {
     pub image: vk::Image,
     pub image_view: vk::ImageView,
