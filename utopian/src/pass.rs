@@ -3,11 +3,16 @@ use ash::vk;
 use crate::device::*;
 use crate::image::*;
 use crate::pipeline::*;
+use crate::Graph;
 use crate::Renderer;
 
 pub struct RenderPass {
     pub pipeline: Pipeline,
     pub render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
+    pub reads: Vec<Image>,
+    pub writes: Vec<Image>,
+    pub depth_attachment: Option<Image>,
+    pub presentation_pass: bool,
 }
 
 impl RenderPass {
@@ -16,6 +21,8 @@ impl RenderPass {
         pipeline_desc: PipelineDesc,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
         color_attachments: &[&Image],
+        presentation_pass: bool,
+        depth_attachment: Option<Image>,
         render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
     ) -> RenderPass {
         let pipeline = Pipeline::new(
@@ -26,13 +33,21 @@ impl RenderPass {
                 .map(|image| image.format)
                 .collect::<Vec<_>>()
                 .as_slice(),
-            vk::Format::D32_SFLOAT, // Todo
+            if let Some(depth_attachment) = depth_attachment {
+                depth_attachment.format
+            } else {
+                vk::Format::D32_SFLOAT
+            }, // Todo
             bindless_descriptor_set_layout,
         );
 
         RenderPass {
             pipeline,
             render_func,
+            reads: vec![],
+            writes: vec![],
+            depth_attachment,
+            presentation_pass,
         }
     }
 
@@ -40,32 +55,10 @@ impl RenderPass {
         &self,
         device: &Device,
         command_buffer: vk::CommandBuffer,
-        color_attachments: &[&Image],
-        depth_attachment: Option<&Image>,
+        color_attachments: &[Image],
+        depth_attachment: Option<Image>,
         extent: vk::Extent2D,
     ) {
-        vk_sync::cmd::pipeline_barrier(
-            &device.handle,
-            command_buffer,
-            None,
-            &[],
-            &[vk_sync::ImageBarrier {
-                previous_accesses: &[vk_sync::AccessType::Nothing],
-                next_accesses: &[vk_sync::AccessType::ColorAttachmentWrite],
-                previous_layout: vk_sync::ImageLayout::Optimal,
-                next_layout: vk_sync::ImageLayout::Optimal,
-                discard_contents: false,
-                src_queue_family_index: 0,
-                dst_queue_family_index: 0,
-                image: color_attachments[0].image, // Todo transition all images
-                range: vk::ImageSubresourceRange::builder()
-                    .aspect_mask(vk::ImageAspectFlags::COLOR)
-                    .layer_count(1)
-                    .level_count(1)
-                    .build(),
-            }],
-        );
-
         let rendering_info = vk::RenderingInfo::builder()
             .layer_count(1)
             .color_attachments(&[vk::RenderingAttachmentInfo::builder()
