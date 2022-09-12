@@ -20,14 +20,6 @@ struct CameraUniformData {
     num_bounces: u32,
 }
 
-#[allow(dead_code)]
-struct PushConstants {
-    world: glam::Mat4,
-    color: glam::Vec4,
-    mesh_index: u32,
-    pad: [u32; 3],
-}
-
 struct FpsTimer {
     fps_period_start_time: Instant,
     fps: u32,
@@ -37,7 +29,6 @@ struct FpsTimer {
 struct Application {
     base: utopian::VulkanBase,
     graph: utopian::Graph,
-    colored_rect_texture: utopian::Texture,
     camera_data: CameraUniformData,
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
@@ -107,8 +98,6 @@ impl Application {
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
-        let colored_rect_texture = utopian::Texture::create(&base.device, None, 800, 600);
-
         let egui_integration = egui_winit_ash_integration::Integration::new(
             width,
             height,
@@ -143,58 +132,16 @@ impl Application {
             .watch("prototype/shaders", RecursiveMode::Recursive)
             .unwrap();
 
-        let mut graph = utopian::Graph {
-            passes: vec![],
-            resources: std::collections::HashMap::new(),
-        };
-
-        let test_pipeline = utopian::Pipeline::new(
-            &base.device.handle,
-            utopian::PipelineDesc {
-                vertex_path: "utopian/shaders/common/fullscreen.vert",
-                fragment_path: "utopian/shaders/colored_rect.frag",
-                vertex_input_binding_descriptions: vec![],
-                vertex_input_attribute_descriptions: vec![],
-            },
-            &[colored_rect_texture.image.format],
-            vk::Format::D32_SFLOAT,
-            Some(renderer.bindless_descriptor_set_layout),
-        );
-
-        graph.add_pass(
-            &[],
-            &[(
-                utopian::GraphResourceId::ColoredRectTexture,
-                colored_rect_texture.image,
-            )],
-            utopian::RenderPass::new(
-                &base.device.handle,
-                test_pipeline,
-                Some(renderer.bindless_descriptor_set_layout),
-                &[&colored_rect_texture.image],
-                false,
-                None,
-                Some(Box::new(
-                    move |device, command_buffer, renderer, pass| unsafe {
-                        device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
-                    },
-                )),
-            ),
-        );
-
-        utopian::renderers::pbr::setup_pbr_pass(
+        let graph = utopian::renderers::setup_render_graph(
             &base.device,
-            &mut graph,
             &base,
             &renderer,
-            &colored_rect_texture,
             &camera_uniform_buffer,
         );
 
         Application {
             base,
             graph,
-            colored_rect_texture,
             camera_data,
             camera_ubo: camera_uniform_buffer,
             camera,

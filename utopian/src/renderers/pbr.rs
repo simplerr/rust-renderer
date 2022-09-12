@@ -1,9 +1,6 @@
 use ash::vk;
 
-use crate::Graph;
-use crate::Primitive;
-use crate::RenderPass;
-
+#[allow(dead_code)]
 struct PushConstants {
     world: glam::Mat4,
     color: glam::Vec4,
@@ -13,7 +10,7 @@ struct PushConstants {
 
 pub fn setup_pbr_pass(
     device: &crate::Device,
-    graph: &mut Graph,
+    graph: &mut crate::Graph,
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
     colored_rect_texture: &crate::Texture,
@@ -65,10 +62,7 @@ pub fn setup_pbr_pass(
             base.present_images[0],
         )], // Todo
         crate::RenderPass::new(
-            &base.device.handle,
             pipeline,
-            Some(renderer.bindless_descriptor_set_layout),
-            &[&base.present_images[0]], // Todo
             true,
             Some(base.depth_image),
             Some(Box::new(
