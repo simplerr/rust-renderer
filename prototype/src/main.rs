@@ -194,7 +194,7 @@ impl Application {
 
         graph.add_pass(
             &[],
-            &[colored_rect_texture.image],
+            &[(utopian::GraphResourceId::ColoredRectTexture, colored_rect_texture.image)],
             utopian::RenderPass::new(
                 &base.device.handle,
                 utopian::PipelineDesc {
@@ -216,8 +216,8 @@ impl Application {
         );
 
         graph.add_pass(
-            &[colored_rect_texture.image],
-            &[base.present_images[0]], // Todo
+            &[(utopian::GraphResourceId::ColoredRectTexture, colored_rect_texture.image)],
+            &[(utopian::GraphResourceId::PbrOutputTexture, base.present_images[0])], // Todo
             utopian::RenderPass::new(
                 &base.device.handle,
                 utopian::PipelineDesc {

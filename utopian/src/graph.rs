@@ -7,9 +7,10 @@ use crate::Renderer;
 
 use std::collections::HashMap;
 
-pub struct Graph {
-    pub passes: Vec<RenderPass>,
-    pub resources: HashMap<Image, GraphResource>, //Vec<GraphResource>,
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+pub enum GraphResourceId {
+    ColoredRectTexture,
+    PbrOutputTexture,
 }
 
 pub struct GraphResource {
@@ -17,28 +18,38 @@ pub struct GraphResource {
     pub prev_acces: vk_sync::AccessType,
 }
 
+pub struct Graph {
+    pub passes: Vec<RenderPass>,
+    pub resources: HashMap<GraphResourceId, GraphResource>,
+}
+
 impl Graph {
-    pub fn add_pass(&mut self, reads: &[Image], writes: &[Image], mut pass: RenderPass) {
+    pub fn add_pass(
+        &mut self,
+        reads: &[(GraphResourceId, Image)],
+        writes: &[(GraphResourceId, Image)],
+        mut pass: RenderPass,
+    ) {
         for read in reads {
             self.resources.insert(
-                *read,
+                read.0,
                 GraphResource {
-                    image: *read,
+                    image: read.1,
                     prev_acces: vk_sync::AccessType::Nothing,
                 },
             );
-            pass.reads.push(*read);
+            pass.reads.push(read.0);
         }
 
         for write in writes {
             self.resources.insert(
-                *write,
+                write.0,
                 GraphResource {
-                    image: *write,
+                    image: write.1,
                     prev_acces: vk_sync::AccessType::Nothing,
                 },
             );
-            pass.writes.push(*write);
+            pass.writes.push(write.0);
         }
 
         self.passes.push(pass);
@@ -72,7 +83,7 @@ impl Graph {
                         discard_contents: false,
                         src_queue_family_index: 0,
                         dst_queue_family_index: 0,
-                        image: read.image, // Todo transition all images
+                        image: self.resources[read].image.image, // Todo transition all images
                         range: vk::ImageSubresourceRange::builder()
                             .aspect_mask(vk::ImageAspectFlags::COLOR)
                             .layer_count(1)
@@ -108,7 +119,7 @@ impl Graph {
                         //image: write.image, // Todo transition all images
                         // Todo
                         image: if !pass.presentation_pass {
-                            write.image
+                            self.resources[write].image.image
                         } else {
                             present_image[0].image
                         },
@@ -123,18 +134,24 @@ impl Graph {
                 self.resources.get_mut(write).unwrap().prev_acces = next_access;
             }
 
+            let write_attachments: Vec<Image> = pass
+                .writes
+                .iter()
+                .map(|write| self.resources[write].image)
+                .collect();
+
             pass.prepare_render(
                 device,
                 command_buffer,
                 if !pass.presentation_pass {
-                    &pass.writes.as_slice()
+                    write_attachments.as_slice()
                 } else {
                     present_image
                 },
                 pass.depth_attachment,
                 vk::Extent2D {
-                    width: pass.writes[0].width,   // Todo
-                    height: pass.writes[0].height, // Todo
+                    width: self.resources[&pass.writes[0]].image.width, // Todo
+                    height: self.resources[&pass.writes[0]].image.height, // Todo
                 },
             );
 
