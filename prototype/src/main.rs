@@ -38,9 +38,6 @@ struct Application {
     base: utopian::VulkanBase,
     graph: utopian::Graph,
     colored_rect_texture: utopian::Texture,
-    pbr_pass: utopian::RenderPass,
-    descriptor_set_camera: utopian::DescriptorSet,
-    camera_binding: utopian::shader::Binding,
     camera_data: CameraUniformData,
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
@@ -112,47 +109,6 @@ impl Application {
 
         let colored_rect_texture = utopian::Texture::create(&base.device, None, 800, 600);
 
-        let pbr_pass = utopian::RenderPass::new(
-            &base.device.handle,
-            utopian::PipelineDesc {
-                vertex_path: "prototype/shaders/pbr/pbr.vert",
-                fragment_path: "prototype/shaders/pbr/pbr.frag",
-                vertex_input_binding_descriptions:
-                    utopian::Primitive::get_vertex_input_binding_descriptions(),
-                vertex_input_attribute_descriptions:
-                    utopian::Primitive::get_vertex_input_attribute_descriptions(),
-            },
-            Some(renderer.bindless_descriptor_set_layout),
-            &[&base.present_images[0]],
-            false,
-            None,
-            None,
-        );
-
-        let camera_binding = pbr_pass.pipeline.reflection.get_binding("camera");
-
-        let descriptor_set_camera = utopian::DescriptorSet::new(
-            &base.device,
-            pbr_pass.pipeline.descriptor_set_layouts[camera_binding.set as usize],
-            pbr_pass
-                .pipeline
-                .reflection
-                .get_set_mappings(camera_binding.set),
-        );
-
-        descriptor_set_camera.write_uniform_buffer(
-            &base.device,
-            "camera".to_string(),
-            &camera_uniform_buffer,
-        );
-
-        // Todo: this should be moved to the render graph some way
-        descriptor_set_camera.write_combined_image(
-            &base.device,
-            "inputTexture".to_string(),
-            &colored_rect_texture,
-        );
-
         let egui_integration = egui_winit_ash_integration::Integration::new(
             width,
             height,
@@ -192,17 +148,28 @@ impl Application {
             resources: std::collections::HashMap::new(),
         };
 
+        let test_pipeline = utopian::Pipeline::new(
+            &base.device.handle,
+            utopian::PipelineDesc {
+                vertex_path: "utopian/shaders/common/fullscreen.vert",
+                fragment_path: "utopian/shaders/colored_rect.frag",
+                vertex_input_binding_descriptions: vec![],
+                vertex_input_attribute_descriptions: vec![],
+            },
+            &[colored_rect_texture.image.format],
+            vk::Format::D32_SFLOAT,
+            Some(renderer.bindless_descriptor_set_layout),
+        );
+
         graph.add_pass(
             &[],
-            &[(utopian::GraphResourceId::ColoredRectTexture, colored_rect_texture.image)],
+            &[(
+                utopian::GraphResourceId::ColoredRectTexture,
+                colored_rect_texture.image,
+            )],
             utopian::RenderPass::new(
                 &base.device.handle,
-                utopian::PipelineDesc {
-                    vertex_path: "utopian/shaders/common/fullscreen.vert",
-                    fragment_path: "utopian/shaders/colored_rect.frag",
-                    vertex_input_binding_descriptions: vec![],
-                    vertex_input_attribute_descriptions: vec![],
-                },
+                test_pipeline,
                 Some(renderer.bindless_descriptor_set_layout),
                 &[&colored_rect_texture.image],
                 false,
@@ -215,97 +182,19 @@ impl Application {
             ),
         );
 
-        graph.add_pass(
-            &[(utopian::GraphResourceId::ColoredRectTexture, colored_rect_texture.image)],
-            &[(utopian::GraphResourceId::PbrOutputTexture, base.present_images[0])], // Todo
-            utopian::RenderPass::new(
-                &base.device.handle,
-                utopian::PipelineDesc {
-                    vertex_path: "prototype/shaders/pbr/pbr.vert",
-                    fragment_path: "prototype/shaders/pbr/pbr.frag",
-                    vertex_input_binding_descriptions:
-                        utopian::Primitive::get_vertex_input_binding_descriptions(),
-                    vertex_input_attribute_descriptions:
-                        utopian::Primitive::get_vertex_input_attribute_descriptions(),
-                },
-                Some(renderer.bindless_descriptor_set_layout),
-                &[&base.present_images[0]], // Todo
-                true,
-                Some(base.depth_image),
-                Some(Box::new(
-                    move |device, command_buffer, renderer, pass| unsafe {
-                        device.handle.cmd_bind_descriptor_sets(
-                            command_buffer,
-                            vk::PipelineBindPoint::GRAPHICS,
-                            pass.pipeline.pipeline_layout,
-                            camera_binding.set,
-                            &[descriptor_set_camera.handle],
-                            &[],
-                        );
-
-                        device.handle.cmd_bind_descriptor_sets(
-                            command_buffer,
-                            vk::PipelineBindPoint::GRAPHICS,
-                            pass.pipeline.pipeline_layout,
-                            utopian::BINDLESS_DESCRIPTOR_INDEX,
-                            &[renderer.bindless_descriptor_set],
-                            &[],
-                        );
-
-                        for instance in &renderer.instances {
-                            for (i, mesh) in instance.model.meshes.iter().enumerate() {
-                                let push_data = PushConstants {
-                                    world: instance.transform * instance.model.transforms[i],
-                                    color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
-                                    mesh_index: mesh.gpu_mesh,
-                                    pad: [0; 3],
-                                };
-
-                                device.handle.cmd_push_constants(
-                                    command_buffer,
-                                    pass.pipeline.pipeline_layout,
-                                    vk::ShaderStageFlags::ALL,
-                                    0,
-                                    std::slice::from_raw_parts(
-                                        &push_data as *const _ as *const u8,
-                                        std::mem::size_of_val(&push_data),
-                                    ),
-                                );
-
-                                device.handle.cmd_bind_vertex_buffers(
-                                    command_buffer,
-                                    0,
-                                    &[mesh.primitive.vertex_buffer.buffer],
-                                    &[0],
-                                );
-                                device.handle.cmd_bind_index_buffer(
-                                    command_buffer,
-                                    mesh.primitive.index_buffer.buffer,
-                                    0,
-                                    vk::IndexType::UINT32,
-                                );
-                                device.handle.cmd_draw_indexed(
-                                    command_buffer,
-                                    mesh.primitive.indices.len() as u32,
-                                    1,
-                                    0,
-                                    0,
-                                    1,
-                                );
-                            }
-                        }
-                    },
-                )),
-            ),
+        utopian::renderers::pbr::setup_pbr_pass(
+            &base.device,
+            &mut graph,
+            &base,
+            &renderer,
+            &colored_rect_texture,
+            &camera_uniform_buffer,
         );
 
         Application {
             base,
             graph,
             colored_rect_texture,
-            pbr_pass,
-            descriptor_set_camera,
-            camera_binding,
             camera_data,
             camera_ubo: camera_uniform_buffer,
             camera,
@@ -557,12 +446,13 @@ impl Application {
 
             if recompile_shaders || input.key_pressed(winit::event::VirtualKeyCode::R) {
                 self.camera_data.total_samples = 0;
-                self.pbr_pass.pipeline.recreate_pipeline(
-                    &self.base.device,
-                    &[self.base.present_images[0].format],
-                    self.base.depth_image.format,
-                    Some(self.renderer.bindless_descriptor_set_layout),
-                );
+                // Todo:
+                // self.pbr_pass.pipeline.recreate_pipeline(
+                //     &self.base.device,
+                //     &[self.base.present_images[0].format],
+                //     self.base.depth_image.format,
+                //     Some(self.renderer.bindless_descriptor_set_layout),
+                // );
                 if let Some(raytracing) = &mut self.raytracing {
                     raytracing.recreate_pipeline(
                         &self.base.device,
