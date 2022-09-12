@@ -13,6 +13,7 @@ pub mod pipeline;
 pub mod primitive;
 pub mod raytracing;
 pub mod renderer;
+pub mod renderers;
 pub mod shader;
 pub mod texture;
 pub mod vulkan_base;
