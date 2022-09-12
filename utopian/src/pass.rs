@@ -1,16 +1,16 @@
 use ash::vk;
 
 use crate::device::*;
+use crate::graph::*;
 use crate::image::*;
 use crate::pipeline::*;
-use crate::Graph;
 use crate::Renderer;
 
 pub struct RenderPass {
     pub pipeline: Pipeline,
     pub render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
-    pub reads: Vec<Image>,
-    pub writes: Vec<Image>,
+    pub reads: Vec<GraphResourceId>,
+    pub writes: Vec<GraphResourceId>,
     pub depth_attachment: Option<Image>,
     pub presentation_pass: bool,
 }
