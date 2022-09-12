@@ -17,31 +17,11 @@ pub struct RenderPass {
 
 impl RenderPass {
     pub fn new(
-        device: &ash::Device,
         pipeline: Pipeline,
-        //pipeline_desc: PipelineDesc,
-        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
-        color_attachments: &[&Image],
         presentation_pass: bool,
         depth_attachment: Option<Image>,
         render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
     ) -> RenderPass {
-        // let pipeline = Pipeline::new(
-        //     &device,
-        //     pipeline_desc,
-        //     color_attachments
-        //         .iter()
-        //         .map(|image| image.format)
-        //         .collect::<Vec<_>>()
-        //         .as_slice(),
-        //     if let Some(depth_attachment) = depth_attachment {
-        //         depth_attachment.format
-        //     } else {
-        //         vk::Format::D32_SFLOAT
-        //     }, // Todo
-        //     bindless_descriptor_set_layout,
-        // );
-
         RenderPass {
             pipeline,
             render_func,
