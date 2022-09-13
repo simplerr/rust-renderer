@@ -16,7 +16,7 @@ pub enum GraphResourceId {
 
 pub struct GraphResource {
     pub image: Image,
-    pub prev_acces: vk_sync::AccessType,
+    pub prev_access: vk_sync::AccessType,
 }
 
 pub struct Graph {
@@ -77,7 +77,7 @@ impl<'a> PassBuilder<'a> {
                 read.0,
                 GraphResource {
                     image: read.1,
-                    prev_acces: vk_sync::AccessType::Nothing,
+                    prev_access: vk_sync::AccessType::Nothing,
                 },
             );
             pass.reads.push(read.0);
@@ -88,7 +88,7 @@ impl<'a> PassBuilder<'a> {
                 write.0,
                 GraphResource {
                     image: write.1,
-                    prev_acces: vk_sync::AccessType::Nothing,
+                    prev_access: vk_sync::AccessType::Nothing,
                 },
             );
             pass.writes.push(write.0);
@@ -123,72 +123,37 @@ impl Graph {
             // Transition pass resources
             // Todo: probably can combine reads and writes to one vector
             for read in &pass.reads {
-                let prev_access = self.resources[read].prev_acces;
-                let next_access =
-                    vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer; // Todo: shall be argument to read() builder
-
-                vk_sync::cmd::pipeline_barrier(
-                    &device.handle,
+                let next_access = crate::synch::image_pipeline_barrier(
+                    &device,
                     command_buffer,
-                    None,
-                    &[],
-                    &[vk_sync::ImageBarrier {
-                        previous_accesses: &[prev_access],
-                        next_accesses: &[next_access],
-                        previous_layout: vk_sync::ImageLayout::Optimal,
-                        next_layout: vk_sync::ImageLayout::Optimal,
-                        discard_contents: false,
-                        src_queue_family_index: 0,
-                        dst_queue_family_index: 0,
-                        image: self.resources[read].image.image, // Todo transition all images
-                        range: vk::ImageSubresourceRange::builder()
-                            .aspect_mask(vk::ImageAspectFlags::COLOR)
-                            .layer_count(1)
-                            .level_count(1)
-                            .build(),
-                    }],
+                    &self.resources[read].image,
+                    self.resources[read].prev_access,
+                    vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer,
                 );
 
-                self.resources.get_mut(read).unwrap().prev_acces = next_access;
+                self.resources.get_mut(read).unwrap().prev_access = next_access;
             }
 
             for write in &pass.writes {
-                let mut prev_access = self.resources[write].prev_acces;
-                let next_access = vk_sync::AccessType::ColorAttachmentWrite;
-
-                if pass.presentation_pass {
-                    prev_access = vk_sync::AccessType::Present;
-                }
-
-                vk_sync::cmd::pipeline_barrier(
-                    &device.handle,
+                let next_access = crate::synch::image_pipeline_barrier(
+                    &device,
                     command_buffer,
-                    None,
-                    &[],
-                    &[vk_sync::ImageBarrier {
-                        previous_accesses: &[prev_access],
-                        next_accesses: &[vk_sync::AccessType::ColorAttachmentWrite],
-                        previous_layout: vk_sync::ImageLayout::Optimal,
-                        next_layout: vk_sync::ImageLayout::Optimal,
-                        discard_contents: false,
-                        src_queue_family_index: 0,
-                        dst_queue_family_index: 0,
-                        //image: write.image, // Todo transition all images
-                        // Todo
-                        image: if !pass.presentation_pass {
-                            self.resources[write].image.image
-                        } else {
-                            present_image[0].image
-                        },
-                        range: vk::ImageSubresourceRange::builder()
-                            .aspect_mask(vk::ImageAspectFlags::COLOR)
-                            .layer_count(1)
-                            .level_count(1)
-                            .build(),
-                    }],
+                    &self.resources[write].image,
+                    self.resources[write].prev_access,
+                    vk_sync::AccessType::ColorAttachmentWrite,
                 );
 
-                self.resources.get_mut(write).unwrap().prev_acces = next_access;
+                self.resources.get_mut(write).unwrap().prev_access = next_access;
+            }
+
+            if pass.presentation_pass {
+                crate::synch::image_pipeline_barrier(
+                    &device,
+                    command_buffer,
+                    &present_image[0],
+                    vk_sync::AccessType::Present,
+                    vk_sync::AccessType::ColorAttachmentWrite,
+                );
             }
 
             let write_attachments: Vec<Image> = pass
@@ -206,9 +171,17 @@ impl Graph {
                     present_image
                 },
                 pass.depth_attachment,
-                vk::Extent2D {
-                    width: self.resources[&pass.writes[0]].image.width, // Todo
-                    height: self.resources[&pass.writes[0]].image.height, // Todo
+                if !pass.presentation_pass {
+                    vk::Extent2D {
+                        width: self.resources[&pass.writes[0]].image.width, // Todo
+                        height: self.resources[&pass.writes[0]].image.height, // Todo
+                    }
+                }
+                else {
+                    vk::Extent2D {
+                        width: present_image[0].width, // Todo
+                        height: present_image[0].height, // Todo
+                    }
                 },
             );
 

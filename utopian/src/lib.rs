@@ -15,6 +15,7 @@ pub mod raytracing;
 pub mod renderer;
 pub mod renderers;
 pub mod shader;
+pub mod synch;
 pub mod texture;
 pub mod vulkan_base;
 

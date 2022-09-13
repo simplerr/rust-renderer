@@ -58,12 +58,8 @@ pub fn setup_pbr_pass(
             crate::GraphResourceId::ColoredRectTexture,
             colored_rect_texture.image,
         )
-        .write(
-            crate::GraphResourceId::PbrOutputTexture,
-            base.present_images[0],
-        )
-        .depth_attachment(base.depth_image)
         .presentation_pass(true)
+        .depth_attachment(base.depth_image)
         .render(move |device, command_buffer, renderer, pass| unsafe {
             device.handle.cmd_bind_descriptor_sets(
                 command_buffer,
