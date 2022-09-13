@@ -2,6 +2,7 @@ use ash::vk;
 
 use crate::device::*;
 use crate::image::*;
+use crate::Pipeline;
 use crate::RenderPass;
 use crate::Renderer;
 
@@ -23,15 +24,56 @@ pub struct Graph {
     pub resources: HashMap<GraphResourceId, GraphResource>,
 }
 
-impl Graph {
-    pub fn add_pass(
-        &mut self,
-        reads: &[(GraphResourceId, Image)],
-        writes: &[(GraphResourceId, Image)],
-        mut pass: RenderPass,
-    ) {
-        for read in reads {
-            self.resources.insert(
+pub struct PassBuilder<'a> {
+    pub graph: &'a mut Graph,
+    pub name: String,
+    pub pipeline: Pipeline,
+    pub reads: Vec<(GraphResourceId, Image)>,
+    pub writes: Vec<(GraphResourceId, Image)>,
+    pub render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
+    pub depth_attachment: Option<Image>,
+    pub presentation_pass: bool,
+}
+
+impl<'a> PassBuilder<'a> {
+    pub fn read(mut self, resource_id: GraphResourceId, image: Image) -> Self {
+        self.reads.push((resource_id, image));
+        self
+    }
+
+    pub fn write(mut self, resource_id: GraphResourceId, image: Image) -> Self {
+        self.writes.push((resource_id, image));
+        self
+    }
+
+    pub fn render(
+        mut self,
+        render_func: impl Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass) + 'static,
+    ) -> Self {
+        self.render_func.replace(Box::new(render_func));
+        self
+    }
+
+    pub fn presentation_pass(mut self, is_presentation_pass: bool) -> Self {
+        self.presentation_pass = is_presentation_pass;
+        self
+    }
+
+    pub fn depth_attachment(mut self, depth_attachment: Image) -> Self {
+        self.depth_attachment = Some(depth_attachment);
+        self
+    }
+
+    pub fn build(self) {
+        let mut pass = crate::RenderPass::new(
+            self.pipeline,
+            self.presentation_pass,
+            self.depth_attachment,
+            self.render_func,
+        );
+
+        for read in self.reads {
+            self.graph.resources.insert(
                 read.0,
                 GraphResource {
                     image: read.1,
@@ -41,8 +83,8 @@ impl Graph {
             pass.reads.push(read.0);
         }
 
-        for write in writes {
-            self.resources.insert(
+        for write in self.writes {
+            self.graph.resources.insert(
                 write.0,
                 GraphResource {
                     image: write.1,
@@ -52,7 +94,22 @@ impl Graph {
             pass.writes.push(write.0);
         }
 
-        self.passes.push(pass);
+        self.graph.passes.push(pass);
+    }
+}
+
+impl Graph {
+    pub fn add_pass(&mut self, name: String, pipeline: Pipeline) -> PassBuilder {
+        PassBuilder {
+            graph: self,
+            name,
+            pipeline,
+            reads: vec![],
+            writes: vec![],
+            render_func: None,
+            depth_attachment: None,
+            presentation_pass: false,
+        }
     }
 
     pub fn render(

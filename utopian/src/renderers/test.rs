@@ -19,21 +19,14 @@ pub fn setup_test_pass(
         Some(renderer.bindless_descriptor_set_layout),
     );
 
-    graph.add_pass(
-        &[],
-        &[(
+    graph
+        .add_pass(String::from("test_pass"), test_pipeline)
+        .write(
             crate::GraphResourceId::ColoredRectTexture,
             colored_rect_texture.image,
-        )],
-        crate::RenderPass::new(
-            test_pipeline,
-            false,
-            None,
-            Some(Box::new(
-                move |device, command_buffer, _renderer, _pass| unsafe {
-                    device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
-                },
-            )),
-        ),
-    );
+        )
+        .render(move |device, command_buffer, _renderer, _pass| unsafe {
+            device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
+        })
+        .build();
 }
