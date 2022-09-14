@@ -33,5 +33,5 @@ pub fn setup_gbuffer_pass(
         .render(move |device, command_buffer, _renderer, _pass| unsafe {
             device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
         })
-        .build();
+        .build(&device);
 }

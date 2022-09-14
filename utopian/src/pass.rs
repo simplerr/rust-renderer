@@ -13,6 +13,7 @@ pub struct RenderPass {
     pub writes: Vec<TextureId>,
     pub depth_attachment: Option<Image>,
     pub presentation_pass: bool,
+    pub read_textures_descriptor_set: Option<crate::DescriptorSet>,
 }
 
 impl RenderPass {
@@ -29,6 +30,7 @@ impl RenderPass {
             writes: vec![],
             depth_attachment,
             presentation_pass,
+            read_textures_descriptor_set: None,
         }
     }
 
@@ -47,9 +49,7 @@ impl RenderPass {
                     .iter()
                     .map(|image| {
                         vk::RenderingAttachmentInfo::builder()
-                            .image_view(
-                                image.image_view,
-                            )
+                            .image_view(image.image_view)
                             .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
                             .load_op(vk::AttachmentLoadOp::CLEAR)
                             .store_op(vk::AttachmentStoreOp::STORE)

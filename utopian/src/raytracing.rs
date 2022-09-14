@@ -4,7 +4,6 @@ use std::ffi::CStr;
 use std::io::Cursor;
 use std::mem;
 
-use crate::bindless::*;
 use crate::buffer::*;
 use crate::descriptor_set::*;
 use crate::device::*;
