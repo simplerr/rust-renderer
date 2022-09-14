@@ -13,7 +13,9 @@ pub fn setup_pbr_pass(
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
-    colored_rect_texture: crate::TextureId,
+    gbuffer_position: crate::TextureId,
+    gbuffer_normal: crate::TextureId,
+    gbuffer_albedo: crate::TextureId,
     camera_uniform_buffer: &crate::Buffer,
 ) {
     let pipeline = crate::Pipeline::new(
@@ -48,13 +50,25 @@ pub fn setup_pbr_pass(
     // Todo: this should be moved to the render graph some way
     descriptor_set_camera.write_combined_image(
         &base.device,
-        "inputTexture".to_string(),
-        &graph.resources[colored_rect_texture].texture,
+        "in_gbuffer_position".to_string(),
+        &graph.resources[gbuffer_position].texture,
+    );
+    descriptor_set_camera.write_combined_image(
+        &base.device,
+        "in_gbuffer_normal".to_string(),
+        &graph.resources[gbuffer_normal].texture,
+    );
+    descriptor_set_camera.write_combined_image(
+        &base.device,
+        "in_gbuffer_albedo".to_string(),
+        &graph.resources[gbuffer_albedo].texture,
     );
 
     graph
         .add_pass(String::from("pbr_pass"), pipeline)
-        .read(colored_rect_texture)
+        .read(gbuffer_position)
+        .read(gbuffer_normal)
+        .read(gbuffer_albedo)
         .presentation_pass(true)
         .depth_attachment(base.depth_image)
         .render(move |device, command_buffer, renderer, pass| unsafe {
