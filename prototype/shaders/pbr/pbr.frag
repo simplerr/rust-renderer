@@ -27,9 +27,9 @@ layout (std140, set = 1, binding = 0) uniform UBO_camera
     uint num_bounces;
 } camera;
 
-layout (set = 1, binding = 1) uniform sampler2D in_gbuffer_position;
-layout (set = 1, binding = 2) uniform sampler2D in_gbuffer_normal;
-layout (set = 1, binding = 3) uniform sampler2D in_gbuffer_albedo;
+layout (set = 2, binding = 0) uniform sampler2D in_gbuffer_position;
+layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_normal;
+layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_albedo;
 
 layout(push_constant) uniform PushConsts {
     mat4 world;

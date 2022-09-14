@@ -5,6 +5,12 @@ use glam::Vec4;
 pub const MAX_NUM_GPU_MATERIALS: usize = 1024;
 pub const MAX_NUM_GPU_MESHES: usize = 1024;
 
+/// All shaders share these common descriptor set indexes
+/// Every custom shader descriptor set needs to be starting from index 3
+pub const DESCRIPTOR_SET_INDEX_BINDLESS: u32 = 0;
+pub const DESCRIPTOR_SET_INDEX_VIEW: u32 = 1;
+pub const DESCRIPTOR_SET_INDEX_INPUT_TEXTURES: u32 = 2;
+
 pub struct ModelInstance {
     pub model: Model,
     pub transform: glam::Mat4,

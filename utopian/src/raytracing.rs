@@ -614,7 +614,7 @@ impl Raytracing {
                 cb,
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
                 self.pipeline_layout,
-                BINDLESS_DESCRIPTOR_INDEX,
+                DESCRIPTOR_SET_INDEX_BINDLESS,
                 &[bindless_descriptor_set],
                 &[],
             );
