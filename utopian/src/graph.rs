@@ -7,8 +7,6 @@ use crate::RenderPass;
 use crate::Renderer;
 use crate::Texture;
 
-use std::collections::HashMap;
-
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 pub enum GraphResourceId {
     ColoredRectTexture,

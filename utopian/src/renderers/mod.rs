@@ -1,5 +1,5 @@
+pub mod gbuffer;
 pub mod pbr;
-pub mod test;
 
 pub fn setup_render_graph(
     device: &crate::Device,
@@ -12,16 +12,27 @@ pub fn setup_render_graph(
         resources: vec![],
     };
 
-    let colored_rect_texture = graph.create_texture(&base.device, 800, 600);
+    let gbuffer_position = graph.create_texture(&base.device, 800, 600);
+    let gbuffer_normal = graph.create_texture(&base.device, 800, 600);
+    let gbuffer_albedo = graph.create_texture(&base.device, 800, 600);
 
-    crate::renderers::test::setup_test_pass(&device, &mut graph, &renderer, colored_rect_texture);
+    crate::renderers::gbuffer::setup_gbuffer_pass(
+        &device,
+        &mut graph,
+        &renderer,
+        gbuffer_position,
+        gbuffer_normal,
+        gbuffer_albedo,
+    );
 
     crate::renderers::pbr::setup_pbr_pass(
         &device,
         &mut graph,
         &base,
         &renderer,
-        colored_rect_texture,
+        gbuffer_position,
+        gbuffer_normal,
+        gbuffer_albedo,
         &camera_uniform_buffer,
     );
 

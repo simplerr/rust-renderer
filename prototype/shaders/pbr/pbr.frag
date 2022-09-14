@@ -27,7 +27,9 @@ layout (std140, set = 1, binding = 0) uniform UBO_camera
     uint num_bounces;
 } camera;
 
-layout (set = 1, binding = 1) uniform sampler2D inputTexture;
+layout (set = 1, binding = 1) uniform sampler2D in_gbuffer_position;
+layout (set = 1, binding = 2) uniform sampler2D in_gbuffer_normal;
+layout (set = 1, binding = 3) uniform sampler2D in_gbuffer_albedo;
 
 layout(push_constant) uniform PushConsts {
     mat4 world;
@@ -96,7 +98,13 @@ void main() {
     out_color = vec4(color, 1.0f);
 
     if (gl_FragCoord.x < 500) {
-        out_color = texture(inputTexture, in_uv);
+        out_color = texture(in_gbuffer_position, in_uv);
+    }
+    else if (gl_FragCoord.x < 700) {
+        out_color = texture(in_gbuffer_normal, in_uv);
+    }
+    else if (gl_FragCoord.x < 900) {
+        out_color = texture(in_gbuffer_albedo, in_uv);
     }
     //out_color = vec4(normal, 1.0f);
 }
