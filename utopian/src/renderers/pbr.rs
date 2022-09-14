@@ -41,33 +41,10 @@ pub fn setup_pbr_pass(
         pipeline.reflection.get_set_mappings(camera_binding.set),
     );
 
-    let descriptor_set_input_textures = crate::DescriptorSet::new(
-        &base.device,
-        pipeline.descriptor_set_layouts[crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES as usize],
-        pipeline.reflection.get_set_mappings(crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES),
-    );
-
     descriptor_set_camera.write_uniform_buffer(
         &base.device,
         "camera".to_string(),
         &camera_uniform_buffer,
-    );
-
-    // Todo: this should be moved to the render graph some way
-    descriptor_set_input_textures.write_combined_image(
-        &base.device,
-        "in_gbuffer_position".to_string(),
-        &graph.resources[gbuffer_position].texture,
-    );
-    descriptor_set_input_textures.write_combined_image(
-        &base.device,
-        "in_gbuffer_normal".to_string(),
-        &graph.resources[gbuffer_normal].texture,
-    );
-    descriptor_set_input_textures.write_combined_image(
-        &base.device,
-        "in_gbuffer_albedo".to_string(),
-        &graph.resources[gbuffer_albedo].texture,
     );
 
     graph
@@ -94,15 +71,6 @@ pub fn setup_pbr_pass(
                 pass.pipeline.pipeline_layout,
                 crate::DESCRIPTOR_SET_INDEX_BINDLESS,
                 &[renderer.bindless_descriptor_set],
-                &[],
-            );
-
-            device.handle.cmd_bind_descriptor_sets(
-                command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                pass.pipeline.pipeline_layout,
-                crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES,
-                &[descriptor_set_input_textures.handle],
                 &[],
             );
 
@@ -149,5 +117,5 @@ pub fn setup_pbr_pass(
                 }
             }
         })
-        .build();
+        .build(&device);
 }

@@ -11,6 +11,11 @@ pub struct DescriptorSet {
     binding_map: BindingMap,
 }
 
+pub enum DescriptorIdentifier {
+    Name(String),
+    Index(u32),
+}
+
 impl DescriptorSet {
     pub fn new(
         device: &Device,
@@ -108,15 +113,23 @@ impl DescriptorSet {
         };
     }
 
-    pub fn write_combined_image(&self, device: &Device, name: String, texture: &Texture) {
-        let binding = match self.binding_map.get(&name) {
-            Some(binding) => binding,
-            None => panic!("No descriptor binding found with name: \"{}\"", name),
+    pub fn write_combined_image(
+        &self,
+        device: &Device,
+        name: DescriptorIdentifier,
+        texture: &Texture,
+    ) {
+        let binding = match name {
+            DescriptorIdentifier::Name(name) => match self.binding_map.get(&name) {
+                Some(binding) => binding.binding,
+                None => panic!("No descriptor binding found with name: \"{}\"", name),
+            },
+            DescriptorIdentifier::Index(index) => index,
         };
 
         let descriptor_writes = vk::WriteDescriptorSet::builder()
             .dst_set(self.handle)
-            .dst_binding(binding.binding)
+            .dst_binding(binding)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
             .image_info(&[texture.descriptor_info])
             .build();

@@ -39,6 +39,6 @@ pub use primitive::Primitive;
 pub use primitive::Vertex;
 pub use raytracing::Raytracing;
 pub use renderer::Renderer;
+pub use renderer::*;
 pub use texture::Texture;
 pub use vulkan_base::VulkanBase;
-pub use renderer::*;

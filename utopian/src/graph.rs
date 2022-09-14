@@ -1,5 +1,6 @@
 use ash::vk;
 
+use crate::descriptor_set::DescriptorIdentifier;
 use crate::device::*;
 use crate::image::*;
 use crate::Pipeline;
@@ -65,7 +66,7 @@ impl<'a> PassBuilder<'a> {
         self
     }
 
-    pub fn build(self) {
+    pub fn build(self, device: &Device) {
         let mut pass = crate::RenderPass::new(
             self.pipeline,
             self.presentation_pass,
@@ -73,12 +74,35 @@ impl<'a> PassBuilder<'a> {
             self.render_func,
         );
 
-        for read in self.reads {
-            pass.reads.push(read);
+        for read in &self.reads {
+            pass.reads.push(*read);
         }
 
-        for write in self.writes {
-            pass.writes.push(write);
+        for write in &self.writes {
+            pass.writes.push(*write);
+        }
+
+        // If there are input textures then create the descriptor set used to read them
+        if self.reads.len() > 0 {
+            let descriptor_set_input_textures = crate::DescriptorSet::new(
+                &device,
+                pass.pipeline.descriptor_set_layouts
+                    [crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES as usize],
+                pass.pipeline
+                    .reflection
+                    .get_set_mappings(crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES),
+            );
+
+            for (idx, &read) in self.reads.iter().enumerate() {
+                descriptor_set_input_textures.write_combined_image(
+                    &device,
+                    DescriptorIdentifier::Index(idx as u32),
+                    &self.graph.resources[read].texture,
+                );
+            }
+
+            pass.read_textures_descriptor_set
+                .replace(descriptor_set_input_textures);
         }
 
         self.graph.passes.push(pass);
@@ -180,6 +204,19 @@ impl Graph {
                     }
                 },
             );
+
+            if let Some(read_textures_descriptor_set) = &pass.read_textures_descriptor_set {
+                unsafe {
+                    device.handle.cmd_bind_descriptor_sets(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        pass.pipeline.pipeline_layout,
+                        crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES,
+                        &[read_textures_descriptor_set.handle],
+                        &[],
+                    )
+                };
+            }
 
             if let Some(render_func) = &pass.render_func {
                 render_func(device, command_buffer, renderer, pass);
