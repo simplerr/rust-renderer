@@ -2,7 +2,6 @@ use crate::device::*;
 use ash::vk;
 
 pub const MAX_BINDLESS_DESCRIPTOR_COUNT: usize = 512 * 512;
-pub const BINDLESS_DESCRIPTOR_INDEX: u32 = 0;
 
 pub fn create_bindless_descriptor_set_layout(device: &Device) -> vk::DescriptorSetLayout {
     let descriptor_set_layout_binding = vec![

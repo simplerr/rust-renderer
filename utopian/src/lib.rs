@@ -41,3 +41,4 @@ pub use raytracing::Raytracing;
 pub use renderer::Renderer;
 pub use texture::Texture;
 pub use vulkan_base::VulkanBase;
+pub use renderer::*;
