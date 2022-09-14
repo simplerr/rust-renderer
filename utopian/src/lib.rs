@@ -29,6 +29,7 @@ pub use gltf_loader::Model;
 pub use gltf_loader::DEFAULT_TEXTURE_MAP;
 pub use graph::Graph;
 pub use graph::GraphResourceId;
+pub use graph::TextureId;
 pub use input::Input;
 pub use model_loader::ModelLoader;
 pub use pass::RenderPass;

@@ -7,21 +7,21 @@ pub fn setup_render_graph(
     renderer: &crate::Renderer,
     camera_uniform_buffer: &crate::Buffer,
 ) -> crate::Graph {
-    let colored_rect_texture = crate::Texture::create(&base.device, None, 800, 600);
-
     let mut graph = crate::Graph {
         passes: vec![],
-        resources: std::collections::HashMap::new(),
+        resources: vec![],
     };
 
-    crate::renderers::test::setup_test_pass(&device, &mut graph, &renderer, &colored_rect_texture);
+    let colored_rect_texture = graph.create_texture(&base.device, 800, 600);
+
+    crate::renderers::test::setup_test_pass(&device, &mut graph, &renderer, colored_rect_texture);
 
     crate::renderers::pbr::setup_pbr_pass(
         &device,
         &mut graph,
         &base,
         &renderer,
-        &colored_rect_texture,
+        colored_rect_texture,
         &camera_uniform_buffer,
     );
 
