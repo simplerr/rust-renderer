@@ -95,7 +95,9 @@ void main() {
 
     out_color = vec4(color, 1.0f);
 
-    out_color = texture(inputTexture, in_uv);
+    if (gl_FragCoord.x < 500) {
+        out_color = texture(inputTexture, in_uv);
+    }
     //out_color = vec4(normal, 1.0f);
 }
 

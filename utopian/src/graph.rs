@@ -5,6 +5,7 @@ use crate::image::*;
 use crate::Pipeline;
 use crate::RenderPass;
 use crate::Renderer;
+use crate::Texture;
 
 use std::collections::HashMap;
 
@@ -14,35 +15,37 @@ pub enum GraphResourceId {
     PbrOutputTexture,
 }
 
+pub type TextureId = usize;
+
 pub struct GraphResource {
-    pub image: Image,
+    pub texture: Texture,
     pub prev_access: vk_sync::AccessType,
 }
 
 pub struct Graph {
     pub passes: Vec<RenderPass>,
-    pub resources: HashMap<GraphResourceId, GraphResource>,
+    pub resources: Vec<GraphResource>,
 }
 
 pub struct PassBuilder<'a> {
     pub graph: &'a mut Graph,
     pub name: String,
     pub pipeline: Pipeline,
-    pub reads: Vec<(GraphResourceId, Image)>,
-    pub writes: Vec<(GraphResourceId, Image)>,
+    pub reads: Vec<TextureId>,
+    pub writes: Vec<TextureId>,
     pub render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
     pub depth_attachment: Option<Image>,
     pub presentation_pass: bool,
 }
 
 impl<'a> PassBuilder<'a> {
-    pub fn read(mut self, resource_id: GraphResourceId, image: Image) -> Self {
-        self.reads.push((resource_id, image));
+    pub fn read(mut self, resource_id: TextureId) -> Self {
+        self.reads.push(resource_id);
         self
     }
 
-    pub fn write(mut self, resource_id: GraphResourceId, image: Image) -> Self {
-        self.writes.push((resource_id, image));
+    pub fn write(mut self, resource_id: TextureId) -> Self {
+        self.writes.push(resource_id);
         self
     }
 
@@ -73,25 +76,11 @@ impl<'a> PassBuilder<'a> {
         );
 
         for read in self.reads {
-            self.graph.resources.insert(
-                read.0,
-                GraphResource {
-                    image: read.1,
-                    prev_access: vk_sync::AccessType::Nothing,
-                },
-            );
-            pass.reads.push(read.0);
+            pass.reads.push(read);
         }
 
         for write in self.writes {
-            self.graph.resources.insert(
-                write.0,
-                GraphResource {
-                    image: write.1,
-                    prev_access: vk_sync::AccessType::Nothing,
-                },
-            );
-            pass.writes.push(write.0);
+            pass.writes.push(write);
         }
 
         self.graph.passes.push(pass);
@@ -112,6 +101,16 @@ impl Graph {
         }
     }
 
+    pub fn create_texture(&mut self, device: &crate::Device, width: u32, height: u32) -> TextureId {
+        let new_texture = crate::Texture::create(&device, None, width, height);
+        self.resources.push(GraphResource {
+            texture: new_texture,
+            prev_access: vk_sync::AccessType::Nothing,
+        });
+
+        self.resources.len() - 1
+    }
+
     pub fn render(
         &mut self,
         device: &Device,
@@ -126,24 +125,24 @@ impl Graph {
                 let next_access = crate::synch::image_pipeline_barrier(
                     &device,
                     command_buffer,
-                    &self.resources[read].image,
-                    self.resources[read].prev_access,
+                    &self.resources[*read].texture.image,
+                    self.resources[*read].prev_access,
                     vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer,
                 );
 
-                self.resources.get_mut(read).unwrap().prev_access = next_access;
+                self.resources.get_mut(*read).unwrap().prev_access = next_access;
             }
 
             for write in &pass.writes {
                 let next_access = crate::synch::image_pipeline_barrier(
                     &device,
                     command_buffer,
-                    &self.resources[write].image,
-                    self.resources[write].prev_access,
+                    &self.resources[*write].texture.image,
+                    self.resources[*write].prev_access,
                     vk_sync::AccessType::ColorAttachmentWrite,
                 );
 
-                self.resources.get_mut(write).unwrap().prev_access = next_access;
+                self.resources.get_mut(*write).unwrap().prev_access = next_access;
             }
 
             if pass.presentation_pass {
@@ -159,7 +158,7 @@ impl Graph {
             let write_attachments: Vec<Image> = pass
                 .writes
                 .iter()
-                .map(|write| self.resources[write].image)
+                .map(|write| self.resources[*write].texture.image)
                 .collect();
 
             pass.prepare_render(
@@ -173,13 +172,12 @@ impl Graph {
                 pass.depth_attachment,
                 if !pass.presentation_pass {
                     vk::Extent2D {
-                        width: self.resources[&pass.writes[0]].image.width, // Todo
-                        height: self.resources[&pass.writes[0]].image.height, // Todo
+                        width: self.resources[pass.writes[0]].texture.image.width, // Todo
+                        height: self.resources[pass.writes[0]].texture.image.height, // Todo
                     }
-                }
-                else {
+                } else {
                     vk::Extent2D {
-                        width: present_image[0].width, // Todo
+                        width: present_image[0].width,   // Todo
                         height: present_image[0].height, // Todo
                     }
                 },

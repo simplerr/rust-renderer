@@ -13,7 +13,7 @@ pub fn setup_pbr_pass(
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
-    colored_rect_texture: &crate::Texture,
+    colored_rect_texture: crate::TextureId,
     camera_uniform_buffer: &crate::Buffer,
 ) {
     let pipeline = crate::Pipeline::new(
@@ -49,15 +49,12 @@ pub fn setup_pbr_pass(
     descriptor_set_camera.write_combined_image(
         &base.device,
         "inputTexture".to_string(),
-        &colored_rect_texture,
+        &graph.resources[colored_rect_texture].texture,
     );
 
     graph
         .add_pass(String::from("pbr_pass"), pipeline)
-        .read(
-            crate::GraphResourceId::ColoredRectTexture,
-            colored_rect_texture.image,
-        )
+        .read(colored_rect_texture)
         .presentation_pass(true)
         .depth_attachment(base.depth_image)
         .render(move |device, command_buffer, renderer, pass| unsafe {

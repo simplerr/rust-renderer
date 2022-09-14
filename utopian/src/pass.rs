@@ -9,8 +9,8 @@ use crate::Renderer;
 pub struct RenderPass {
     pub pipeline: Pipeline,
     pub render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
-    pub reads: Vec<GraphResourceId>,
-    pub writes: Vec<GraphResourceId>,
+    pub reads: Vec<TextureId>,
+    pub writes: Vec<TextureId>,
     pub depth_attachment: Option<Image>,
     pub presentation_pass: bool,
 }
