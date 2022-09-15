@@ -4,6 +4,7 @@
 #extension GL_GOOGLE_include_directive : enable
 
 #include "include/bindless.glsl"
+#include "include/view.glsl"
 #include "pbr_lighting.glsl"
 
 layout (location = 0) in vec3 in_pos;
@@ -14,18 +15,6 @@ layout (location = 4) in vec4 in_tangent;
 layout (location = 5) in mat3 in_tbn;
 
 layout (location = 0) out vec4 out_color;
-
-layout (std140, set = 1, binding = 0) uniform UBO_camera
-{
-    mat4 view;
-    mat4 projection;
-    mat4 inverse_view;
-    mat4 inverse_projection;
-    vec3 eye_pos;
-    uint samples_per_frame;
-    uint total_samples;
-    uint num_bounces;
-} camera;
 
 layout (set = 2, binding = 0) uniform sampler2D in_gbuffer_position;
 layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_normal;
