@@ -2,6 +2,7 @@
 #extension GL_GOOGLE_include_directive : enable
 
 #include "include/bindless.glsl"
+#include "include/view.glsl"
 
 layout (location = 0) in vec2 InTex;
 
@@ -14,4 +15,6 @@ void main()
    out_gbuffer_position = vec4(InTex, 0.0, 1.0);
    out_gbuffer_normal = vec4(1.0, 0.0, 0.0, 1.0);
    out_gbuffer_albedo = vec4(0.0, 1.0, 0.0, 1.0);
+
+   out_gbuffer_normal = vec4(camera.eye_pos / 10.0, 1.0);
 }

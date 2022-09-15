@@ -16,7 +16,6 @@ pub fn setup_pbr_pass(
     gbuffer_position: crate::TextureId,
     gbuffer_normal: crate::TextureId,
     gbuffer_albedo: crate::TextureId,
-    camera_uniform_buffer: &crate::Buffer,
 ) {
     let pipeline = crate::Pipeline::new(
         &device.handle,
@@ -33,20 +32,6 @@ pub fn setup_pbr_pass(
         Some(renderer.bindless_descriptor_set_layout),
     );
 
-    let camera_binding = pipeline.reflection.get_binding("camera");
-
-    let descriptor_set_camera = crate::DescriptorSet::new(
-        &base.device,
-        pipeline.descriptor_set_layouts[camera_binding.set as usize],
-        pipeline.reflection.get_set_mappings(camera_binding.set),
-    );
-
-    descriptor_set_camera.write_uniform_buffer(
-        &base.device,
-        "camera".to_string(),
-        &camera_uniform_buffer,
-    );
-
     graph
         .add_pass(String::from("pbr_pass"), pipeline)
         .read(gbuffer_position)
@@ -55,15 +40,6 @@ pub fn setup_pbr_pass(
         .presentation_pass(true)
         .depth_attachment(base.depth_image)
         .render(move |device, command_buffer, renderer, pass| unsafe {
-            // Todo: move this to be shared between all render passes
-            device.handle.cmd_bind_descriptor_sets(
-                command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                pass.pipeline.pipeline_layout,
-                camera_binding.set,
-                &[descriptor_set_camera.handle],
-                &[],
-            );
 
             device.handle.cmd_bind_descriptor_sets(
                 command_buffer,

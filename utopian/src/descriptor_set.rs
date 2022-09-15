@@ -54,6 +54,7 @@ impl DescriptorSet {
             })
             .collect::<Vec<_>>();
 
+        // Todo: Every descriptor should not have its own pool
         let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
             .pool_sizes(&descriptor_pool_sizes)
             .flags(

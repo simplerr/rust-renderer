@@ -24,6 +24,7 @@ pub struct GraphResource {
 pub struct Graph {
     pub passes: Vec<RenderPass>,
     pub resources: Vec<GraphResource>,
+    pub descriptor_set_camera: crate::DescriptorSet,
 }
 
 pub struct PassBuilder<'a> {
@@ -110,6 +111,54 @@ impl<'a> PassBuilder<'a> {
 }
 
 impl Graph {
+    pub fn new(device: &Device, camera_uniform_buffer: &crate::Buffer) -> Self {
+        let descriptor_set_layout_binding = vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+            .descriptor_count(1)
+            .stage_flags(vk::ShaderStageFlags::ALL)
+            .build();
+
+        let descriptor_sets_layout_info = vk::DescriptorSetLayoutCreateInfo::builder()
+            .bindings(&[descriptor_set_layout_binding])
+            .build();
+
+        let descriptor_set_layout = unsafe { device.handle
+                .create_descriptor_set_layout(&descriptor_sets_layout_info, None)
+                .expect("Error creating descriptor set layout") };
+
+        let mut binding_map: crate::shader::BindingMap = std::collections::BTreeMap::new();
+        binding_map.insert("camera".to_string(),
+            crate::shader::Binding {
+                set: crate::DESCRIPTOR_SET_INDEX_VIEW,
+                binding: 0,
+                info: rspirv_reflect::DescriptorInfo {
+                    ty: rspirv_reflect::DescriptorType::UNIFORM_BUFFER,
+                    binding_count: rspirv_reflect::BindingCount::One,
+                    name: "camera".to_string(),
+                }
+            }
+        );
+
+        let descriptor_set_camera = crate::DescriptorSet::new(
+            &device,
+            descriptor_set_layout,
+            binding_map,
+        );
+
+        descriptor_set_camera.write_uniform_buffer(
+            &device,
+            "camera".to_string(),
+            &camera_uniform_buffer,
+        );
+
+        Graph {
+            passes: vec![],
+            resources: vec![],
+            descriptor_set_camera,
+        }
+    }
+
     pub fn add_pass(&mut self, name: String, pipeline: Pipeline) -> PassBuilder {
         PassBuilder {
             graph: self,
@@ -204,6 +253,15 @@ impl Graph {
                     }
                 },
             );
+
+            unsafe { device.handle.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                pass.pipeline.pipeline_layout,
+                crate::DESCRIPTOR_SET_INDEX_VIEW,
+                &[self.descriptor_set_camera.handle],
+                &[],
+            ) };
 
             if let Some(read_textures_descriptor_set) = &pass.read_textures_descriptor_set {
                 unsafe {
