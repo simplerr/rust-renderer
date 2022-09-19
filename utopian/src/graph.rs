@@ -8,12 +8,6 @@ use crate::RenderPass;
 use crate::Renderer;
 use crate::Texture;
 
-#[derive(Copy, Clone, Eq, Hash, PartialEq)]
-pub enum GraphResourceId {
-    ColoredRectTexture,
-    PbrOutputTexture,
-}
-
 pub type TextureId = usize;
 
 pub struct GraphResource {

@@ -5,7 +5,7 @@
 
 #include "include/bindless.glsl"
 #include "include/view.glsl"
-#include "pbr_lighting.glsl"
+#include "include/pbr_lighting.glsl"
 
 layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec2 in_uv;
@@ -91,14 +91,17 @@ void main() {
 
     out_color = vec4(color, 1.0f);
 
+    // Todo: add width & height to View.glsl
+    vec2 screen_uv = vec2(gl_FragCoord.x / 2000.0, gl_FragCoord.y / 1100.0);
+
     if (gl_FragCoord.x < 500) {
-        out_color = texture(in_gbuffer_position, in_uv);
+        out_color = texture(in_gbuffer_position, screen_uv);
     }
     else if (gl_FragCoord.x < 700) {
-        out_color = texture(in_gbuffer_normal, in_uv);
+        out_color = texture(in_gbuffer_normal, screen_uv);
     }
     else if (gl_FragCoord.x < 900) {
-        out_color = texture(in_gbuffer_albedo, in_uv);
+        out_color = texture(in_gbuffer_albedo, screen_uv);
     }
     else if (gl_FragCoord.x < 1100) {
         out_color.rgb = test_params.color;
