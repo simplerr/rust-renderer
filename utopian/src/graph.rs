@@ -123,12 +123,16 @@ impl Graph {
             .bindings(&[descriptor_set_layout_binding])
             .build();
 
-        let descriptor_set_layout = unsafe { device.handle
+        let descriptor_set_layout = unsafe {
+            device
+                .handle
                 .create_descriptor_set_layout(&descriptor_sets_layout_info, None)
-                .expect("Error creating descriptor set layout") };
+                .expect("Error creating descriptor set layout")
+        };
 
         let mut binding_map: crate::shader::BindingMap = std::collections::BTreeMap::new();
-        binding_map.insert("camera".to_string(),
+        binding_map.insert(
+            "camera".to_string(),
             crate::shader::Binding {
                 set: crate::DESCRIPTOR_SET_INDEX_VIEW,
                 binding: 0,
@@ -136,15 +140,12 @@ impl Graph {
                     ty: rspirv_reflect::DescriptorType::UNIFORM_BUFFER,
                     binding_count: rspirv_reflect::BindingCount::One,
                     name: "camera".to_string(),
-                }
-            }
+                },
+            },
         );
 
-        let descriptor_set_camera = crate::DescriptorSet::new(
-            &device,
-            descriptor_set_layout,
-            binding_map,
-        );
+        let descriptor_set_camera =
+            crate::DescriptorSet::new(&device, descriptor_set_layout, binding_map);
 
         descriptor_set_camera.write_uniform_buffer(
             &device,
@@ -254,14 +255,16 @@ impl Graph {
                 },
             );
 
-            unsafe { device.handle.cmd_bind_descriptor_sets(
-                command_buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                pass.pipeline.pipeline_layout,
-                crate::DESCRIPTOR_SET_INDEX_VIEW,
-                &[self.descriptor_set_camera.handle],
-                &[],
-            ) };
+            unsafe {
+                device.handle.cmd_bind_descriptor_sets(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    pass.pipeline.pipeline_layout,
+                    crate::DESCRIPTOR_SET_INDEX_VIEW,
+                    &[self.descriptor_set_camera.handle],
+                    &[],
+                )
+            };
 
             if let Some(read_textures_descriptor_set) = &pass.read_textures_descriptor_set {
                 unsafe {

@@ -32,6 +32,30 @@ pub fn setup_pbr_pass(
         Some(renderer.bindless_descriptor_set_layout),
     );
 
+    // Data & buffer setup
+    let color = glam::Vec3::new(0.0, 0.0, 1.0);
+    let slice = unsafe { std::slice::from_raw_parts(&color, 1) };
+    let test_uniform_buffer = crate::Buffer::new(
+        &base.device,
+        Some(slice),
+        std::mem::size_of_val(&color) as u64,
+        vk::BufferUsageFlags::UNIFORM_BUFFER,
+        gpu_allocator::MemoryLocation::CpuToGpu,
+    );
+
+    // Descriptor set setup
+    let test_binding = pipeline.reflection.get_binding("test_params");
+    let test_descriptor_set = crate::DescriptorSet::new(
+        device,
+        pipeline.descriptor_set_layouts[test_binding.set as usize],
+        pipeline.reflection.get_set_mappings(test_binding.set),
+    );
+    test_descriptor_set.write_uniform_buffer(
+        device,
+        "test_params".to_string(),
+        &test_uniform_buffer,
+    );
+
     graph
         .add_pass(String::from("pbr_pass"), pipeline)
         .read(gbuffer_position)
@@ -40,13 +64,22 @@ pub fn setup_pbr_pass(
         .presentation_pass(true)
         .depth_attachment(base.depth_image)
         .render(move |device, command_buffer, renderer, pass| unsafe {
-
+            // Todo: move to common place
             device.handle.cmd_bind_descriptor_sets(
                 command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
                 pass.pipeline.pipeline_layout,
                 crate::DESCRIPTOR_SET_INDEX_BINDLESS,
                 &[renderer.bindless_descriptor_set],
+                &[],
+            );
+
+            device.handle.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                pass.pipeline.pipeline_layout,
+                test_binding.set,
+                &[test_descriptor_set.handle],
                 &[],
             );
 
