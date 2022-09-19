@@ -173,8 +173,14 @@ impl Graph {
         }
     }
 
-    pub fn create_texture(&mut self, device: &crate::Device, width: u32, height: u32) -> TextureId {
-        let new_texture = crate::Texture::create(&device, None, width, height);
+    pub fn create_texture(
+        &mut self,
+        device: &crate::Device,
+        width: u32,
+        height: u32,
+        format: vk::Format,
+    ) -> TextureId {
+        let new_texture = crate::Texture::create(&device, None, width, height, format);
         self.resources.push(GraphResource {
             texture: new_texture,
             prev_access: vk_sync::AccessType::Nothing,
