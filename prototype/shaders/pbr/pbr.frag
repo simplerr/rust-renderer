@@ -20,6 +20,11 @@ layout (set = 2, binding = 0) uniform sampler2D in_gbuffer_position;
 layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_normal;
 layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_albedo;
 
+layout (std140, set = 3, binding = 0) uniform UBO_parameters
+{
+    vec3 color;
+} test_params;
+
 layout(push_constant) uniform PushConsts {
     mat4 world;
     vec4 color;
@@ -94,6 +99,9 @@ void main() {
     }
     else if (gl_FragCoord.x < 900) {
         out_color = texture(in_gbuffer_albedo, in_uv);
+    }
+    else if (gl_FragCoord.x < 1100) {
+        out_color.rgb = test_params.color;
     }
     //out_color = vec4(normal, 1.0f);
 }
