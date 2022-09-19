@@ -1,3 +1,5 @@
+use ash::vk;
+
 pub mod gbuffer;
 pub mod pbr;
 
@@ -9,9 +11,9 @@ pub fn setup_render_graph(
 ) -> crate::Graph {
     let mut graph = crate::Graph::new(&device, camera_uniform_buffer);
 
-    let gbuffer_position = graph.create_texture(&base.device, 800, 600);
-    let gbuffer_normal = graph.create_texture(&base.device, 800, 600);
-    let gbuffer_albedo = graph.create_texture(&base.device, 800, 600);
+    let gbuffer_position = graph.create_texture(&base.device, 800, 600, vk::Format::R8G8B8A8_UNORM);
+    let gbuffer_normal = graph.create_texture(&base.device, 800, 600, vk::Format::R8G8B8A8_UNORM);
+    let gbuffer_albedo = graph.create_texture(&base.device, 800, 600, vk::Format::R8G8B8A8_UNORM);
 
     crate::renderers::gbuffer::setup_gbuffer_pass(
         &device,

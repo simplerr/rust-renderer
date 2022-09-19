@@ -21,15 +21,27 @@ impl Texture {
         let (width, height) = (image.width(), image.height());
         let image_data = image.into_raw();
 
-        Texture::create(device, Some(&image_data), width, height)
+        Texture::create(
+            device,
+            Some(&image_data),
+            width,
+            height,
+            vk::Format::R8G8B8A8_UNORM,
+        )
     }
 
-    pub fn create(device: &Device, pixels: Option<&[u8]>, width: u32, height: u32) -> Texture {
+    pub fn create(
+        device: &Device,
+        pixels: Option<&[u8]>,
+        width: u32,
+        height: u32,
+        format: vk::Format,
+    ) -> Texture {
         let image = Image::new(
             device,
             width,
             height,
-            vk::Format::R8G8B8A8_UNORM,
+            format,
             vk::ImageUsageFlags::TRANSFER_DST
                 | vk::ImageUsageFlags::SAMPLED
                 | vk::ImageUsageFlags::COLOR_ATTACHMENT,

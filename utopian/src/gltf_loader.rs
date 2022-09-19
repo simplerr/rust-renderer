@@ -1,3 +1,4 @@
+use ash::vk;
 use glam::{Mat4, Vec2, Vec3, Vec4};
 
 use crate::device::*;
@@ -174,7 +175,13 @@ pub fn load_gltf(device: &Device, path: &str) -> Model {
             panic!("Unsupported image format!");
         }
 
-        let texture = Texture::create(device, Some(&image.pixels), image.width, image.height);
+        let texture = Texture::create(
+            device,
+            Some(&image.pixels),
+            image.width,
+            image.height,
+            vk::Format::R8G8B8A8_UNORM,
+        );
 
         model.textures.push(texture);
     }
