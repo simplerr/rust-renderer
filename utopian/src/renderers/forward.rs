@@ -8,7 +8,7 @@ struct PushConstants {
     pad: [u32; 3],
 }
 
-pub fn setup_pbr_pass(
+pub fn setup_forward_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
@@ -20,8 +20,8 @@ pub fn setup_pbr_pass(
     let pipeline = crate::Pipeline::new(
         &device.handle,
         crate::PipelineDesc {
-            vertex_path: "prototype/shaders/pbr/pbr.vert",
-            fragment_path: "prototype/shaders/pbr/pbr.frag",
+            vertex_path: "utopian/shaders/forward/forward.vert",
+            fragment_path: "utopian/shaders/forward/forward.frag",
             vertex_input_binding_descriptions:
                 crate::Primitive::get_vertex_input_binding_descriptions(),
             vertex_input_attribute_descriptions:
@@ -57,7 +57,7 @@ pub fn setup_pbr_pass(
     );
 
     graph
-        .add_pass(String::from("pbr_pass"), pipeline)
+        .add_pass(String::from("forward_pass"), pipeline)
         .read(gbuffer_position)
         .read(gbuffer_normal)
         .read(gbuffer_albedo)

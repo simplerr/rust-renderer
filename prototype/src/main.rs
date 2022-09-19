@@ -128,9 +128,6 @@ impl Application {
         directory_watcher
             .watch("utopian/shaders/", RecursiveMode::Recursive)
             .unwrap();
-        directory_watcher
-            .watch("prototype/shaders", RecursiveMode::Recursive)
-            .unwrap();
 
         let graph = utopian::renderers::setup_render_graph(
             &base.device,

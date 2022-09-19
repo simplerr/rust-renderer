@@ -4,6 +4,7 @@
 #extension GL_GOOGLE_include_directive : enable
 
 #include "include/bindless.glsl"
+#include "include/view.glsl"
 
 layout (location = 0) in vec4 pos;
 layout (location = 1) in vec4 normal;
@@ -17,18 +18,6 @@ layout (location = 2) out vec3 out_normal;
 layout (location = 3) out vec4 out_color;
 layout (location = 4) out vec4 out_tangent;
 layout (location = 5) out mat3 out_tbn;
-
-layout (std140, set = 1, binding = 0) uniform UBO_camera
-{
-   mat4 view;
-   mat4 projection;
-   mat4 inverse_view;
-   mat4 inverse_projection;
-   vec3 eye_pos;
-   uint samples_per_frame;
-   uint total_samples;
-   uint num_bounces;
-} camera;
 
 layout(push_constant) uniform PushConsts {
    mat4 world;

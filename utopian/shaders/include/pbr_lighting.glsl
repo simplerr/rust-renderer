@@ -2,7 +2,7 @@
 
 // PBR code reused from https://github.com/simplerr/UtopianEngine
 
-#include "brdf.glsl"
+#include "include/brdf.glsl"
 
 struct Light
 {
