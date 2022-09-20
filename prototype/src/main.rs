@@ -8,6 +8,7 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::sync::mpsc;
 use std::time::Duration;
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, Copy)]
 struct CameraUniformData {
     view: glam::Mat4,
@@ -18,6 +19,8 @@ struct CameraUniformData {
     samples_per_frame: u32,
     total_samples: u32,
     num_bounces: u32,
+    viewport_width: u32,
+    viewport_height: u32,
 }
 
 struct FpsTimer {
@@ -86,6 +89,8 @@ impl Application {
             samples_per_frame: 1,
             total_samples: 0,
             num_bounces: 5,
+            viewport_width: width,
+            viewport_height: height,
         };
 
         let slice = unsafe { std::slice::from_raw_parts(&camera_data, 1) };
