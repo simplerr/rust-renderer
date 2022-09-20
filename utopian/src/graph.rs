@@ -106,6 +106,14 @@ impl<'a> PassBuilder<'a> {
 
 impl Graph {
     pub fn new(device: &Device, camera_uniform_buffer: &crate::Buffer) -> Self {
+        Graph {
+            passes: vec![],
+            resources: vec![],
+            descriptor_set_camera: Self::create_camera_descriptor_set(device, camera_uniform_buffer),
+        }
+    }
+
+    pub fn create_camera_descriptor_set(device: &Device, camera_uniform_buffer: &crate::Buffer) -> crate::DescriptorSet {
         let descriptor_set_layout_binding = vk::DescriptorSetLayoutBinding::builder()
             .binding(0)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
@@ -147,11 +155,7 @@ impl Graph {
             &camera_uniform_buffer,
         );
 
-        Graph {
-            passes: vec![],
-            resources: vec![],
-            descriptor_set_camera,
-        }
+        descriptor_set_camera
     }
 
     pub fn add_pass(&mut self, name: String, pipeline: Pipeline) -> PassBuilder {
