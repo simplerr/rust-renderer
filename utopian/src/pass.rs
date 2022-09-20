@@ -42,27 +42,26 @@ impl RenderPass {
         depth_attachment: Option<Image>,
         extent: vk::Extent2D,
     ) {
+        let color_attachments = color_attachments
+            .iter()
+            .map(|image| {
+                vk::RenderingAttachmentInfo::builder()
+                    .image_view(image.image_view)
+                    .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                    .load_op(vk::AttachmentLoadOp::CLEAR)
+                    .store_op(vk::AttachmentStoreOp::STORE)
+                    .clear_value(vk::ClearValue {
+                        color: vk::ClearColorValue {
+                            float32: [0.5, 0.5, 0.5, 0.0],
+                        },
+                    })
+                    .build()
+            })
+            .collect::<Vec<_>>();
+
         let rendering_info = vk::RenderingInfo::builder()
             .layer_count(1)
-            .color_attachments(
-                color_attachments
-                    .iter()
-                    .map(|image| {
-                        vk::RenderingAttachmentInfo::builder()
-                            .image_view(image.image_view)
-                            .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                            .load_op(vk::AttachmentLoadOp::CLEAR)
-                            .store_op(vk::AttachmentStoreOp::STORE)
-                            .clear_value(vk::ClearValue {
-                                color: vk::ClearColorValue {
-                                    float32: [0.5, 0.5, 0.5, 0.0],
-                                },
-                            })
-                            .build()
-                    })
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-            )
+            .color_attachments(&color_attachments)
             .depth_attachment(&if let Some(depth_attachment) = depth_attachment {
                 vk::RenderingAttachmentInfo::builder()
                     .image_view(depth_attachment.image_view)
