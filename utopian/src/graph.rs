@@ -183,6 +183,17 @@ impl Graph {
         self.resources.len() - 1
     }
 
+    pub fn recompile_shaders(
+        &mut self,
+        device: &crate::Device,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
+    ) {
+        for pass in &mut self.passes {
+            pass.pipeline
+                .recreate_pipeline(device, bindless_descriptor_set_layout);
+        }
+    }
+
     pub fn render(
         &mut self,
         device: &Device,

@@ -390,13 +390,12 @@ impl Application {
 
             if recompile_shaders || input.key_pressed(winit::event::VirtualKeyCode::R) {
                 self.camera_data.total_samples = 0;
-                // Todo:
-                // self.pbr_pass.pipeline.recreate_pipeline(
-                //     &self.base.device,
-                //     &[self.base.present_images[0].format],
-                //     self.base.depth_image.format,
-                //     Some(self.renderer.bindless_descriptor_set_layout),
-                // );
+
+                self.graph.recompile_shaders(
+                    &self.base.device,
+                    Some(self.renderer.bindless_descriptor_set_layout),
+                );
+
                 if let Some(raytracing) = &mut self.raytracing {
                     raytracing.recreate_pipeline(
                         &self.base.device,

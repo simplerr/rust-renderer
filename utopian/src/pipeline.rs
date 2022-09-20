@@ -9,6 +9,8 @@ pub struct PipelineDesc {
     pub fragment_path: &'static str,
     pub vertex_input_binding_descriptions: Vec<vk::VertexInputBindingDescription>,
     pub vertex_input_attribute_descriptions: Vec<vk::VertexInputAttributeDescription>,
+    pub color_attachment_formats: Vec<vk::Format>,
+    pub depth_stencil_attachment_format: vk::Format,
 }
 
 pub struct Pipeline {
@@ -23,8 +25,6 @@ impl Pipeline {
     pub fn new(
         device: &ash::Device,
         pipeline_desc: PipelineDesc,
-        color_attachment_formats: &[vk::Format],
-        depth_stencil_attachment_format: vk::Format,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Pipeline {
         let shader_modules_result = Pipeline::create_shader_modules(
@@ -40,8 +40,8 @@ impl Pipeline {
         let graphic_pipeline = Pipeline::create_pipeline(
             device,
             shader_stage_create_infos,
-            color_attachment_formats,
-            depth_stencil_attachment_format,
+            pipeline_desc.color_attachment_formats.as_slice(),
+            pipeline_desc.depth_stencil_attachment_format,
             pipeline_layout,
             &pipeline_desc,
         );
@@ -222,8 +222,6 @@ impl Pipeline {
     pub fn recreate_pipeline(
         &mut self,
         device: &Device,
-        color_attachment_formats: &[vk::Format],
-        depth_stencil_attachment_format: vk::Format,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) {
         // Todo: cleanup old resources
@@ -245,8 +243,8 @@ impl Pipeline {
                 let graphic_pipeline = Pipeline::create_pipeline(
                     &device.handle,
                     shader_stage_create_infos,
-                    color_attachment_formats,
-                    depth_stencil_attachment_format,
+                    self.pipeline_desc.color_attachment_formats.as_slice(),
+                    self.pipeline_desc.depth_stencil_attachment_format,
                     pipeline_layout,
                     &self.pipeline_desc,
                 );
