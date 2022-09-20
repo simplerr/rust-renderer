@@ -26,13 +26,13 @@ pub fn setup_gbuffer_pass(
                 crate::Primitive::get_vertex_input_binding_descriptions(),
             vertex_input_attribute_descriptions:
                 crate::Primitive::get_vertex_input_attribute_descriptions(),
+            color_attachment_formats: vec![
+                graph.resources[gbuffer_position].texture.image.format,
+                graph.resources[gbuffer_normal].texture.image.format,
+                graph.resources[gbuffer_albedo].texture.image.format,
+            ],
+            depth_stencil_attachment_format: vk::Format::D32_SFLOAT,
         },
-        &[
-            graph.resources[gbuffer_position].texture.image.format,
-            graph.resources[gbuffer_normal].texture.image.format,
-            graph.resources[gbuffer_albedo].texture.image.format,
-        ],
-        vk::Format::D32_SFLOAT,
         Some(renderer.bindless_descriptor_set_layout),
     );
 

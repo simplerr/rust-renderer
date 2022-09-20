@@ -26,9 +26,9 @@ pub fn setup_forward_pass(
                 crate::Primitive::get_vertex_input_binding_descriptions(),
             vertex_input_attribute_descriptions:
                 crate::Primitive::get_vertex_input_attribute_descriptions(),
+            color_attachment_formats: vec![base.present_images[0].format],
+            depth_stencil_attachment_format: base.depth_image.format,
         },
-        &[base.present_images[0].format],
-        base.depth_image.format,
         Some(renderer.bindless_descriptor_set_layout),
     );
 
