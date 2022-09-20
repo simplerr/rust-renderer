@@ -9,4 +9,6 @@ layout (std140, set = 1, binding = 0) uniform UBO_camera
     uint samples_per_frame;
     uint total_samples;
     uint num_bounces;
+    uint viewport_width;
+    uint viewport_height;
 } camera;
