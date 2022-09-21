@@ -63,6 +63,7 @@ impl<'a> PassBuilder<'a> {
 
     pub fn build(self, device: &Device) {
         let mut pass = crate::RenderPass::new(
+            self.name,
             self.pipeline,
             self.presentation_pass,
             self.depth_attachment,
@@ -109,11 +110,17 @@ impl Graph {
         Graph {
             passes: vec![],
             resources: vec![],
-            descriptor_set_camera: Self::create_camera_descriptor_set(device, camera_uniform_buffer),
+            descriptor_set_camera: Self::create_camera_descriptor_set(
+                device,
+                camera_uniform_buffer,
+            ),
         }
     }
 
-    pub fn create_camera_descriptor_set(device: &Device, camera_uniform_buffer: &crate::Buffer) -> crate::DescriptorSet {
+    pub fn create_camera_descriptor_set(
+        device: &Device,
+        camera_uniform_buffer: &crate::Buffer,
+    ) -> crate::DescriptorSet {
         let descriptor_set_layout_binding = vk::DescriptorSetLayoutBinding::builder()
             .binding(0)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
@@ -173,14 +180,17 @@ impl Graph {
 
     pub fn create_texture(
         &mut self,
+        debug_name: &str,
         device: &crate::Device,
         width: u32,
         height: u32,
         format: vk::Format,
     ) -> TextureId {
-        let new_texture = crate::Texture::create(&device, None, width, height, format);
+        let mut texture = crate::Texture::create(&device, None, width, height, format);
+        texture.set_debug_name(device, debug_name);
+
         self.resources.push(GraphResource {
-            texture: new_texture,
+            texture,
             prev_access: vk_sync::AccessType::Nothing,
         });
 
@@ -206,6 +216,17 @@ impl Graph {
         present_image: &[Image], // Todo: pass single value
     ) {
         for pass in &self.passes {
+            let name = std::ffi::CString::new(pass.name.as_str()).unwrap();
+            let debug_label = vk::DebugUtilsLabelEXT::builder()
+                .label_name(&name)
+                //.color([1.0, 0.0, 0.0, 1.0])
+                .build();
+            unsafe {
+                device
+                    .debug_utils
+                    .cmd_begin_debug_utils_label(command_buffer, &debug_label)
+            };
+
             // Transition pass resources
             // Todo: probably can combine reads and writes to one vector
             for read in &pass.reads {
@@ -270,6 +291,7 @@ impl Graph {
                 },
             );
 
+            // Todo: this could be moved outside the pass loop
             unsafe {
                 device.handle.cmd_bind_descriptor_sets(
                     command_buffer,
@@ -298,7 +320,10 @@ impl Graph {
                 render_func(device, command_buffer, renderer, pass);
             }
 
-            unsafe { device.handle.cmd_end_rendering(command_buffer) };
+            unsafe {
+                device.handle.cmd_end_rendering(command_buffer);
+                device.debug_utils.cmd_end_debug_utils_label(command_buffer);
+            }
         }
     }
 }

@@ -13,12 +13,28 @@ pub fn setup_render_graph(
 
     let width = base.surface_resolution.width;
     let height = base.surface_resolution.height;
-    let gbuffer_position =
-        graph.create_texture(&base.device, width, height, vk::Format::R32G32B32A32_SFLOAT);
-    let gbuffer_normal =
-        graph.create_texture(&base.device, width, height, vk::Format::R32G32B32A32_SFLOAT);
-    let gbuffer_albedo =
-        graph.create_texture(&base.device, width, height, vk::Format::R8G8B8A8_UNORM);
+    let gbuffer_position = graph.create_texture(
+        "gbuffer_position",
+        &base.device,
+        width,
+        height,
+        vk::Format::R32G32B32A32_SFLOAT,
+    );
+
+    let gbuffer_normal = graph.create_texture(
+        "gbuffer_normal",
+        &base.device,
+        width,
+        height,
+        vk::Format::R32G32B32A32_SFLOAT,
+    );
+    let gbuffer_albedo = graph.create_texture(
+        "gbuffer_albedo",
+        &base.device,
+        width,
+        height,
+        vk::Format::R8G8B8A8_UNORM,
+    );
 
     crate::renderers::gbuffer::setup_gbuffer_pass(
         &device,

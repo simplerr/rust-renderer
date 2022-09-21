@@ -47,12 +47,13 @@ pub fn load_node(
     model: &mut Model,
     buffers: &[gltf::buffer::Data],
     parent_transform: Mat4,
+    path: &str,
 ) {
     let node_transform =
         parent_transform * glam::Mat4::from_cols_array_2d(&node.transform().matrix());
 
     for child in node.children() {
-        load_node(device, &child, model, buffers, node_transform);
+        load_node(device, &child, model, buffers, node_transform, path);
     }
 
     if let Some(mesh) = node.mesh() {
@@ -137,6 +138,21 @@ pub fn load_node(
                 gpu_mesh: 0,
             });
 
+            model
+                .meshes
+                .last_mut()
+                .unwrap()
+                .primitive
+                .vertex_buffer
+                .set_debug_name(device, format!("vertex_buffer: {}", path).as_str());
+            model
+                .meshes
+                .last_mut()
+                .unwrap()
+                .primitive
+                .index_buffer
+                .set_debug_name(device, format!("index_buffer: {}", path).as_str());
+
             model.transforms.push(node_transform);
         }
     }
@@ -188,7 +204,7 @@ pub fn load_gltf(device: &Device, path: &str) -> Model {
 
     for scene in gltf.scenes() {
         for node in scene.nodes() {
-            load_node(device, &node, &mut model, &buffers, Mat4::IDENTITY);
+            load_node(device, &node, &mut model, &buffers, Mat4::IDENTITY, path);
         }
     }
 
