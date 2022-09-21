@@ -10,6 +10,7 @@ pub struct Buffer {
     pub memory_req: vk::MemoryRequirements,
     pub memory_location: gpu_allocator::MemoryLocation,
     pub size: u64,
+    pub debug_name: String,
 }
 
 impl Buffer {
@@ -55,6 +56,7 @@ impl Buffer {
                 memory_req: buffer_memory_req,
                 memory_location,
                 size,
+                debug_name: String::from("unnamed_buffer"),
             }
         }
     }
@@ -76,6 +78,8 @@ impl Buffer {
         if let Some(initial_data) = initial_data {
             buffer.update_memory(device, initial_data);
         }
+
+        buffer.set_debug_name(device, "unnamed_buffer");
 
         buffer
     }
@@ -158,5 +162,21 @@ impl Buffer {
             .build();
 
         unsafe { device.handle.get_buffer_device_address(&info) }
+    }
+
+    pub fn set_debug_name(&mut self, device: &Device, name: &str) {
+        self.debug_name = String::from(name);
+        let name = std::ffi::CString::new(name).unwrap();
+        let name_info = vk::DebugUtilsObjectNameInfoEXT::builder()
+            .object_handle(vk::Handle::as_raw(self.buffer))
+            .object_name(&name)
+            .object_type(vk::ObjectType::BUFFER)
+            .build();
+        unsafe {
+            device
+                .debug_utils
+                .debug_utils_set_object_name(device.handle.handle(), &name_info)
+                .expect("Error setting debug name for buffer")
+        };
     }
 }

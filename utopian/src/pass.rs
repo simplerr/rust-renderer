@@ -14,10 +14,12 @@ pub struct RenderPass {
     pub depth_attachment: Option<Image>,
     pub presentation_pass: bool,
     pub read_textures_descriptor_set: Option<crate::DescriptorSet>,
+    pub name: String,
 }
 
 impl RenderPass {
     pub fn new(
+        name: String,
         pipeline: Pipeline,
         presentation_pass: bool,
         depth_attachment: Option<Image>,
@@ -31,6 +33,7 @@ impl RenderPass {
             depth_attachment,
             presentation_pass,
             read_textures_descriptor_set: None,
+            name,
         }
     }
 

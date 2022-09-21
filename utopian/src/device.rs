@@ -19,6 +19,7 @@ pub struct Device {
     pub raytracing_pipeline_ext: khr::RayTracingPipeline,
     pub gpu_allocator: Arc<Mutex<gpu_allocator::vulkan::Allocator>>,
     pub raytracing_supported: bool,
+    pub debug_utils: ash::extensions::ext::DebugUtils,
 }
 
 impl Drop for Device {
@@ -32,6 +33,7 @@ impl Device {
         instance: &ash::Instance,
         surface: vk::SurfaceKHR,
         surface_loader: &Surface,
+        debug_utils: ash::extensions::ext::DebugUtils,
     ) -> Device {
         unsafe {
             let physical_devices = instance
@@ -184,6 +186,7 @@ impl Device {
                 raytracing_pipeline_ext,
                 gpu_allocator: Arc::new(Mutex::new(gpu_allocator)),
                 raytracing_supported,
+                debug_utils,
             }
         }
     }

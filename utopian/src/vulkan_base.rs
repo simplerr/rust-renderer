@@ -89,11 +89,11 @@ impl VulkanBase {
 
         let (window, event_loop) = VulkanBase::create_window(width, height);
         let instance = VulkanBase::create_instance(&entry, &window);
-        let debug_callback = VulkanBase::create_debug_utils(&entry, &instance);
+        let (debug_utils, debug_callback) = VulkanBase::create_debug_utils(&entry, &instance);
 
         let (surface, surface_loader) = VulkanBase::create_surface(&entry, &instance, &window);
 
-        let device = Device::new(&instance, surface, &surface_loader);
+        let device = Device::new(&instance, surface, &surface_loader, debug_utils);
 
         let (swapchain, swapchain_loader, surface_format, surface_resolution) =
             VulkanBase::create_swapchain(
@@ -199,7 +199,7 @@ impl VulkanBase {
     fn create_debug_utils(
         entry: &ash::Entry,
         instance: &ash::Instance,
-    ) -> vk::DebugUtilsMessengerEXT {
+    ) -> (DebugUtils, vk::DebugUtilsMessengerEXT) {
         let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
             .message_severity(
                 vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
@@ -216,11 +216,13 @@ impl VulkanBase {
 
         let debug_utils_loader = DebugUtils::new(entry, instance);
 
-        unsafe {
+        let debug_utils_messenger = unsafe {
             debug_utils_loader
                 .create_debug_utils_messenger(&debug_info, None)
                 .unwrap()
-        }
+        };
+
+        (debug_utils_loader, debug_utils_messenger)
     }
 
     fn create_surface(
