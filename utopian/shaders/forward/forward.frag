@@ -16,11 +16,9 @@ layout (location = 5) in mat3 in_tbn;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform sampler2D in_gbuffer_position;
-layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_normal;
-layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_albedo;
-
-layout (std140, set = 3, binding = 0) uniform UBO_parameters
+// Todo: set=2 should be dedicated to input textures but the shader reflection
+// does not support gaps in the descriptor sets
+layout (std140, set = 2, binding = 0) uniform UBO_parameters
 {
     vec3 color;
 } test_params;
@@ -90,22 +88,5 @@ void main() {
     color = pow(color, vec3(1.0/2.2));
 
     out_color = vec4(color, 1.0f);
-
-    // Todo: add width & height to View.glsl
-    vec2 screen_uv = vec2(gl_FragCoord.x / 2000.0, gl_FragCoord.y / 1100.0);
-
-    if (gl_FragCoord.x < 500) {
-        out_color = texture(in_gbuffer_position, screen_uv);
-    }
-    else if (gl_FragCoord.x < 700) {
-        out_color = texture(in_gbuffer_normal, screen_uv);
-    }
-    else if (gl_FragCoord.x < 900) {
-        out_color = texture(in_gbuffer_albedo, screen_uv);
-    }
-    else if (gl_FragCoord.x < 1100) {
-        out_color.rgb = test_params.color;
-    }
-    //out_color = vec4(normal, 1.0f);
 }
 
