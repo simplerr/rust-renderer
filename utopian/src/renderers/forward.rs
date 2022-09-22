@@ -13,6 +13,7 @@ pub fn setup_forward_pass(
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
+    forward_output: crate::TextureId,
 ) {
     let pipeline = crate::Pipeline::new(
         &device.handle,
@@ -23,7 +24,8 @@ pub fn setup_forward_pass(
                 crate::Primitive::get_vertex_input_binding_descriptions(),
             vertex_input_attribute_descriptions:
                 crate::Primitive::get_vertex_input_attribute_descriptions(),
-            color_attachment_formats: vec![base.present_images[0].format],
+            color_attachment_formats: vec![graph.resources[forward_output].texture.image.format],
+            // Todo:
             depth_stencil_attachment_format: base.depth_image.format,
         },
         Some(renderer.bindless_descriptor_set_layout),
@@ -55,7 +57,7 @@ pub fn setup_forward_pass(
 
     graph
         .add_pass(String::from("forward_pass"), pipeline)
-        .presentation_pass(true)
+        .write(forward_output)
         .depth_attachment(base.depth_image)
         .render(move |device, command_buffer, renderer, pass| unsafe {
             // Todo: move to common place

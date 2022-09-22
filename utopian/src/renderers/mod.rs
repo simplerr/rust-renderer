@@ -3,6 +3,7 @@ use ash::vk;
 pub mod forward;
 pub mod gbuffer;
 pub mod deferred;
+pub mod present;
 
 pub fn setup_render_graph(
     device: &crate::Device,
@@ -14,6 +15,8 @@ pub fn setup_render_graph(
 
     let width = base.surface_resolution.width;
     let height = base.surface_resolution.height;
+
+    // G-buffer textures
     let gbuffer_position = graph.create_texture(
         "gbuffer_position",
         &base.device,
@@ -43,6 +46,22 @@ pub fn setup_render_graph(
         vk::Format::R32G32B32A32_SFLOAT,
     );
 
+    // Forward & deferred output textures
+    let forward_output = graph.create_texture(
+        "forward_output",
+        &base.device,
+        width,
+        height,
+        vk::Format::R32G32B32A32_SFLOAT,
+    );
+    let deferred_output = graph.create_texture(
+        "deferred_output",
+        &base.device,
+        width,
+        height,
+        vk::Format::R32G32B32A32_SFLOAT,
+    );
+
     crate::renderers::gbuffer::setup_gbuffer_pass(
         &device,
         &mut graph,
@@ -59,18 +78,29 @@ pub fn setup_render_graph(
         &mut graph,
         &base,
         &renderer,
+        forward_output,
     );
 
-    // crate::renderers::deferred::setup_deferred_pass(
-    //     &device,
-    //     &mut graph,
-    //     &base,
-    //     &renderer,
-    //     gbuffer_position,
-    //     gbuffer_normal,
-    //     gbuffer_albedo,
-    //     gbuffer_pbr,
-    // );
+    crate::renderers::deferred::setup_deferred_pass(
+        &device,
+        &mut graph,
+        &base,
+        &renderer,
+        gbuffer_position,
+        gbuffer_normal,
+        gbuffer_albedo,
+        gbuffer_pbr,
+        deferred_output,
+    );
+
+    crate::renderers::present::setup_present_pass(
+        &device,
+        &mut graph,
+        &base,
+        &renderer,
+        forward_output,
+        deferred_output,
+    );
 
     graph
 }
