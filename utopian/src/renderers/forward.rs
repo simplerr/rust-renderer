@@ -13,9 +13,6 @@ pub fn setup_forward_pass(
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
-    gbuffer_position: crate::TextureId,
-    gbuffer_normal: crate::TextureId,
-    gbuffer_albedo: crate::TextureId,
 ) {
     let pipeline = crate::Pipeline::new(
         &device.handle,
@@ -58,9 +55,6 @@ pub fn setup_forward_pass(
 
     graph
         .add_pass(String::from("forward_pass"), pipeline)
-        .read(gbuffer_position)
-        .read(gbuffer_normal)
-        .read(gbuffer_albedo)
         .presentation_pass(true)
         .depth_attachment(base.depth_image)
         .render(move |device, command_buffer, renderer, pass| unsafe {

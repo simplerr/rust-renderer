@@ -14,6 +14,7 @@ layout (location = 5) in mat3 in_tbn;
 layout (location = 0) out vec4 out_gbuffer_position;
 layout (location = 1) out vec4 out_gbuffer_normal;
 layout (location = 2) out vec4 out_gbuffer_albedo;
+layout (location = 3) out vec4 out_gbuffer_pbr;
 
 layout(push_constant) uniform PushConsts {
     mat4 world;
@@ -46,4 +47,5 @@ void main()
     out_gbuffer_position = vec4(in_pos, 1.0);
     out_gbuffer_normal = vec4(normal, 1.0);
     out_gbuffer_albedo = vec4(diffuse_color.rgb * material.base_color_factor.rgb, 1.0);
+    out_gbuffer_pbr = vec4(metallic, roughness, occlusion, mesh.material);
 }

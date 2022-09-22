@@ -16,6 +16,7 @@ pub fn setup_gbuffer_pass(
     gbuffer_position: crate::TextureId,
     gbuffer_normal: crate::TextureId,
     gbuffer_albedo: crate::TextureId,
+    gbuffer_pbr: crate::TextureId,
 ) {
     let pipeline = crate::Pipeline::new(
         &device.handle,
@@ -30,6 +31,7 @@ pub fn setup_gbuffer_pass(
                 graph.resources[gbuffer_position].texture.image.format,
                 graph.resources[gbuffer_normal].texture.image.format,
                 graph.resources[gbuffer_albedo].texture.image.format,
+                graph.resources[gbuffer_pbr].texture.image.format,
             ],
             depth_stencil_attachment_format: vk::Format::D32_SFLOAT,
         },
@@ -41,6 +43,7 @@ pub fn setup_gbuffer_pass(
         .write(gbuffer_position)
         .write(gbuffer_normal)
         .write(gbuffer_albedo)
+        .write(gbuffer_pbr)
         .depth_attachment(depth_image)
         .render(move |device, command_buffer, renderer, pass| unsafe {
             // Todo: move to common place
