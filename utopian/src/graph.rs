@@ -182,11 +182,10 @@ impl Graph {
         &mut self,
         debug_name: &str,
         device: &crate::Device,
-        width: u32,
-        height: u32,
+        extent: [u32; 2],
         format: vk::Format,
     ) -> TextureId {
-        let mut texture = crate::Texture::create(&device, None, width, height, format);
+        let mut texture = crate::Texture::create(&device, None, extent[0], extent[1], format);
         texture.set_debug_name(device, debug_name);
 
         self.resources.push(GraphResource {

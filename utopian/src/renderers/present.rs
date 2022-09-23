@@ -1,4 +1,3 @@
-
 pub fn setup_present_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
