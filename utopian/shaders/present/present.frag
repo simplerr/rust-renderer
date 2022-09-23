@@ -17,11 +17,18 @@ layout (set = 2, binding = 1) uniform sampler2D in_deferred_texture;
 void main() {
     vec2 uv = vec2(in_uv.x, in_uv.y - 1.0);
 
+    vec3 color;
     if (uv.x < 0.5) {
-        out_color = texture(in_forward_texture, uv);
+        color = texture(in_forward_texture, uv).rgb;
     }
     else {
-        out_color = texture(in_deferred_texture, uv);
+        color = texture(in_deferred_texture, uv).rgb;
     }
+
+    /* Tonemapping */
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0/2.2));
+
+    out_color = vec4(color, 1.0);
 }
 

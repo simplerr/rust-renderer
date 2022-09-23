@@ -35,7 +35,7 @@ void main()
     float occlusion = texture(samplerColor[material.occlusion_map], in_uv).r;
 
     // From sRGB space to Linear space
-    diffuse_color.rgb = pow(diffuse_color.rgb, vec3(2.2));
+    //diffuse_color.rgb = pow(diffuse_color.rgb, vec3(2.2));
 
     vec3 normal = normalize(in_normal);
     if (in_tangent.xyz != vec3(0.0f))
@@ -46,6 +46,6 @@ void main()
 
     out_gbuffer_position = vec4(in_pos, 1.0);
     out_gbuffer_normal = vec4(normal, 1.0);
-    out_gbuffer_albedo = vec4(diffuse_color.rgb * material.base_color_factor.rgb, 1.0);
+    out_gbuffer_albedo = vec4(diffuse_color.rgb , 1.0);
     out_gbuffer_pbr = vec4(metallic, roughness, occlusion, mesh.material);
 }
