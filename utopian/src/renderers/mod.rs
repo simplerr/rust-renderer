@@ -1,8 +1,8 @@
 use ash::vk;
 
+pub mod deferred;
 pub mod forward;
 pub mod gbuffer;
-pub mod deferred;
 pub mod present;
 
 pub fn setup_render_graph(
@@ -13,54 +13,22 @@ pub fn setup_render_graph(
 ) -> crate::Graph {
     let mut graph = crate::Graph::new(&device, camera_uniform_buffer);
 
-    let width = base.surface_resolution.width;
-    let height = base.surface_resolution.height;
+    let extent = [
+        base.surface_resolution.width,
+        base.surface_resolution.height,
+    ];
+    let rgba8_format = vk::Format::R8G8B8A8_UNORM;
+    let rgba32_fmt = vk::Format::R32G32B32A32_SFLOAT;
 
     // G-buffer textures
-    let gbuffer_position = graph.create_texture(
-        "gbuffer_position",
-        &base.device,
-        width,
-        height,
-        vk::Format::R32G32B32A32_SFLOAT,
-    );
-    let gbuffer_normal = graph.create_texture(
-        "gbuffer_normal",
-        &base.device,
-        width,
-        height,
-        vk::Format::R32G32B32A32_SFLOAT,
-    );
-    let gbuffer_albedo = graph.create_texture(
-        "gbuffer_albedo",
-        &base.device,
-        width,
-        height,
-        vk::Format::R8G8B8A8_UNORM,
-    );
-    let gbuffer_pbr = graph.create_texture(
-        "gbuffer_pbr",
-        &base.device,
-        width,
-        height,
-        vk::Format::R32G32B32A32_SFLOAT,
-    );
+    let gbuffer_position = graph.create_texture("gbuffer_position", device, extent, rgba32_fmt);
+    let gbuffer_normal = graph.create_texture("gbuffer_normal", device, extent, rgba32_fmt);
+    let gbuffer_albedo = graph.create_texture("gbuffer_albedo", device, extent, rgba8_format);
+    let gbuffer_pbr = graph.create_texture("gbuffer_pbr", device, extent, rgba32_fmt);
 
     // Forward & deferred output textures
-    let forward_output = graph.create_texture(
-        "forward_output",
-        &base.device,
-        width,
-        height,
-        vk::Format::R32G32B32A32_SFLOAT,
-    );
-    let deferred_output = graph.create_texture(
-        "deferred_output",
-        &base.device,
-        width,
-        height,
-        vk::Format::R32G32B32A32_SFLOAT,
-    );
+    let forward_output = graph.create_texture("forward_output", device, extent, rgba32_fmt);
+    let deferred_output = graph.create_texture("deferred_output", device, extent, rgba32_fmt);
 
     crate::renderers::gbuffer::setup_gbuffer_pass(
         &device,
