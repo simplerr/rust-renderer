@@ -43,10 +43,11 @@ Light lights[numLights] = {
 };
 
 void main() {
-    Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
-    Material material = materialsSSBO.materials[mesh.material];
-
     vec2 uv = vec2(in_uv.x, in_uv.y - 1.0);
+
+    uint material_index = uint(texture(in_gbuffer_pbr, uv).a);
+    Material material = materialsSSBO.materials[material_index];
+
     vec3 position = texture(in_gbuffer_position, uv).rgb;
     vec3 normal = texture(in_gbuffer_normal, uv).rgb;
     vec3 diffuse_color = texture(in_gbuffer_albedo, uv).rgb;
@@ -54,9 +55,12 @@ void main() {
     float roughness = texture(in_gbuffer_pbr, uv).g;
     float occlusion = texture(in_gbuffer_pbr, uv).b;
 
+    // From sRGB space to Linear space
+    diffuse_color.rgb = pow(diffuse_color.rgb, vec3(2.2));
+
     PixelParams pixel;
     pixel.position = position;
-    pixel.baseColor = diffuse_color.rgb;
+    pixel.baseColor = diffuse_color.rgb * material.base_color_factor.rgb;
     pixel.normal = normal;
     pixel.metallic = metallic;
     pixel.roughness = roughness;
@@ -70,12 +74,7 @@ void main() {
 
     // Todo: IBL
     vec3 ambient = vec3(0.03) * diffuse_color.rgb * occlusion;
-
     vec3 color = ambient + Lo;
-
-    /* Tonemapping */
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0/2.2));
 
     out_color = vec4(color, 1.0f);
 }
