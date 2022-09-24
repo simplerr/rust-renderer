@@ -9,6 +9,7 @@ Developed to learn Rust and to have a framework for experimenting with modern re
 + Path tracer based on [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 + Basic PBR rendering
 + Bindless GPU resources
++ Experimental high level render graph
 + Vulkan using [ash](https://github.com/MaikKlein/ash)
 + Shader reflection
 + Live shader recompilation
