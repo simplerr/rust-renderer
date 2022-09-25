@@ -34,7 +34,6 @@ pub fn setup_render_graph(
         &device,
         &mut graph,
         &renderer,
-        base.depth_image,
         gbuffer_position,
         gbuffer_normal,
         gbuffer_albedo,

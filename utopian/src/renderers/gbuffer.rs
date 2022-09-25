@@ -12,7 +12,6 @@ pub fn setup_gbuffer_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
     renderer: &crate::Renderer,
-    depth_image: crate::Image,
     gbuffer_position: crate::TextureId,
     gbuffer_normal: crate::TextureId,
     gbuffer_albedo: crate::TextureId,
@@ -36,6 +35,15 @@ pub fn setup_gbuffer_pass(
             depth_stencil_attachment_format: vk::Format::D32_SFLOAT,
         },
         Some(renderer.bindless_descriptor_set_layout),
+    );
+
+    let depth_image = crate::Image::new(
+        device,
+        graph.resources[gbuffer_position].texture.image.width,
+        graph.resources[gbuffer_position].texture.image.height,
+        vk::Format::D32_SFLOAT,
+        vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+        vk::ImageAspectFlags::DEPTH,
     );
 
     graph

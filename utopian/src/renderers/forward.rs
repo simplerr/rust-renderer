@@ -31,6 +31,15 @@ pub fn setup_forward_pass(
         Some(renderer.bindless_descriptor_set_layout),
     );
 
+    let depth_image = crate::Image::new(
+        device,
+        graph.resources[forward_output].texture.image.width,
+        graph.resources[forward_output].texture.image.height,
+        vk::Format::D32_SFLOAT,
+        vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+        vk::ImageAspectFlags::DEPTH,
+    );
+
     // Data & buffer setup
     let color = glam::Vec3::new(0.0, 0.0, 1.0);
     let slice = unsafe { std::slice::from_raw_parts(&color, 1) };
@@ -58,7 +67,7 @@ pub fn setup_forward_pass(
     graph
         .add_pass(String::from("forward_pass"), pipeline)
         .write(forward_output)
-        .depth_attachment(base.depth_image)
+        .depth_attachment(depth_image)
         .render(move |device, command_buffer, renderer, pass| unsafe {
             // Todo: move to common place
             device.handle.cmd_bind_descriptor_sets(
