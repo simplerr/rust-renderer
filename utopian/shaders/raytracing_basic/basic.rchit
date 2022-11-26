@@ -11,10 +11,10 @@ hitAttributeEXT vec2 attribs;
 
 float schlick_reflectance(float cosine, float ref_idx)
 {
-     // Schlick's approximation
-     float r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
-     r0 = r0 * r0;
-     return r0 + (1.0 - r0) * pow(1.0 - cosine, 5.0);
+   // Schlick's approximation
+   float r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
+   r0 = r0 * r0;
+   return r0 + (1.0 - r0) * pow(1.0 - cosine, 5.0);
 }
 
 void main()
@@ -30,6 +30,12 @@ void main()
    const vec3 barycentrics = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
    vec3 normal = v0.normal.xyz * barycentrics.x + v1.normal.xyz * barycentrics.y + v2.normal.xyz * barycentrics.z;
    vec3 world_normal = normalize(vec3(normal.xyz * gl_WorldToObjectEXT));
+
+   // Flip normal towards the incident ray direction
+   if (dot(world_normal, gl_WorldRayDirectionEXT) > 0.0f) {
+      world_normal = -world_normal;
+   }
+
    vec2 uv = v0.uv * barycentrics.x + v1.uv * barycentrics.y + v2.uv * barycentrics.z;
    vec3 color = texture(samplerColor[material.diffuse_map], uv).xyz;
    color *= material.base_color_factor.rgb;

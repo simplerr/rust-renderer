@@ -332,7 +332,7 @@ impl Application {
                 });
                 ui.horizontal(|ui| {
                     ui.label("Num ray bounces:");
-                    ui.add(egui::widgets::Slider::new(num_bounces, 0..=150));
+                    ui.add(egui::widgets::Slider::new(num_bounces, 0..=16));
                 });
             });
     }
