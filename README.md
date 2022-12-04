@@ -1,12 +1,13 @@
-# rust-renderer (placeholder)
+# rust-renderer
 
-![Image](utopian/data/printscreens/printscreen2.png)
-![Image](utopian/data/printscreens/printscreen1.png)
+![Image](utopian/data/printscreens/printscreen3.jpg)
+![Image](utopian/data/printscreens/printscreen4.jpg)
+_Example renders using the path tracing mode_
 
 Developed to learn Rust and to have a framework for experimenting with modern rendering techniques
 
 ## Features
-+ Path tracer based on [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
++ GPU path tracer based on [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 + Basic PBR rendering
 + Bindless GPU resources
 + Experimental high level render graph

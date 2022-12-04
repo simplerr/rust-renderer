@@ -276,7 +276,7 @@ impl Application {
             glam::Mat4::from_scale_rotation_translation(
                 glam::Vec3::new(size, size, size),
                 Quat::IDENTITY,
-                glam::Vec3::new(-3.0, 0.65, -1.0),
+                glam::Vec3::new(-3.0, 2.65, 0.7),
             ),
         );
 

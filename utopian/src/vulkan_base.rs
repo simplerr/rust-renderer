@@ -154,7 +154,7 @@ impl VulkanBase {
     ) -> (winit::window::Window, winit::event_loop::EventLoop<()>) {
         let event_loop = EventLoop::new();
         let window = WindowBuilder::new()
-            .with_title("vulkan-rust-test")
+            .with_title("rust-renderer")
             .with_inner_size(winit::dpi::LogicalSize::new(
                 f64::from(width),
                 f64::from(height),

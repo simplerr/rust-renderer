@@ -160,7 +160,7 @@ pub fn load_node(
 
 pub fn load_gltf(device: &Device, path: &str) -> Model {
     let (gltf, buffers, mut images) = match gltf::import(path) {
-        Ok(result) => (result),
+        Ok(result) => result,
         Err(err) => panic!("Loading model {} failed with error: {}", path, err),
     };
 
