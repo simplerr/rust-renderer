@@ -84,9 +84,9 @@ void main()
    // Diffuse light
    else {
       // Todo
-      isScattered = true;
+      isScattered = false;
       color = vec3(1.0);
    }
 
-   rayPayload = Payload(vec4(color, gl_HitTEXT), vec4(scatterDirection, isScattered ? 1 : 0), rayPayload.randomSeed);
+   rayPayload = Payload(vec4(color, gl_HitTEXT), vec4(scatterDirection, isScattered ? 1 : 0), vec4(world_normal, 0.0), rayPayload.randomSeed);
 }
