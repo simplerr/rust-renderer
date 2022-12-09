@@ -22,16 +22,7 @@ impl Camera {
         z_far: f32,
         speed: f32,
     ) -> Camera {
-        // Rotation calculation from
-        // https://github.com/h3r2tic/dolly/blob/main/src/drivers/look_at.rs
-        let rotation = (target - pos)
-            .try_normalize()
-            .and_then(|forward| {
-                let right = forward.cross(Vec3::Y).try_normalize()?;
-                let up = right.cross(forward);
-                Some(Quat::from_mat3(&Mat3::from_cols(right, up, -forward)))
-            })
-            .unwrap_or_default();
+        let rotation = Self::get_lookat_rotation(pos, target);
 
         let camera_rig = CameraRig::builder()
             .with(Position::new(pos))
@@ -47,6 +38,20 @@ impl Camera {
             z_far,
             speed,
         }
+    }
+
+    pub fn get_lookat_rotation(pos: Vec3, target: Vec3) -> Quat {
+        // Rotation calculation from
+        // https://github.com/h3r2tic/dolly/blob/main/src/drivers/look_at.rs
+        let rotation = (target - pos)
+            .try_normalize()
+            .and_then(|forward| {
+                let right = forward.cross(Vec3::Y).try_normalize()?;
+                let up = right.cross(forward);
+                Some(Quat::from_mat3(&Mat3::from_cols(right, up, -forward)))
+            })
+            .unwrap_or_default();
+        rotation
     }
 
     pub fn update(&mut self, input: &Input) -> bool {
@@ -107,5 +112,14 @@ impl Camera {
 
     pub fn get_forward(&self) -> Vec3 {
         self.camera_rig.final_transform.forward()
+    }
+
+    pub fn set_position_target(&mut self, position: Vec3, target: Vec3) {
+        self.camera_rig.driver_mut::<Position>().position = position;
+
+        let rotation = Self::get_lookat_rotation(position, target);
+        self.camera_rig
+            .driver_mut::<YawPitch>()
+            .set_rotation_quat(rotation);
     }
 }
