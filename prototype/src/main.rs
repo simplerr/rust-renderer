@@ -10,7 +10,7 @@ use std::time::Duration;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, Copy)]
-struct CameraUniformData {
+struct ViewUniformData {
     view: glam::Mat4,
     projection: glam::Mat4,
     inverse_view: glam::Mat4,
@@ -21,6 +21,7 @@ struct CameraUniformData {
     num_bounces: u32,
     viewport_width: u32,
     viewport_height: u32,
+    sun_dir: glam::Vec3,
 }
 
 struct FpsTimer {
@@ -32,7 +33,7 @@ struct FpsTimer {
 struct Application {
     base: utopian::VulkanBase,
     graph: utopian::Graph,
-    camera_data: CameraUniformData,
+    view_data: ViewUniformData,
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
     renderer: utopian::Renderer,
@@ -80,7 +81,7 @@ impl Application {
             0.02,
         );
 
-        let camera_data = CameraUniformData {
+        let view_data = ViewUniformData {
             view: camera.get_view(),
             projection: camera.get_projection(),
             inverse_view: camera.get_view().inverse(),
@@ -91,14 +92,15 @@ impl Application {
             num_bounces: 5,
             viewport_width: width,
             viewport_height: height,
+            sun_dir: Vec3::new(0.0, 0.9, 0.15).normalize(),
         };
 
-        let slice = unsafe { std::slice::from_raw_parts(&camera_data, 1) };
+        let slice = unsafe { std::slice::from_raw_parts(&view_data, 1) };
 
         let camera_uniform_buffer = utopian::Buffer::new(
             &base.device,
             Some(slice),
-            std::mem::size_of_val(&camera_data) as u64,
+            std::mem::size_of_val(&view_data) as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
@@ -120,7 +122,6 @@ impl Application {
         let raytracing = match raytracing_supported {
             true => Some(utopian::Raytracing::new(
                 &base.device,
-                &camera_uniform_buffer,
                 base.surface_resolution,
                 Some(renderer.bindless_descriptor_set_layout),
             )),
@@ -144,7 +145,7 @@ impl Application {
         Application {
             base,
             graph,
-            camera_data,
+            view_data,
             camera_ubo: camera_uniform_buffer,
             camera,
             renderer,
@@ -302,6 +303,7 @@ impl Application {
         fps: u32,
         samples_per_frame: &mut u32,
         num_bounces: &mut u32,
+        sun_dir: &mut Vec3,
     ) {
         egui::Window::new("rust-renderer 0.0.1")
             .resizable(true)
@@ -334,6 +336,15 @@ impl Application {
                     ui.label("Num ray bounces:");
                     ui.add(egui::widgets::Slider::new(num_bounces, 0..=16));
                 });
+                ui.label("Sun direction");
+                ui.horizontal(|ui| {
+                    ui.label("x:");
+                    ui.add(egui::widgets::Slider::new(&mut sun_dir.x, 0.0..=1.0));
+                    ui.label("y:");
+                    ui.add(egui::widgets::Slider::new(&mut sun_dir.y, 0.0..=1.0));
+                    ui.label("z:");
+                    ui.add(egui::widgets::Slider::new(&mut sun_dir.z, 0.0..=1.0));
+                });
             });
     }
 
@@ -358,21 +369,26 @@ impl Application {
             self.egui_integration.begin_frame();
 
             // Todo: refactor so not everything needs to be passed as argument
-            let old_samples_per_frame = self.camera_data.samples_per_frame;
-            let old_num_bounces = self.camera_data.num_bounces;
+            let old_samples_per_frame = self.view_data.samples_per_frame;
+            let old_num_bounces = self.view_data.num_bounces;
+            let old_sun_dir = self.view_data.sun_dir;
             Application::update_ui(
                 &self.egui_integration.context(),
                 &mut self.camera.get_position(),
                 &mut self.camera.get_forward(),
                 self.fps_timer.calculate(),
-                &mut self.camera_data.samples_per_frame,
-                &mut self.camera_data.num_bounces,
+                &mut self.view_data.samples_per_frame,
+                &mut self.view_data.num_bounces,
+                &mut self.view_data.sun_dir,
             );
 
-            if self.camera_data.samples_per_frame != old_samples_per_frame
-                || self.camera_data.num_bounces != old_num_bounces
+            self.view_data.sun_dir = self.view_data.sun_dir.normalize();
+
+            if self.view_data.samples_per_frame != old_samples_per_frame
+                || self.view_data.num_bounces != old_num_bounces
+                || self.view_data.sun_dir != old_sun_dir
             {
-                self.camera_data.total_samples = 0;
+                self.view_data.total_samples = 0;
             }
 
             if input.key_pressed(winit::event::VirtualKeyCode::Space) {
@@ -394,7 +410,7 @@ impl Application {
             }
 
             if recompile_shaders || input.key_pressed(winit::event::VirtualKeyCode::R) {
-                self.camera_data.total_samples = 0;
+                self.view_data.total_samples = 0;
 
                 self.graph.recompile_shaders(
                     &self.base.device,
@@ -410,17 +426,17 @@ impl Application {
             }
 
             if self.camera.update(input) {
-                self.camera_data.total_samples = 0;
+                self.view_data.total_samples = 0;
             }
 
-            self.camera_data.view = self.camera.get_view();
-            self.camera_data.projection = self.camera.get_projection();
-            self.camera_data.inverse_view = self.camera.get_view().inverse();
-            self.camera_data.inverse_projection = self.camera.get_projection().inverse();
-            self.camera_data.eye_pos = self.camera.get_position();
+            self.view_data.view = self.camera.get_view();
+            self.view_data.projection = self.camera.get_projection();
+            self.view_data.inverse_view = self.camera.get_view().inverse();
+            self.view_data.inverse_projection = self.camera.get_projection().inverse();
+            self.view_data.eye_pos = self.camera.get_position();
 
             if self.raytracing_enabled {
-                self.camera_data.total_samples += self.camera_data.samples_per_frame;
+                self.view_data.total_samples += self.view_data.samples_per_frame;
             }
 
             Application::record_commands(
@@ -430,7 +446,7 @@ impl Application {
                 |device, command_buffer| {
                     self.camera_ubo.update_memory(
                         &self.base.device,
-                        std::slice::from_raw_parts(&self.camera_data, 1),
+                        std::slice::from_raw_parts(&self.view_data, 1),
                     );
 
                     if self.raytracing_enabled {
@@ -439,6 +455,7 @@ impl Application {
                                 device,
                                 command_buffer,
                                 self.renderer.bindless_descriptor_set,
+                                self.graph.descriptor_set_camera.handle,
                                 &self.base.present_images[present_index as usize],
                             );
                         }

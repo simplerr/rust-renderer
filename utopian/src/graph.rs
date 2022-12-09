@@ -141,14 +141,14 @@ impl Graph {
 
         let mut binding_map: crate::shader::BindingMap = std::collections::BTreeMap::new();
         binding_map.insert(
-            "camera".to_string(),
+            "view".to_string(),
             crate::shader::Binding {
                 set: crate::DESCRIPTOR_SET_INDEX_VIEW,
                 binding: 0,
                 info: rspirv_reflect::DescriptorInfo {
                     ty: rspirv_reflect::DescriptorType::UNIFORM_BUFFER,
                     binding_count: rspirv_reflect::BindingCount::One,
-                    name: "camera".to_string(),
+                    name: "view".to_string(),
                 },
             },
         );
@@ -158,7 +158,7 @@ impl Graph {
 
         descriptor_set_camera.write_uniform_buffer(
             &device,
-            "camera".to_string(),
+            "view".to_string(),
             &camera_uniform_buffer,
         );
 

@@ -1,15 +1,24 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
+#include "include/atmosphere.glsl"
+#include "include/view.glsl"
 #include "payload.glsl"
 
 layout(location = 0) rayPayloadInEXT Payload rayPayload;
 
 void main()
 {
-   const float t = 0.5 * (normalize(gl_WorldRayDirectionEXT).y + 1.0);
-   const vec3 skyColor = mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t) * 1.0;
-   //vec3 skyColor = vec3(1.0);
+#ifdef FURNACE_TEST
+   vec3 sky_color = vec3(1.0);
+#else
+   vec3 light_dir = normalize(view.sun_dir);//normalize(vec3(0.0, 0.9, 0.15));
+   vec3 transmittance = vec3(0.0);
+   vec3 sky_color = IntegrateScattering(gl_WorldRayOriginEXT, gl_WorldRayDirectionEXT, 999999999.0f, light_dir, vec3(1.0), transmittance);
 
-   rayPayload = Payload(vec4(skyColor, -1), vec4(0.0), vec4(0.0), 0);
+   // sky_color is in HDR range so clamp it for now to not get over exposure
+   sky_color = min(sky_color, vec3(1.0));
+#endif
+
+   rayPayload = Payload(vec4(sky_color, -1), vec4(0.0), vec4(0.0), 0);
 }

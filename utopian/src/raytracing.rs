@@ -36,7 +36,6 @@ pub struct Raytracing {
 impl Raytracing {
     pub fn new(
         device: &Device,
-        camera_uniform_buffer: &Buffer,
         screen_size: vk::Extent2D,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Self {
@@ -75,7 +74,6 @@ impl Raytracing {
             reflection.get_set_mappings(binding.set),
         );
 
-        descriptor_set.write_uniform_buffer(device, "camera".to_string(), camera_uniform_buffer);
         descriptor_set.write_storage_image(device, "output_image".to_string(), &output_image);
         descriptor_set.write_storage_image(
             device,
@@ -576,6 +574,7 @@ impl Raytracing {
         device: &Device,
         cb: vk::CommandBuffer,
         bindless_descriptor_set: vk::DescriptorSet,
+        view_descriptor_set: vk::DescriptorSet,
         present_image: &Image,
     ) {
         let raygen_shader_binding_table = vk::StridedDeviceAddressRegionKHR {
@@ -609,6 +608,7 @@ impl Raytracing {
                 self.pipeline,
             );
 
+            // Todo: the bindless and view descriptor sets should be bound by the render graph graph
             device.handle.cmd_bind_descriptor_sets(
                 cb,
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
@@ -622,7 +622,16 @@ impl Raytracing {
                 cb,
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
                 self.pipeline_layout,
-                1,
+                crate::DESCRIPTOR_SET_INDEX_VIEW,
+                &[view_descriptor_set],
+                &[],
+            );
+
+            device.handle.cmd_bind_descriptor_sets(
+                cb,
+                vk::PipelineBindPoint::RAY_TRACING_KHR,
+                self.pipeline_layout,
+                self.descriptor_set.get_set_index(),
                 &[self.descriptor_set.handle],
                 &[],
             );

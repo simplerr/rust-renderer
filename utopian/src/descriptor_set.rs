@@ -227,4 +227,13 @@ impl DescriptorSet {
                 .update_descriptor_sets(std::slice::from_ref(&descriptor_write), &[])
         };
     }
+
+    pub fn get_set_index(&self) -> u32 {
+        self.binding_map
+            .iter()
+            .next()
+            .expect("Empty DescriptorSet")
+            .1
+            .set
+    }
 }

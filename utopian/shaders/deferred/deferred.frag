@@ -69,7 +69,7 @@ void main() {
     vec3 Lo = vec3(0.0);
     for (int i = 0; i < numLights; i++)
     {
-       Lo += surfaceShading(pixel, lights[i], camera.eye_pos.xyz, 1.0f);
+       Lo += surfaceShading(pixel, lights[i], view.eye_pos.xyz, 1.0f);
     }
 
     // Todo: IBL

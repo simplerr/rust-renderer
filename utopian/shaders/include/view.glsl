@@ -1,5 +1,5 @@
 
-layout (std140, set = 1, binding = 0) uniform UBO_camera
+layout (std140, set = 1, binding = 0) uniform UBO_view
 {
     mat4 view;
     mat4 projection;
@@ -11,4 +11,5 @@ layout (std140, set = 1, binding = 0) uniform UBO_camera
     uint num_bounces;
     uint viewport_width;
     uint viewport_height;
-} camera;
+    vec3 sun_dir;
+} view;
