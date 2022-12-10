@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, Copy)]
@@ -170,15 +170,16 @@ impl Application {
     }
 
     fn update_ui(
-        egui_context: &egui::CtxRef,
+        egui_context: &egui::Context,
         camera_pos: &mut Vec3,
         camera_dir: &mut Vec3,
         fps: u32,
         view_data: &mut ViewUniformData,
+        selected_transform: &mut Mat4,
     ) {
         egui::Window::new("rust-renderer 0.0.1")
             .resizable(true)
-            .scroll(true)
+            .vscroll(true)
             .show(egui_context, |ui| {
                 ui.label(format!("FPS: {}", fps));
                 ui.label("Camera position");
@@ -232,6 +233,22 @@ impl Application {
                     ));
                 });
             });
+
+        egui::Area::new("Viewport")
+            .fixed_pos((0.0, 0.0))
+            .show(egui_context, |ui| {
+                ui.with_layer_id(egui::LayerId::background(), |ui| {
+                    let gizmo = egui_gizmo::Gizmo::new("Gizmo")
+                        .view_matrix(view_data.view.to_cols_array_2d())
+                        .projection_matrix(view_data.projection.to_cols_array_2d())
+                        .model_matrix(selected_transform.to_cols_array_2d())
+                        .mode(egui_gizmo::GizmoMode::Translate);
+
+                    if let Some(response) = gizmo.interact(ui) {
+                        *selected_transform = Mat4::from_cols_array_2d(&response.transform.into());
+                    }
+                });
+            });
     }
 
     fn run(&mut self) {
@@ -251,6 +268,7 @@ impl Application {
                 &mut self.camera.get_forward(),
                 self.fps_timer.calculate(),
                 &mut self.view_data,
+                &mut self.renderer.instances[0].transform,
             );
 
             self.view_data.sun_dir = self.view_data.sun_dir.normalize();
