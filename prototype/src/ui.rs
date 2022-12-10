@@ -1,7 +1,6 @@
-
+use ash::vk;
 use std::sync::Arc;
 use std::sync::Mutex;
-use ash::vk;
 
 pub struct Ui {
     pub egui_integration:
@@ -30,12 +29,14 @@ impl Ui {
             surface_format,
         );
 
-        Ui {
-            egui_integration
-        }
+        Ui { egui_integration }
     }
 
-    pub fn handle_events(&mut self, events: Vec<winit::event::WindowEvent>, window_id: winit::window::WindowId) {
+    pub fn handle_events(
+        &mut self,
+        events: Vec<winit::event::WindowEvent>,
+        window_id: winit::window::WindowId,
+    ) {
         // Update egui input
         // Note: this is not very pretty since we are recreating a Event from
         // an WindowEvent manually. Don't know enough rust to have the `events`
@@ -55,7 +56,12 @@ impl Ui {
         self.egui_integration.begin_frame();
     }
 
-    pub fn end_frame(&mut self, command_buffer: vk::CommandBuffer, present_index: u32, window: &winit::window::Window) {
+    pub fn end_frame(
+        &mut self,
+        command_buffer: vk::CommandBuffer,
+        present_index: u32,
+        window: &winit::window::Window,
+    ) {
         self.egui_integration
             .context()
             .set_visuals(egui::style::Visuals::dark());

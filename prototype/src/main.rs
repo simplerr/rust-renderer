@@ -1,10 +1,6 @@
 use ash::vk;
 use glam::Vec3;
 
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use std::sync::mpsc;
-use std::time::Duration;
-
 #[allow(dead_code)]
 #[derive(Clone, Debug, Copy)]
 struct ViewUniformData {
@@ -32,11 +28,7 @@ struct Application {
     ui: prototype::ui::Ui,
     fps_timer: utopian::FpsTimer,
     raytracing_enabled: bool,
-
-    // For automatic shader recompilation
-    // Todo: generalize and move from here
-    _directory_watcher: notify::ReadDirectoryChangesWatcher,
-    watcher_rx: mpsc::Receiver<notify::DebouncedEvent>,
+    shader_watcher: utopian::DirectoryWatcher,
 }
 
 impl Application {
@@ -91,6 +83,8 @@ impl Application {
             base.surface_format,
         );
 
+        let shader_watcher = utopian::DirectoryWatcher::new("utopian/shaders/");
+
         let raytracing_supported = base.device.raytracing_supported;
         let raytracing = match raytracing_supported {
             true => Some(utopian::Raytracing::new(
@@ -100,13 +94,6 @@ impl Application {
             )),
             false => None,
         };
-
-        let (watcher_tx, watcher_rx) = mpsc::channel();
-        let mut directory_watcher: RecommendedWatcher =
-            Watcher::new(watcher_tx, Duration::from_millis(100)).unwrap();
-        directory_watcher
-            .watch("utopian/shaders/", RecursiveMode::Recursive)
-            .unwrap();
 
         let graph = utopian::renderers::setup_render_graph(
             &base.device,
@@ -126,8 +113,7 @@ impl Application {
             ui,
             fps_timer: utopian::FpsTimer::new(),
             raytracing_enabled: raytracing_supported,
-            _directory_watcher: directory_watcher,
-            watcher_rx,
+            shader_watcher,
         }
     }
 
@@ -215,20 +201,35 @@ impl Application {
                 });
                 ui.horizontal(|ui| {
                     ui.label("Samples per frame:");
-                    ui.add(egui::widgets::Slider::new(&mut view_data.samples_per_frame, 0..=10));
+                    ui.add(egui::widgets::Slider::new(
+                        &mut view_data.samples_per_frame,
+                        0..=10,
+                    ));
                 });
                 ui.horizontal(|ui| {
                     ui.label("Num ray bounces:");
-                    ui.add(egui::widgets::Slider::new(&mut view_data.num_bounces, 0..=16));
+                    ui.add(egui::widgets::Slider::new(
+                        &mut view_data.num_bounces,
+                        0..=16,
+                    ));
                 });
                 ui.label("Sun direction");
                 ui.horizontal(|ui| {
                     ui.label("x:");
-                    ui.add(egui::widgets::Slider::new(&mut view_data.sun_dir.x, 0.0..=1.0));
+                    ui.add(egui::widgets::Slider::new(
+                        &mut view_data.sun_dir.x,
+                        0.0..=1.0,
+                    ));
                     ui.label("y:");
-                    ui.add(egui::widgets::Slider::new(&mut view_data.sun_dir.y, 0.0..=1.0));
+                    ui.add(egui::widgets::Slider::new(
+                        &mut view_data.sun_dir.y,
+                        0.0..=1.0,
+                    ));
                     ui.label("z:");
-                    ui.add(egui::widgets::Slider::new(&mut view_data.sun_dir.z, 0.0..=1.0));
+                    ui.add(egui::widgets::Slider::new(
+                        &mut view_data.sun_dir.z,
+                        0.0..=1.0,
+                    ));
                 });
             });
     }
@@ -266,20 +267,9 @@ impl Application {
                     !self.raytracing_enabled && self.base.device.raytracing_supported;
             }
 
-            let mut recompile_shaders = false;
-
-            if let Ok(_event) = self.watcher_rx.try_recv() {
-                match self.watcher_rx.recv() {
-                    Ok(event) => {
-                        if let notify::DebouncedEvent::Write(..) = event {
-                            recompile_shaders = true
-                        }
-                    }
-                    Err(e) => println!("recv Err {:?}", e),
-                }
-            }
-
-            if recompile_shaders || input.key_pressed(winit::event::VirtualKeyCode::R) {
+            if self.shader_watcher.check_if_modification()
+                || input.key_pressed(winit::event::VirtualKeyCode::R)
+            {
                 self.view_data.total_samples = 0;
 
                 self.graph.recompile_shaders(
@@ -340,7 +330,8 @@ impl Application {
                     }
 
                     // This also does the transition of the swapchain image to PRESENT_SRC_KHR
-                    self.ui.end_frame(command_buffer, present_index, &self.base.window);
+                    self.ui
+                        .end_frame(command_buffer, present_index, &self.base.window);
                 },
             );
 

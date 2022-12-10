@@ -1,4 +1,3 @@
-
 use std::time::Instant;
 pub struct FpsTimer {
     fps_period_start_time: Instant,
