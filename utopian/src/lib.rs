@@ -18,6 +18,7 @@ pub mod shader;
 pub mod synch;
 pub mod texture;
 pub mod vulkan_base;
+pub mod fps_timer;
 
 pub use crate::image::Image;
 pub use bindless::*;
@@ -41,3 +42,4 @@ pub use renderer::Renderer;
 pub use renderer::*;
 pub use texture::Texture;
 pub use vulkan_base::VulkanBase;
+pub use fps_timer::FpsTimer;

@@ -1,8 +1,5 @@
 use ash::vk;
 use glam::Vec3;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::time::Instant;
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::sync::mpsc;
@@ -24,12 +21,6 @@ struct ViewUniformData {
     sun_dir: glam::Vec3,
 }
 
-struct FpsTimer {
-    fps_period_start_time: Instant,
-    fps: u32,
-    elapsed_frames: u32,
-}
-
 struct Application {
     base: utopian::VulkanBase,
     graph: utopian::Graph,
@@ -38,29 +29,14 @@ struct Application {
     camera: utopian::Camera,
     renderer: utopian::Renderer,
     raytracing: Option<utopian::Raytracing>,
-    egui_integration:
-        egui_winit_ash_integration::Integration<Arc<Mutex<gpu_allocator::vulkan::Allocator>>>,
-    fps_timer: FpsTimer,
+    ui: prototype::ui::Ui,
+    fps_timer: utopian::FpsTimer,
     raytracing_enabled: bool,
 
     // For automatic shader recompilation
     // Todo: generalize and move from here
     _directory_watcher: notify::ReadDirectoryChangesWatcher,
     watcher_rx: mpsc::Receiver<notify::DebouncedEvent>,
-}
-
-impl FpsTimer {
-    fn calculate(&mut self) -> u32 {
-        self.elapsed_frames += 1;
-        let elapsed = self.fps_period_start_time.elapsed().as_millis() as u32;
-        if elapsed > 1000 {
-            self.fps = self.elapsed_frames;
-            self.fps_period_start_time = Instant::now();
-            self.elapsed_frames = 0;
-        }
-
-        self.fps
-    }
 }
 
 impl Application {
@@ -80,6 +56,7 @@ impl Application {
             0.02,
         );
 
+        // Move from here
         let view_data = ViewUniformData {
             view: camera.get_view(),
             projection: camera.get_projection(),
@@ -96,6 +73,7 @@ impl Application {
 
         let slice = unsafe { std::slice::from_raw_parts(&view_data, 1) };
 
+        // Move from here
         let camera_uniform_buffer = utopian::Buffer::new(
             &base.device,
             Some(slice),
@@ -104,15 +82,11 @@ impl Application {
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
-        let egui_integration = egui_winit_ash_integration::Integration::new(
+        let ui = prototype::ui::Ui::new(
             width,
             height,
-            1.0,
-            egui::FontDefinitions::default(),
-            egui::Style::default(),
-            base.device.handle.clone(),
-            base.device.gpu_allocator.clone(),
-            base.swapchain_loader.clone(),
+            &base.device,
+            &base.swapchain_loader,
             base.swapchain,
             base.surface_format,
         );
@@ -149,12 +123,8 @@ impl Application {
             camera,
             renderer,
             raytracing,
-            egui_integration,
-            fps_timer: FpsTimer {
-                fps_period_start_time: Instant::now(),
-                fps: 0,
-                elapsed_frames: 0,
-            },
+            ui,
+            fps_timer: utopian::FpsTimer::new(),
             raytracing_enabled: raytracing_supported,
             _directory_watcher: directory_watcher,
             watcher_rx,
@@ -218,9 +188,7 @@ impl Application {
         camera_pos: &mut Vec3,
         camera_dir: &mut Vec3,
         fps: u32,
-        samples_per_frame: &mut u32,
-        num_bounces: &mut u32,
-        sun_dir: &mut Vec3,
+        view_data: &mut ViewUniformData,
     ) {
         egui::Window::new("rust-renderer 0.0.1")
             .resizable(true)
@@ -247,20 +215,20 @@ impl Application {
                 });
                 ui.horizontal(|ui| {
                     ui.label("Samples per frame:");
-                    ui.add(egui::widgets::Slider::new(samples_per_frame, 0..=10));
+                    ui.add(egui::widgets::Slider::new(&mut view_data.samples_per_frame, 0..=10));
                 });
                 ui.horizontal(|ui| {
                     ui.label("Num ray bounces:");
-                    ui.add(egui::widgets::Slider::new(num_bounces, 0..=16));
+                    ui.add(egui::widgets::Slider::new(&mut view_data.num_bounces, 0..=16));
                 });
                 ui.label("Sun direction");
                 ui.horizontal(|ui| {
                     ui.label("x:");
-                    ui.add(egui::widgets::Slider::new(&mut sun_dir.x, 0.0..=1.0));
+                    ui.add(egui::widgets::Slider::new(&mut view_data.sun_dir.x, 0.0..=1.0));
                     ui.label("y:");
-                    ui.add(egui::widgets::Slider::new(&mut sun_dir.y, 0.0..=1.0));
+                    ui.add(egui::widgets::Slider::new(&mut view_data.sun_dir.y, 0.0..=1.0));
                     ui.label("z:");
-                    ui.add(egui::widgets::Slider::new(&mut sun_dir.z, 0.0..=1.0));
+                    ui.add(egui::widgets::Slider::new(&mut view_data.sun_dir.z, 0.0..=1.0));
                 });
             });
     }
@@ -269,34 +237,19 @@ impl Application {
         self.base.run(|input, events| unsafe {
             let present_index = self.base.prepare_frame();
 
-            // Update egui input
-            // Note: this is not very pretty since we are recreating a Event from
-            // an WindowEvent manually. Don't know enough rust to have the `events`
-            // input of the correct type.
-            for event in events.clone() {
-                self.egui_integration
-                    .handle_event::<winit::event::Event<winit::event::WindowEvent>>(
-                        &winit::event::Event::WindowEvent {
-                            window_id: self.base.window.id(),
-                            event: event.clone(),
-                        },
-                    );
-            }
-
-            self.egui_integration.begin_frame();
+            self.ui.handle_events(events.clone(), self.base.window.id());
+            self.ui.begin_frame();
 
             // Todo: refactor so not everything needs to be passed as argument
             let old_samples_per_frame = self.view_data.samples_per_frame;
             let old_num_bounces = self.view_data.num_bounces;
             let old_sun_dir = self.view_data.sun_dir;
             Application::update_ui(
-                &self.egui_integration.context(),
+                &self.ui.egui_integration.context(),
                 &mut self.camera.get_position(),
                 &mut self.camera.get_forward(),
                 self.fps_timer.calculate(),
-                &mut self.view_data.samples_per_frame,
-                &mut self.view_data.num_bounces,
-                &mut self.view_data.sun_dir,
+                &mut self.view_data,
             );
 
             self.view_data.sun_dir = self.view_data.sun_dir.normalize();
@@ -346,6 +299,7 @@ impl Application {
                 self.view_data.total_samples = 0;
             }
 
+            // Move from here
             self.view_data.view = self.camera.get_view();
             self.view_data.projection = self.camera.get_projection();
             self.view_data.inverse_view = self.camera.get_view().inverse();
@@ -385,18 +339,8 @@ impl Application {
                         );
                     }
 
-                    self.egui_integration
-                        .context()
-                        .set_visuals(egui::style::Visuals::dark());
-
-                    let (_, shapes) = self.egui_integration.end_frame(&self.base.window);
-                    let clipped_meshes = self.egui_integration.context().tessellate(shapes);
-                    self.egui_integration.paint(
-                        // This also does the transition of the swapchain image to PRESENT_SRC_KHR
-                        command_buffer,
-                        present_index as usize,
-                        clipped_meshes,
-                    );
+                    // This also does the transition of the swapchain image to PRESENT_SRC_KHR
+                    self.ui.end_frame(command_buffer, present_index, &self.base.window);
                 },
             );
 
