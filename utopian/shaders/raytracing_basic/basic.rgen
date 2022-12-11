@@ -113,7 +113,7 @@ void main()
 #else
             // Experimentation using color from the sun
             vec3 transmittance;
-            vec3 sky_color = IntegrateScattering(origin.xyz, -light_dir, 999999999.0f, light_dir, vec3(1.0), transmittance);
+            vec3 sky_color = IntegrateScattering(origin.xyz, light_dir, 999999999.0f, light_dir, vec3(1.0), transmittance);
             radiance += throughput * min(sky_color, vec3(1.0));
 #endif
          }

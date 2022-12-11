@@ -4,8 +4,8 @@ pub fn create_scene(
     device: &utopian::Device,
 ) {
     // create_cornell_box_scene(renderer, camera, device);
-    // create_sponza_scene(renderer, camera, device);
-    create_cube_scene(renderer, camera, device);
+    create_sponza_scene(renderer, camera, device);
+    // create_cube_scene(renderer, camera, device);
 }
 
 pub fn create_cornell_box_scene(
