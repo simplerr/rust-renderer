@@ -16,3 +16,4 @@ glam = "0.20.2"
 dolly = "0.2.0"
 gltf = "0.16.0"
 notify = "4.0.16"
+puffin = { git = "https://github.com/simplerr/puffin.git" }

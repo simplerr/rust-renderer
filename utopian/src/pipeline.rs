@@ -27,6 +27,8 @@ impl Pipeline {
         pipeline_desc: PipelineDesc,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Pipeline {
+        puffin::profile_function!();
+
         let shader_modules_result = Pipeline::create_shader_modules(
             device,
             pipeline_desc.vertex_path,

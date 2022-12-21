@@ -214,6 +214,8 @@ impl Graph {
         renderer: &Renderer,
         present_image: &[Image], // Todo: pass single value
     ) {
+        puffin::profile_function!();
+
         for pass in &self.passes {
             let name = std::ffi::CString::new(pass.name.as_str()).unwrap();
             let debug_label = vk::DebugUtilsLabelEXT::builder()
@@ -316,6 +318,7 @@ impl Graph {
             }
 
             if let Some(render_func) = &pass.render_func {
+                puffin::profile_scope!("render_func:", pass.name.as_str());
                 render_func(device, command_buffer, renderer, pass);
             }
 

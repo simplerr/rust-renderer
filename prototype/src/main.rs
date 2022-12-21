@@ -28,11 +28,16 @@ struct Application {
     ui: prototype::ui::Ui,
     fps_timer: utopian::FpsTimer,
     raytracing_enabled: bool,
+    profiling_enabled: bool,
     shader_watcher: utopian::DirectoryWatcher,
 }
 
 impl Application {
     fn new() -> Application {
+        puffin::set_scopes_on(true);
+        puffin::profile_function!();
+        puffin::GlobalProfiler::lock().new_frame();
+
         let (width, height) = (2000, 1100);
         let base = utopian::VulkanBase::new(width, height);
 
@@ -113,6 +118,7 @@ impl Application {
             ui,
             fps_timer: utopian::FpsTimer::new(),
             raytracing_enabled: raytracing_supported,
+            profiling_enabled: true,
             shader_watcher,
         }
     }
@@ -253,6 +259,8 @@ impl Application {
 
     fn run(&mut self) {
         self.base.run(|input, events| unsafe {
+            puffin::profile_scope!("main_run");
+
             let present_index = self.base.prepare_frame();
 
             self.ui.handle_events(events.clone(), self.base.window.id());
@@ -280,7 +288,7 @@ impl Application {
                 self.view_data.total_samples = 0;
             }
 
-            if input.key_pressed(winit::event::VirtualKeyCode::Space) {
+            if input.key_pressed(winit::event::VirtualKeyCode::V) {
                 self.raytracing_enabled =
                     !self.raytracing_enabled && self.base.device.raytracing_supported;
             }
@@ -301,6 +309,11 @@ impl Application {
                         Some(self.renderer.bindless_descriptor_set_layout),
                     );
                 }
+            }
+
+            if input.key_pressed(winit::event::VirtualKeyCode::Q) {
+                self.profiling_enabled = !self.profiling_enabled;
+                puffin::set_scopes_on(self.profiling_enabled);
             }
 
             if self.camera.update(input) {
@@ -346,6 +359,11 @@ impl Application {
                             &[self.base.present_images[present_index as usize]],
                         );
                     }
+
+                    if self.profiling_enabled {
+                        puffin_egui::profiler_window(&self.ui.egui_integration.context());
+                    }
+                    puffin::GlobalProfiler::lock().new_frame();
 
                     // This also does the transition of the swapchain image to PRESENT_SRC_KHR
                     self.ui

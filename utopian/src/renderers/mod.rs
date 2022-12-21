@@ -11,6 +11,8 @@ pub fn setup_render_graph(
     renderer: &crate::Renderer,
     camera_uniform_buffer: &crate::Buffer,
 ) -> crate::Graph {
+    puffin::profile_function!();
+
     let mut graph = crate::Graph::new(&device, camera_uniform_buffer);
 
     let extent = [

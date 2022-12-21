@@ -24,6 +24,8 @@ impl Image {
         usage: vk::ImageUsageFlags,
         aspect_flags: vk::ImageAspectFlags,
     ) -> Image {
+        puffin::profile_function!();
+
         unsafe {
             // Create image
             let initial_layout = vk::ImageLayout::UNDEFINED;
