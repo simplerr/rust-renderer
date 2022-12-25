@@ -6,6 +6,8 @@ pub fn setup_present_pass(
     forward_output: crate::TextureId,
     deferred_output: crate::TextureId,
 ) {
+    puffin::profile_function!();
+
     let pipeline_handle = graph.create_pipeline(crate::PipelineDesc {
         vertex_path: "utopian/shaders/common/fullscreen.vert",
         fragment_path: "utopian/shaders/present/present.frag",

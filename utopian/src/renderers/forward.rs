@@ -189,6 +189,8 @@ pub fn setup_forward_pass(
     renderer: &crate::Renderer,
     forward_output: crate::TextureId,
 ) {
+    puffin::profile_function!();
+
     let pipeline_handle = graph.create_pipeline(crate::PipelineDesc {
         vertex_path: "utopian/shaders/forward/forward.vert",
         fragment_path: "utopian/shaders/forward/forward.frag",
@@ -201,60 +203,36 @@ pub fn setup_forward_pass(
         depth_stencil_attachment_format: base.depth_image.format,
     });
 
-    let pipeline = crate::Pipeline::new(
-        &device.handle,
-        crate::PipelineDesc {
-            vertex_path: "utopian/shaders/forward/forward.vert",
-            fragment_path: "utopian/shaders/forward/forward.frag",
-            vertex_input_binding_descriptions:
-                crate::Primitive::get_vertex_input_binding_descriptions(),
-            vertex_input_attribute_descriptions:
-                crate::Primitive::get_vertex_input_attribute_descriptions(),
-            color_attachment_formats: vec![graph.resources[forward_output].texture.image.format],
-            // Todo:
-            depth_stencil_attachment_format: base.depth_image.format,
-        },
-        Some(renderer.bindless_descriptor_set_layout),
-    );
-
-    let depth_image = crate::Image::new(
-        device,
-        graph.resources[forward_output].texture.image.width,
-        graph.resources[forward_output].texture.image.height,
-        vk::Format::D32_SFLOAT,
-        vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-        vk::ImageAspectFlags::DEPTH,
-    );
+    // let depth_image = crate::Image::new(
+    //     device,
+    //     graph.resources[forward_output].texture.image.width,
+    //     graph.resources[forward_output].texture.image.height,
+    //     vk::Format::D32_SFLOAT,
+    //     vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+    //     vk::ImageAspectFlags::DEPTH,
+    // );
 
     // Data & buffer setup
     // The buffer also needs to be owned by the graph
-    let color = glam::Vec3::new(0.0, 0.0, 1.0);
-    let slice = unsafe { std::slice::from_raw_parts(&color, 1) };
-    let test_uniform_buffer = crate::Buffer::new(
-        &base.device,
-        Some(slice),
-        std::mem::size_of_val(&color) as u64,
-        vk::BufferUsageFlags::UNIFORM_BUFFER,
-        gpu_allocator::MemoryLocation::CpuToGpu,
-    );
+    let test_uniform_buffer = {
+        puffin::profile_scope!("create_test_buffer");
+        let color = glam::Vec3::new(0.0, 0.0, 1.0);
+        let slice = unsafe { std::slice::from_raw_parts(&color, 1) };
+        let test_uniform_buffer = crate::Buffer::new(
+            &base.device,
+            Some(slice),
+            std::mem::size_of_val(&color) as u64,
+            vk::BufferUsageFlags::UNIFORM_BUFFER,
+            gpu_allocator::MemoryLocation::CpuToGpu,
+        );
 
-    // Descriptor set setup
-    // let test_binding = pipeline.reflection.get_binding("test_params");
-    // let test_descriptor_set = crate::DescriptorSet::new(
-    //     device,
-    //     pipeline.descriptor_set_layouts[test_binding.set as usize],
-    //     pipeline.reflection.get_set_mappings(test_binding.set),
-    // );
-    // test_descriptor_set.write_uniform_buffer(
-    //     device,
-    //     "test_params".to_string(),
-    //     &test_uniform_buffer,
-    // );
+        test_uniform_buffer
+    };
 
     graph
         .add_pass(String::from("forward_pass"), pipeline_handle)
         .write(forward_output)
-        .depth_attachment(depth_image)
+        .depth_attachment(base.depth_image)
         .render(
             move |device, command_buffer, renderer, pass, pipeline_cache| unsafe {
                 let pipeline = &pipeline_cache[pass.pipeline_handle];

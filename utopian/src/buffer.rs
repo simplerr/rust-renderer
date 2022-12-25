@@ -20,6 +20,8 @@ impl Buffer {
         usage_flags: vk::BufferUsageFlags,
         memory_location: gpu_allocator::MemoryLocation,
     ) -> Buffer {
+        puffin::profile_function!();
+
         unsafe {
             let buffer_info = vk::BufferCreateInfo::builder()
                 .size(size)

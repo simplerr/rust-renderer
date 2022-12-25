@@ -359,13 +359,13 @@ impl Application {
                         self.graph.clear();
 
                         // Build the render graph
-                        // utopian::renderers::build_render_graph(
-                        //     &mut self.graph,
-                        //     &self.base.device,
-                        //     &self.base,
-                        //     &self.renderer,
-                        //     &self.camera_ubo,
-                        // );
+                        utopian::renderers::build_render_graph(
+                            &mut self.graph,
+                            &self.base.device,
+                            &self.base,
+                            &self.renderer,
+                            &self.camera_ubo,
+                        );
 
                         self.graph.prepare(device, &self.renderer);
 

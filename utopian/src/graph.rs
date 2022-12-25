@@ -176,15 +176,24 @@ impl Graph {
         extent: [u32; 2],
         format: vk::Format,
     ) -> TextureId {
-        let mut texture = crate::Texture::create(&device, None, extent[0], extent[1], format);
-        texture.set_debug_name(device, debug_name);
+        puffin::profile_function!();
 
-        self.resources.push(GraphResource {
-            texture,
-            prev_access: vk_sync::AccessType::Nothing,
-        });
+        // Todo: shall use a Hash to include extent and format of the texture
+        self.resources
+            .iter()
+            .position(|iter| iter.texture.debug_name == debug_name)
+            .unwrap_or_else(|| {
+                let mut texture =
+                    crate::Texture::create(&device, None, extent[0], extent[1], format);
+                texture.set_debug_name(device, debug_name);
 
-        self.resources.len() - 1
+                self.resources.push(GraphResource {
+                    texture,
+                    prev_access: vk_sync::AccessType::Nothing,
+                });
+
+                self.resources.len() - 1
+            })
     }
 
     pub fn create_pipeline(&mut self, pipeline_desc: PipelineDesc) -> PipelineId {
