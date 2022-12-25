@@ -1,9 +1,11 @@
 use ash::vk;
 use std::ffi::CStr;
+use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 
 use crate::*;
 
+#[derive(Clone)]
 pub struct PipelineDesc {
     pub vertex_path: &'static str,
     pub fragment_path: &'static str,
@@ -19,6 +21,15 @@ pub struct Pipeline {
     pub descriptor_set_layouts: Vec<vk::DescriptorSetLayout>,
     pub reflection: shader::Reflection,
     pub pipeline_desc: PipelineDesc,
+}
+
+impl Hash for PipelineDesc {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.vertex_path.hash(state);
+        self.fragment_path.hash(state);
+        self.color_attachment_formats.hash(state);
+        self.depth_stencil_attachment_format.hash(state);
+    }
 }
 
 impl Pipeline {

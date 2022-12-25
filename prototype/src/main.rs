@@ -100,7 +100,10 @@ impl Application {
             false => None,
         };
 
-        let graph = utopian::renderers::setup_render_graph(
+        let mut graph = utopian::Graph::new(&base.device, &camera_uniform_buffer);
+
+        utopian::renderers::build_render_graph(
+            &mut graph,
             &base.device,
             &base,
             &renderer,
@@ -352,6 +355,20 @@ impl Application {
                             );
                         }
                     } else {
+                        // Remove passes from previous frame
+                        self.graph.clear();
+
+                        // Build the render graph
+                        // utopian::renderers::build_render_graph(
+                        //     &mut self.graph,
+                        //     &self.base.device,
+                        //     &self.base,
+                        //     &self.renderer,
+                        //     &self.camera_ubo,
+                        // );
+
+                        self.graph.prepare(device, &self.renderer);
+
                         self.graph.render(
                             device,
                             command_buffer,

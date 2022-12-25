@@ -55,31 +55,39 @@ impl DescriptorSet {
             .collect::<Vec<_>>();
 
         // Todo: Every descriptor should not have its own pool
-        let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
-            .pool_sizes(&descriptor_pool_sizes)
-            .flags(
-                vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET
-                    | vk::DescriptorPoolCreateFlags::UPDATE_AFTER_BIND,
-            )
-            .max_sets(descriptor_pool_sizes.len() as u32);
+        let descriptor_pool = {
+            puffin::profile_scope!("create_descriptor_pool");
+            let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
+                .pool_sizes(&descriptor_pool_sizes)
+                .flags(
+                    vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET
+                        | vk::DescriptorPoolCreateFlags::UPDATE_AFTER_BIND,
+                )
+                .max_sets(descriptor_pool_sizes.len() as u32);
 
-        let descriptor_pool = unsafe {
-            device
-                .handle
-                .create_descriptor_pool(&descriptor_pool_info, None)
-                .expect("Error creating descriptor pool")
+            let descriptor_pool = unsafe {
+                device
+                    .handle
+                    .create_descriptor_pool(&descriptor_pool_info, None)
+                    .expect("Error creating descriptor pool")
+            };
+            descriptor_pool
         };
 
-        let descriptor_alloc_info = vk::DescriptorSetAllocateInfo::builder()
-            .descriptor_pool(descriptor_pool)
-            .set_layouts(&[layout])
-            .build();
+        let descriptor_sets = {
+            puffin::profile_scope!("allocate_descriptor_set");
+            let descriptor_alloc_info = vk::DescriptorSetAllocateInfo::builder()
+                .descriptor_pool(descriptor_pool)
+                .set_layouts(&[layout])
+                .build();
 
-        let descriptor_sets = unsafe {
-            device
-                .handle
-                .allocate_descriptor_sets(&descriptor_alloc_info)
-                .expect("Error allocating descriptor sets")
+            let descriptor_sets = unsafe {
+                device
+                    .handle
+                    .allocate_descriptor_sets(&descriptor_alloc_info)
+                    .expect("Error allocating descriptor sets")
+            };
+            descriptor_sets
         };
 
         DescriptorSet {

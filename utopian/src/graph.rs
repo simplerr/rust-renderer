@@ -1,14 +1,18 @@
+use std::collections::HashMap;
+
 use ash::vk;
 
 use crate::descriptor_set::DescriptorIdentifier;
 use crate::device::*;
 use crate::image::*;
 use crate::Pipeline;
+use crate::PipelineDesc;
 use crate::RenderPass;
 use crate::Renderer;
 use crate::Texture;
 
 pub type TextureId = usize;
+pub type PipelineId = usize;
 
 pub struct GraphResource {
     pub texture: Texture,
@@ -19,20 +23,22 @@ pub struct Graph {
     pub passes: Vec<RenderPass>,
     pub resources: Vec<GraphResource>,
     pub descriptor_set_camera: crate::DescriptorSet,
+    pub pipeline_descs: Vec<PipelineDesc>,
+    pub pipelines: Vec<Pipeline>,
 }
 
-pub struct PassBuilder<'a> {
-    pub graph: &'a mut Graph,
+pub struct PassBuilder {
     pub name: String,
-    pub pipeline: Pipeline,
+    pub pipeline_handle: PipelineId,
     pub reads: Vec<TextureId>,
     pub writes: Vec<TextureId>,
-    pub render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
+    pub render_func:
+        Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &Vec<Pipeline>)>>,
     pub depth_attachment: Option<Image>,
     pub presentation_pass: bool,
 }
 
-impl<'a> PassBuilder<'a> {
+impl PassBuilder {
     pub fn read(mut self, resource_id: TextureId) -> Self {
         self.reads.push(resource_id);
         self
@@ -45,7 +51,8 @@ impl<'a> PassBuilder<'a> {
 
     pub fn render(
         mut self,
-        render_func: impl Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass) + 'static,
+        render_func: impl Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &Vec<Pipeline>)
+            + 'static,
     ) -> Self {
         self.render_func.replace(Box::new(render_func));
         self
@@ -61,10 +68,10 @@ impl<'a> PassBuilder<'a> {
         self
     }
 
-    pub fn build(self, device: &Device) {
+    pub fn build(self, device: &Device, graph: &mut Graph) {
         let mut pass = crate::RenderPass::new(
             self.name,
-            self.pipeline,
+            self.pipeline_handle,
             self.presentation_pass,
             self.depth_attachment,
             self.render_func,
@@ -78,30 +85,7 @@ impl<'a> PassBuilder<'a> {
             pass.writes.push(*write);
         }
 
-        // If there are input textures then create the descriptor set used to read them
-        if self.reads.len() > 0 {
-            let descriptor_set_input_textures = crate::DescriptorSet::new(
-                &device,
-                pass.pipeline.descriptor_set_layouts
-                    [crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES as usize],
-                pass.pipeline
-                    .reflection
-                    .get_set_mappings(crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES),
-            );
-
-            for (idx, &read) in self.reads.iter().enumerate() {
-                descriptor_set_input_textures.write_combined_image(
-                    &device,
-                    DescriptorIdentifier::Index(idx as u32),
-                    &self.graph.resources[read].texture,
-                );
-            }
-
-            pass.read_textures_descriptor_set
-                .replace(descriptor_set_input_textures);
-        }
-
-        self.graph.passes.push(pass);
+        graph.passes.push(pass);
     }
 }
 
@@ -114,7 +98,14 @@ impl Graph {
                 device,
                 camera_uniform_buffer,
             ),
+            pipelines: vec![],
+            pipeline_descs: vec![],
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.passes.clear();
+        self.pipeline_descs.clear();
     }
 
     pub fn create_camera_descriptor_set(
@@ -165,11 +156,11 @@ impl Graph {
         descriptor_set_camera
     }
 
-    pub fn add_pass(&mut self, name: String, pipeline: Pipeline) -> PassBuilder {
+    pub fn add_pass(&mut self, name: String, pipeline_handle: PipelineId) -> PassBuilder {
         PassBuilder {
-            graph: self,
+            //graph: self,
             name,
-            pipeline,
+            pipeline_handle,
             reads: vec![],
             writes: vec![],
             render_func: None,
@@ -196,13 +187,42 @@ impl Graph {
         self.resources.len() - 1
     }
 
+    pub fn create_pipeline(&mut self, pipeline_desc: PipelineDesc) -> PipelineId {
+        // Todo: need to check if it already exists
+        self.pipeline_descs.push(pipeline_desc);
+
+        self.pipeline_descs.len() - 1
+    }
+
+    pub fn prepare(&mut self, device: &crate::Device, renderer: &crate::Renderer) {
+        // Load resources
+
+        // Compile shaders using multithreading
+        for (i, desc) in self.pipeline_descs.iter().enumerate() {
+            // Todo: perhaps use Hash instead
+            // Todo: this is the place to support shader recompilation
+            if self.pipelines.len() <= i {
+                self.pipelines.push(crate::Pipeline::new(
+                    &device.handle,
+                    desc.clone(),
+                    Some(renderer.bindless_descriptor_set_layout),
+                ));
+            }
+        }
+
+        // Create pipelines
+        for pass in &mut self.passes {
+            pass.create_read_texture_descriptor_set(device, &self.pipelines, &self.resources);
+        }
+    }
+
     pub fn recompile_shaders(
         &mut self,
         device: &crate::Device,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) {
         for pass in &mut self.passes {
-            pass.pipeline
+            self.pipelines[pass.pipeline_handle]
                 .recreate_pipeline(device, bindless_descriptor_set_layout);
         }
     }
@@ -290,6 +310,7 @@ impl Graph {
                         height: present_image[0].height, // Todo
                     }
                 },
+                &self.pipelines,
             );
 
             // Todo: this could be moved outside the pass loop
@@ -297,7 +318,7 @@ impl Graph {
                 device.handle.cmd_bind_descriptor_sets(
                     command_buffer,
                     vk::PipelineBindPoint::GRAPHICS,
-                    pass.pipeline.pipeline_layout,
+                    self.pipelines[pass.pipeline_handle].pipeline_layout,
                     crate::DESCRIPTOR_SET_INDEX_VIEW,
                     &[self.descriptor_set_camera.handle],
                     &[],
@@ -309,7 +330,7 @@ impl Graph {
                     device.handle.cmd_bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
-                        pass.pipeline.pipeline_layout,
+                        self.pipelines[pass.pipeline_handle].pipeline_layout,
                         crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES,
                         &[read_textures_descriptor_set.handle],
                         &[],
@@ -319,7 +340,7 @@ impl Graph {
 
             if let Some(render_func) = &pass.render_func {
                 puffin::profile_scope!("render_func:", pass.name.as_str());
-                render_func(device, command_buffer, renderer, pass);
+                render_func(device, command_buffer, renderer, pass, &self.pipelines);
             }
 
             unsafe {

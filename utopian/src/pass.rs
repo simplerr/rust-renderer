@@ -1,5 +1,6 @@
 use ash::vk;
 
+use crate::descriptor_set::DescriptorIdentifier;
 use crate::device::*;
 use crate::graph::*;
 use crate::image::*;
@@ -7,8 +8,9 @@ use crate::pipeline::*;
 use crate::Renderer;
 
 pub struct RenderPass {
-    pub pipeline: Pipeline,
-    pub render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
+    pub pipeline_handle: PipelineId,
+    pub render_func:
+        Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &Vec<Pipeline>)>>,
     pub reads: Vec<TextureId>,
     pub writes: Vec<TextureId>,
     pub depth_attachment: Option<Image>,
@@ -20,13 +22,15 @@ pub struct RenderPass {
 impl RenderPass {
     pub fn new(
         name: String,
-        pipeline: Pipeline,
+        pipeline_handle: PipelineId,
         presentation_pass: bool,
         depth_attachment: Option<Image>,
-        render_func: Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass)>>,
+        render_func: Option<
+            Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &Vec<Pipeline>)>,
+        >,
     ) -> RenderPass {
         RenderPass {
-            pipeline,
+            pipeline_handle,
             render_func,
             reads: vec![],
             writes: vec![],
@@ -37,6 +41,36 @@ impl RenderPass {
         }
     }
 
+    pub fn create_read_texture_descriptor_set(
+        &mut self,
+        device: &Device,
+        pipelines: &Vec<Pipeline>,
+        resources: &Vec<GraphResource>,
+    ) {
+        // If there are input textures then create the descriptor set used to read them
+        if self.reads.len() > 0 && self.read_textures_descriptor_set.is_none() {
+            let descriptor_set_input_textures = crate::DescriptorSet::new(
+                &device,
+                pipelines[self.pipeline_handle].descriptor_set_layouts
+                    [crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES as usize],
+                pipelines[self.pipeline_handle]
+                    .reflection
+                    .get_set_mappings(crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES),
+            );
+
+            for (idx, &read) in self.reads.iter().enumerate() {
+                descriptor_set_input_textures.write_combined_image(
+                    &device,
+                    DescriptorIdentifier::Index(idx as u32),
+                    &resources[read].texture,
+                );
+            }
+
+            self.read_textures_descriptor_set
+                .replace(descriptor_set_input_textures);
+        }
+    }
+
     pub fn prepare_render(
         &self,
         device: &Device,
@@ -44,6 +78,7 @@ impl RenderPass {
         color_attachments: &[Image],
         depth_attachment: Option<Image>,
         extent: vk::Extent2D,
+        pipelines: &Vec<Pipeline>,
     ) {
         let color_attachments = color_attachments
             .iter()
@@ -95,7 +130,7 @@ impl RenderPass {
             device.handle.cmd_bind_pipeline(
                 command_buffer,
                 vk::PipelineBindPoint::GRAPHICS,
-                self.pipeline.handle,
+                pipelines[self.pipeline_handle].handle,
             );
 
             let viewports = [vk::Viewport {

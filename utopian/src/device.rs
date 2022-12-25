@@ -73,6 +73,9 @@ impl Device {
                 Swapchain::name().as_ptr(),
                 vk::ExtDescriptorIndexingFn::name().as_ptr(),
                 vk::KhrDynamicRenderingFn::name().as_ptr(),
+                vk::KhrMaintenance1Fn::name().as_ptr(),
+                vk::KhrMaintenance2Fn::name().as_ptr(),
+                vk::KhrMaintenance3Fn::name().as_ptr(),
             ];
 
             let rt_extension_names_raw = vec![
