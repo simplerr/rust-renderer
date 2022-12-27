@@ -35,29 +35,30 @@ pub fn build_render_graph(
     let forward_output = graph.create_texture("forward_output", device, extent, rgba32_fmt);
     let deferred_output = graph.create_texture("deferred_output", device, extent, rgba32_fmt);
 
-    // crate::renderers::gbuffer::setup_gbuffer_pass(
-    //     &device,
-    //     &mut graph,
-    //     &renderer,
-    //     gbuffer_position,
-    //     gbuffer_normal,
-    //     gbuffer_albedo,
-    //     gbuffer_pbr,
-    // );
+    crate::renderers::gbuffer::setup_gbuffer_pass(
+        &device,
+        graph,
+        &base,
+        &renderer,
+        gbuffer_position,
+        gbuffer_normal,
+        gbuffer_albedo,
+        gbuffer_pbr,
+    );
 
     crate::renderers::forward::setup_forward_pass(&device, graph, &base, &renderer, forward_output);
 
-    // crate::renderers::deferred::setup_deferred_pass(
-    //     &device,
-    //     &mut graph,
-    //     &base,
-    //     &renderer,
-    //     gbuffer_position,
-    //     gbuffer_normal,
-    //     gbuffer_albedo,
-    //     gbuffer_pbr,
-    //     deferred_output,
-    // );
+    crate::renderers::deferred::setup_deferred_pass(
+        &device,
+        graph,
+        &base,
+        &renderer,
+        gbuffer_position,
+        gbuffer_normal,
+        gbuffer_albedo,
+        gbuffer_pbr,
+        deferred_output,
+    );
 
     crate::renderers::present::setup_present_pass(
         &device,

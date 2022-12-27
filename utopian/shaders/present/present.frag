@@ -18,7 +18,7 @@ void main() {
     vec2 uv = vec2(in_uv.x, in_uv.y - 1.0);
 
     vec3 color;
-    if (uv.x < 1.0) {
+    if (uv.x < 0.5) {
         color = texture(in_forward_texture, uv).rgb;
     }
     else {

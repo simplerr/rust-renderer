@@ -19,7 +19,7 @@ layout (set = 2, binding = 3) uniform sampler2D in_gbuffer_pbr;
 layout (std140, set = 3, binding = 0) uniform UBO_parameters
 {
     vec3 color;
-} test_params;
+} test_params_2;
 
 layout(push_constant) uniform PushConsts {
     mat4 world;

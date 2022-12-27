@@ -225,6 +225,7 @@ impl Graph {
     ) -> TextureId {
         puffin::profile_function!();
 
+        // Todo: Cannot rely on debug_name being unique
         // Todo: shall use a Hash to include extent and format of the texture
         self.resources
             .iter()
@@ -249,6 +250,8 @@ impl Graph {
         device: &crate::Device,
         size: u64,
     ) -> BufferId {
+        // Todo: Cannot rely on debug_name being unique
+
         self.buffers
             .iter()
             .position(|iter| iter.debug_name == debug_name)
