@@ -8,6 +8,7 @@ use crate::texture::*;
 
 pub struct DescriptorSet {
     pub handle: vk::DescriptorSet,
+    pub pool: vk::DescriptorPool,
     binding_map: BindingMap,
 }
 
@@ -92,6 +93,7 @@ impl DescriptorSet {
 
         DescriptorSet {
             handle: descriptor_sets[0],
+            pool : descriptor_pool,
             binding_map,
         }
     }

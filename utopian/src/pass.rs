@@ -56,6 +56,8 @@ impl RenderPass {
         pipelines: &Vec<Pipeline>,
         resources: &Vec<GraphResource>,
     ) {
+        puffin::profile_function!();
+
         // If there are input textures then create the descriptor set used to read them
         if self.reads.len() > 0 && self.read_textures_descriptor_set.is_none() {
             let descriptor_set_input_textures = crate::DescriptorSet::new(

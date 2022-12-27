@@ -149,7 +149,18 @@ impl Graph {
         }
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, device: &crate::Device) {
+        puffin::profile_function!();
+
+        for pass in &self.passes {
+            if let Some(descriptor_set) = &pass.uniforms_descriptor_set {
+                unsafe { device.handle.destroy_descriptor_pool(descriptor_set.pool, None) };
+            }
+            if let Some(descriptor_set) = &pass.read_textures_descriptor_set {
+                unsafe { device.handle.destroy_descriptor_pool(descriptor_set.pool, None) };
+            }
+        }
+
         self.passes.clear();
         self.pipeline_descs.clear();
     }

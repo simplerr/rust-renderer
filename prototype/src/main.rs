@@ -356,7 +356,7 @@ impl Application {
                         }
                     } else {
                         // Remove passes from previous frame
-                        self.graph.clear();
+                        self.graph.clear(&self.base.device);
 
                         // Build the render graph
                         utopian::renderers::build_render_graph(
