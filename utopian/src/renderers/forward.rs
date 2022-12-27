@@ -203,36 +203,11 @@ pub fn setup_forward_pass(
         depth_stencil_attachment_format: base.depth_image.format,
     });
 
-    // let depth_image = crate::Image::new(
-    //     device,
-    //     graph.resources[forward_output].texture.image.width,
-    //     graph.resources[forward_output].texture.image.height,
-    //     vk::Format::D32_SFLOAT,
-    //     vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-    //     vk::ImageAspectFlags::DEPTH,
-    // );
-
-    // Data & buffer setup
-    // The buffer also needs to be owned by the graph
-    let test_uniform_buffer = {
-        puffin::profile_scope!("create_test_buffer");
-        let color = glam::Vec3::new(0.0, 0.0, 1.0);
-        let slice = unsafe { std::slice::from_raw_parts(&color, 1) };
-        let test_uniform_buffer = crate::Buffer::new(
-            &base.device,
-            Some(slice),
-            std::mem::size_of_val(&color) as u64,
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
-            gpu_allocator::MemoryLocation::CpuToGpu,
-        );
-
-        test_uniform_buffer
-    };
-
     graph
         .add_pass(String::from("forward_pass"), pipeline_handle)
         .write(forward_output)
-        .depth_attachment(base.depth_image)
+        .uniforms("test_params", &(glam::Vec3::new(0.0, 0.0, 1.0)))
+        .depth_attachment(base.depth_image) // Todo: create own Depth image
         .render(
             move |device, command_buffer, renderer, pass, pipeline_cache| unsafe {
                 let pipeline = &pipeline_cache[pass.pipeline_handle];
@@ -244,34 +219,6 @@ pub fn setup_forward_pass(
                     pipeline.pipeline_layout,
                     crate::DESCRIPTOR_SET_INDEX_BINDLESS,
                     &[renderer.bindless_descriptor_set],
-                    &[],
-                );
-
-                let (test_binding, test_descriptor_set) = {
-                    puffin::profile_scope!("create_descriptor_set");
-                    let test_binding = pipeline.reflection.get_binding("test_params");
-                    let test_descriptor_set = crate::DescriptorSet::new(
-                        device,
-                        pipeline.descriptor_set_layouts[test_binding.set as usize],
-                        pipeline.reflection.get_set_mappings(test_binding.set),
-                    );
-                    {
-                        puffin::profile_scope!("write_uniform_buffer");
-                        test_descriptor_set.write_uniform_buffer(
-                            device,
-                            "test_params".to_string(),
-                            &test_uniform_buffer,
-                        );
-                    }
-                    (test_binding, test_descriptor_set)
-                };
-
-                device.handle.cmd_bind_descriptor_sets(
-                    command_buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    pipeline.pipeline_layout,
-                    test_binding.set,
-                    &[test_descriptor_set.handle],
                     &[],
                 );
 

@@ -90,7 +90,7 @@ impl Buffer {
         unsafe {
             let data_u8 = std::slice::from_raw_parts(
                 data.as_ptr() as *const u8,
-                data.len() * core::mem::size_of::<T>(),
+                self.size as usize, // data.len() * core::mem::size_of::<T>(),
             );
 
             if self.memory_location != gpu_allocator::MemoryLocation::GpuOnly {

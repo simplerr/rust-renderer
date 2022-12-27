@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use ash::vk;
 
 use crate::descriptor_set::DescriptorIdentifier;
@@ -17,6 +19,9 @@ pub struct RenderPass {
     pub presentation_pass: bool,
     pub read_textures_descriptor_set: Option<crate::DescriptorSet>,
     pub name: String,
+    pub uniforms: HashMap<String, UniformData>,
+    pub uniform_buffer: Option<BufferId>,
+    pub uniforms_descriptor_set: Option<crate::DescriptorSet>,
 }
 
 impl RenderPass {
@@ -25,6 +30,7 @@ impl RenderPass {
         pipeline_handle: PipelineId,
         presentation_pass: bool,
         depth_attachment: Option<Image>,
+        uniforms: HashMap<String, UniformData>,
         render_func: Option<
             Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &Vec<Pipeline>)>,
         >,
@@ -38,10 +44,13 @@ impl RenderPass {
             presentation_pass,
             read_textures_descriptor_set: None,
             name,
+            uniforms,
+            uniform_buffer: None,
+            uniforms_descriptor_set: None,
         }
     }
 
-    pub fn create_read_texture_descriptor_set(
+    pub fn try_create_read_texture_descriptor_set(
         &mut self,
         device: &Device,
         pipelines: &Vec<Pipeline>,
@@ -68,6 +77,56 @@ impl RenderPass {
 
             self.read_textures_descriptor_set
                 .replace(descriptor_set_input_textures);
+        }
+    }
+
+    pub fn try_create_uniform_buffer_descriptor_set(
+        &mut self,
+        device: &Device,
+        pipelines: &Vec<Pipeline>,
+        buffers: &Vec<crate::Buffer>,
+    ) {
+        puffin::profile_function!();
+
+        if self.uniforms.len() > 0 && self.uniforms_descriptor_set.is_none() {
+            // Todo: the usage of self.uniforms.values().next().unwrap() means
+            // that only a single uniform buffer is supported
+
+            // Todo: why unexpected size of 8 from size_of_val?
+
+            // Create the descriptor set that uses the uniform buffer
+            let uniform_name = self.uniforms.keys().next().unwrap();
+            let binding = pipelines[self.pipeline_handle]
+                .reflection
+                .get_binding(&uniform_name);
+            let descriptor_set = crate::DescriptorSet::new(
+                device,
+                pipelines[self.pipeline_handle].descriptor_set_layouts[binding.set as usize],
+                pipelines[self.pipeline_handle]
+                    .reflection
+                    .get_set_mappings(binding.set),
+            );
+            {
+                descriptor_set.write_uniform_buffer(
+                    device,
+                    uniform_name.to_string(),
+                    &buffers[self.uniform_buffer.unwrap()],
+                );
+            }
+
+            self.uniforms_descriptor_set.replace(descriptor_set);
+        }
+    }
+
+    pub fn update_uniform_buffer_memory(
+        &mut self,
+        device: &Device,
+        buffers: &mut Vec<crate::Buffer>,
+    ) {
+        puffin::profile_function!();
+
+        if let Some(buffer_id) = self.uniform_buffer {
+            buffers[buffer_id].update_memory(device, &self.uniforms.values().next().unwrap().data)
         }
     }
 

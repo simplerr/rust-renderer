@@ -83,5 +83,6 @@ void main() {
     vec3 color = ambient + Lo;
 
     out_color = vec4(color, 1.0f);
+    out_color.rgb *= test_params.color;
 }
 

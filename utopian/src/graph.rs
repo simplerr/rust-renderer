@@ -12,7 +12,10 @@ use crate::Renderer;
 use crate::Texture;
 
 pub type TextureId = usize;
+pub type BufferId = usize;
 pub type PipelineId = usize;
+
+pub const MAX_UNIFORMS_SIZE: usize = 2048;
 
 pub struct GraphResource {
     pub texture: Texture,
@@ -22,9 +25,16 @@ pub struct GraphResource {
 pub struct Graph {
     pub passes: Vec<RenderPass>,
     pub resources: Vec<GraphResource>,
+    pub buffers: Vec<crate::Buffer>,
     pub descriptor_set_camera: crate::DescriptorSet,
     pub pipeline_descs: Vec<PipelineDesc>,
     pub pipelines: Vec<Pipeline>,
+}
+
+#[derive(Copy, Clone)]
+pub struct UniformData {
+    pub data: [u8; MAX_UNIFORMS_SIZE],
+    pub size: u64,
 }
 
 pub struct PassBuilder {
@@ -36,6 +46,7 @@ pub struct PassBuilder {
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &Vec<Pipeline>)>>,
     pub depth_attachment: Option<Image>,
     pub presentation_pass: bool,
+    pub uniforms: HashMap<String, UniformData>,
 }
 
 impl PassBuilder {
@@ -68,12 +79,38 @@ impl PassBuilder {
         self
     }
 
+    pub fn uniforms<T: Copy + std::fmt::Debug>(mut self, name: &str, data: &T) -> Self {
+        puffin::profile_function!();
+
+        unsafe {
+            let ptr = data as *const T;
+            let size = core::mem::size_of::<T>();
+            let data_u8 = std::slice::from_raw_parts(ptr as *const u8, std::mem::size_of::<T>());
+
+            assert!(data_u8.len() < MAX_UNIFORMS_SIZE);
+
+            if let Some(entry) = self.uniforms.get_mut(name) {
+                entry.data[..data_u8.len()].copy_from_slice(data_u8);
+                entry.size = size as u64;
+            } else {
+                let mut new_entry = UniformData {
+                    data: [0; MAX_UNIFORMS_SIZE],
+                    size: size as u64,
+                };
+                new_entry.data[..data_u8.len()].copy_from_slice(data_u8);
+                self.uniforms.insert(name.to_string(), new_entry);
+            }
+        }
+        self
+    }
+
     pub fn build(self, device: &Device, graph: &mut Graph) {
         let mut pass = crate::RenderPass::new(
             self.name,
             self.pipeline_handle,
             self.presentation_pass,
             self.depth_attachment,
+            self.uniforms.clone(), // Note: is this clone OK?
             self.render_func,
         );
 
@@ -85,6 +122,14 @@ impl PassBuilder {
             pass.writes.push(*write);
         }
 
+        if self.uniforms.len() != 0 {
+            pass.uniform_buffer.replace(graph.create_buffer(
+                &self.uniforms.keys().next().unwrap(),
+                device,
+                self.uniforms.values().next().unwrap().size as u64,
+            ));
+        }
+
         graph.passes.push(pass);
     }
 }
@@ -94,6 +139,7 @@ impl Graph {
         Graph {
             passes: vec![],
             resources: vec![],
+            buffers: vec![],
             descriptor_set_camera: Self::create_camera_descriptor_set(
                 device,
                 camera_uniform_buffer,
@@ -166,6 +212,7 @@ impl Graph {
             render_func: None,
             depth_attachment: None,
             presentation_pass: false,
+            uniforms: HashMap::new(),
         }
     }
 
@@ -196,6 +243,32 @@ impl Graph {
             })
     }
 
+    pub fn create_buffer(
+        &mut self,
+        debug_name: &str,
+        device: &crate::Device,
+        size: u64,
+    ) -> BufferId {
+        self.buffers
+            .iter()
+            .position(|iter| iter.debug_name == debug_name)
+            .unwrap_or_else(|| {
+                let mut buffer = crate::Buffer::new::<u8>(
+                    device,
+                    None,
+                    size,
+                    vk::BufferUsageFlags::UNIFORM_BUFFER,
+                    gpu_allocator::MemoryLocation::CpuToGpu,
+                );
+
+                buffer.set_debug_name(device, debug_name);
+
+                self.buffers.push(buffer);
+
+                self.buffers.len() - 1
+            })
+    }
+
     pub fn create_pipeline(&mut self, pipeline_desc: PipelineDesc) -> PipelineId {
         // Todo: need to check if it already exists
         self.pipeline_descs.push(pipeline_desc);
@@ -204,6 +277,7 @@ impl Graph {
     }
 
     pub fn prepare(&mut self, device: &crate::Device, renderer: &crate::Renderer) {
+        puffin::profile_function!();
         // Load resources
 
         // Compile shaders using multithreading
@@ -219,9 +293,13 @@ impl Graph {
             }
         }
 
-        // Create pipelines
         for pass in &mut self.passes {
-            pass.create_read_texture_descriptor_set(device, &self.pipelines, &self.resources);
+            pass.try_create_read_texture_descriptor_set(device, &self.pipelines, &self.resources);
+            pass.try_create_uniform_buffer_descriptor_set(device, &self.pipelines, &self.buffers);
+
+            // Todo: free descriptor sets
+
+            pass.update_uniform_buffer_memory(device, &mut self.buffers);
         }
     }
 
@@ -342,6 +420,22 @@ impl Graph {
                         self.pipelines[pass.pipeline_handle].pipeline_layout,
                         crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES,
                         &[read_textures_descriptor_set.handle],
+                        &[],
+                    )
+                };
+            }
+
+            if let Some(uniforms_descriptor_set) = &pass.uniforms_descriptor_set {
+                unsafe {
+                    device.handle.cmd_bind_descriptor_sets(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        self.pipelines[pass.pipeline_handle].pipeline_layout,
+                        self.pipelines[pass.pipeline_handle]
+                            .reflection
+                            .get_binding(pass.uniforms.keys().next().unwrap())
+                            .set,
+                        &[uniforms_descriptor_set.handle],
                         &[],
                     )
                 };
