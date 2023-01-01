@@ -24,7 +24,7 @@ pub fn setup_deferred_pass(
         fragment_path: "utopian/shaders/deferred/deferred.frag",
         vertex_input_binding_descriptions: vec![],
         vertex_input_attribute_descriptions: vec![],
-        color_attachment_formats: vec![graph.resources[deferred_output].texture.image.format],
+        color_attachment_formats: vec![graph.resources.textures[deferred_output].texture.image.format],
         depth_stencil_attachment_format: base.depth_image.format,
     });
 
@@ -38,8 +38,8 @@ pub fn setup_deferred_pass(
         .uniforms("test_params_2", &(glam::Vec3::new(1.0, 0.0, 0.0)))
         .depth_attachment(base.depth_image)
         .render(
-            move |device, command_buffer, renderer, pass, pipeline_cache| unsafe {
-                let pipeline = &pipeline_cache[pass.pipeline_handle];
+            move |device, command_buffer, renderer, pass, resources| unsafe {
+                let pipeline = resources.pipeline(pass.pipeline_handle);
 
                 // Todo: move to common place
                 device.handle.cmd_bind_descriptor_sets(

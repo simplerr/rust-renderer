@@ -2,35 +2,44 @@ use std::collections::HashMap;
 
 use ash::vk;
 
-use crate::descriptor_set::DescriptorIdentifier;
 use crate::device::*;
 use crate::image::*;
+use crate::Buffer;
 use crate::Pipeline;
 use crate::PipelineDesc;
 use crate::RenderPass;
 use crate::Renderer;
 use crate::Texture;
 
+/// Virtual resource handles.
 pub type TextureId = usize;
 pub type BufferId = usize;
 pub type PipelineId = usize;
 
-pub const MAX_UNIFORMS_SIZE: usize = 2048;
-
-pub struct GraphResource {
+pub struct GraphTexture {
     pub texture: Texture,
     pub prev_access: vk_sync::AccessType,
 }
 
-pub struct Graph {
-    pub passes: Vec<RenderPass>,
-    pub resources: Vec<GraphResource>,
-    pub buffers: Vec<crate::Buffer>,
-    pub descriptor_set_camera: crate::DescriptorSet,
-    pub pipeline_descs: Vec<PipelineDesc>,
+pub struct GraphResources {
+    pub buffers: Vec<Buffer>,
+    pub textures: Vec<GraphTexture>,
     pub pipelines: Vec<Pipeline>,
 }
 
+pub struct Graph {
+    pub passes: Vec<RenderPass>,
+    pub resources: GraphResources,
+    pub descriptor_set_camera: crate::DescriptorSet,
+    pub pipeline_descs: Vec<PipelineDesc>,
+}
+
+pub const MAX_UNIFORMS_SIZE: usize = 2048;
+
+// Note: the way that the uniform data array is hardcoded in size might be a problem.
+// The goal was to have a clear method for each pass to own its own data without adding complexity.
+// A good improvement would be to use Dynamic Descriptor sets so that all data from the different
+// passes is placed in the same buffer but with different offsets.
 #[derive(Copy, Clone)]
 pub struct UniformData {
     pub data: [u8; MAX_UNIFORMS_SIZE],
@@ -43,10 +52,32 @@ pub struct PassBuilder {
     pub reads: Vec<TextureId>,
     pub writes: Vec<TextureId>,
     pub render_func:
-        Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &Vec<Pipeline>)>>,
+        Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
     pub depth_attachment: Option<Image>,
     pub presentation_pass: bool,
     pub uniforms: HashMap<String, UniformData>,
+}
+
+impl GraphResources {
+    fn new() -> GraphResources {
+        GraphResources {
+            buffers: vec![],
+            textures: vec![],
+            pipelines: vec![],
+        }
+    }
+
+    pub fn buffer<'a>(&'a self, id: BufferId) -> &'a Buffer {
+        &self.buffers[id]
+    }
+
+    pub fn texture<'a>(&'a self, id: TextureId) -> &'a GraphTexture {
+        &self.textures[id]
+    }
+
+    pub fn pipeline<'a>(&'a self, id: PipelineId) -> &'a Pipeline {
+        &self.pipelines[id]
+    }
 }
 
 impl PassBuilder {
@@ -62,7 +93,7 @@ impl PassBuilder {
 
     pub fn render(
         mut self,
-        render_func: impl Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &Vec<Pipeline>)
+        render_func: impl Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)
             + 'static,
     ) -> Self {
         self.render_func.replace(Box::new(render_func));
@@ -82,6 +113,7 @@ impl PassBuilder {
     pub fn uniforms<T: Copy + std::fmt::Debug>(mut self, name: &str, data: &T) -> Self {
         puffin::profile_function!();
 
+        // Note: Todo: this can be improved
         unsafe {
             let ptr = data as *const T;
             let size = core::mem::size_of::<T>();
@@ -135,16 +167,14 @@ impl PassBuilder {
 }
 
 impl Graph {
-    pub fn new(device: &Device, camera_uniform_buffer: &crate::Buffer) -> Self {
+    pub fn new(device: &Device, camera_uniform_buffer: &Buffer) -> Self {
         Graph {
             passes: vec![],
-            resources: vec![],
-            buffers: vec![],
+            resources: GraphResources::new(),
             descriptor_set_camera: Self::create_camera_descriptor_set(
                 device,
                 camera_uniform_buffer,
             ),
-            pipelines: vec![],
             pipeline_descs: vec![],
         }
     }
@@ -167,7 +197,7 @@ impl Graph {
 
     pub fn create_camera_descriptor_set(
         device: &Device,
-        camera_uniform_buffer: &crate::Buffer,
+        camera_uniform_buffer: &Buffer,
     ) -> crate::DescriptorSet {
         let descriptor_set_layout_binding = vk::DescriptorSetLayoutBinding::builder()
             .binding(0)
@@ -238,7 +268,7 @@ impl Graph {
 
         // Todo: Cannot rely on debug_name being unique
         // Todo: shall use a Hash to include extent and format of the texture
-        self.resources
+        self.resources.textures
             .iter()
             .position(|iter| iter.texture.debug_name == debug_name)
             .unwrap_or_else(|| {
@@ -246,12 +276,12 @@ impl Graph {
                     crate::Texture::create(&device, None, extent[0], extent[1], format);
                 texture.set_debug_name(device, debug_name);
 
-                self.resources.push(GraphResource {
+                self.resources.textures.push(GraphTexture {
                     texture,
                     prev_access: vk_sync::AccessType::Nothing,
                 });
 
-                self.resources.len() - 1
+                self.resources.textures.len() - 1
             })
     }
 
@@ -263,11 +293,11 @@ impl Graph {
     ) -> BufferId {
         // Todo: Cannot rely on debug_name being unique
 
-        self.buffers
+        self.resources.buffers
             .iter()
             .position(|iter| iter.debug_name == debug_name)
             .unwrap_or_else(|| {
-                let mut buffer = crate::Buffer::new::<u8>(
+                let mut buffer = Buffer::new::<u8>(
                     device,
                     None,
                     size,
@@ -277,9 +307,9 @@ impl Graph {
 
                 buffer.set_debug_name(device, debug_name);
 
-                self.buffers.push(buffer);
+                self.resources.buffers.push(buffer);
 
-                self.buffers.len() - 1
+                self.resources.buffers.len() - 1
             })
     }
 
@@ -298,8 +328,8 @@ impl Graph {
         for (i, desc) in self.pipeline_descs.iter().enumerate() {
             // Todo: perhaps use Hash instead
             // Todo: this is the place to support shader recompilation
-            if self.pipelines.len() <= i {
-                self.pipelines.push(crate::Pipeline::new(
+            if self.resources.pipelines.len() <= i {
+                self.resources.pipelines.push(crate::Pipeline::new(
                     &device.handle,
                     desc.clone(),
                     Some(renderer.bindless_descriptor_set_layout),
@@ -308,12 +338,12 @@ impl Graph {
         }
 
         for pass in &mut self.passes {
-            pass.try_create_read_texture_descriptor_set(device, &self.pipelines, &self.resources);
-            pass.try_create_uniform_buffer_descriptor_set(device, &self.pipelines, &self.buffers);
+            pass.try_create_read_texture_descriptor_set(device, &self.resources.pipelines, &self.resources.textures);
+            pass.try_create_uniform_buffer_descriptor_set(device, &self.resources.pipelines, &self.resources.buffers);
 
             // Todo: free descriptor sets
 
-            pass.update_uniform_buffer_memory(device, &mut self.buffers);
+            pass.update_uniform_buffer_memory(device, &mut self.resources.buffers);
         }
     }
 
@@ -323,7 +353,7 @@ impl Graph {
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) {
         for pass in &mut self.passes {
-            self.pipelines[pass.pipeline_handle]
+            self.resources.pipelines[pass.pipeline_handle]
                 .recreate_pipeline(device, bindless_descriptor_set_layout);
         }
     }
@@ -355,24 +385,24 @@ impl Graph {
                 let next_access = crate::synch::image_pipeline_barrier(
                     &device,
                     command_buffer,
-                    &self.resources[*read].texture.image,
-                    self.resources[*read].prev_access,
+                    &self.resources.textures[*read].texture.image,
+                    self.resources.textures[*read].prev_access,
                     vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer,
                 );
 
-                self.resources.get_mut(*read).unwrap().prev_access = next_access;
+                self.resources.textures.get_mut(*read).unwrap().prev_access = next_access;
             }
 
             for write in &pass.writes {
                 let next_access = crate::synch::image_pipeline_barrier(
                     &device,
                     command_buffer,
-                    &self.resources[*write].texture.image,
-                    self.resources[*write].prev_access,
+                    &self.resources.textures[*write].texture.image,
+                    self.resources.textures[*write].prev_access,
                     vk_sync::AccessType::ColorAttachmentWrite,
                 );
 
-                self.resources.get_mut(*write).unwrap().prev_access = next_access;
+                self.resources.textures.get_mut(*write).unwrap().prev_access = next_access;
             }
 
             if pass.presentation_pass {
@@ -388,7 +418,7 @@ impl Graph {
             let write_attachments: Vec<Image> = pass
                 .writes
                 .iter()
-                .map(|write| self.resources[*write].texture.image)
+                .map(|write| self.resources.textures[*write].texture.image)
                 .collect();
 
             pass.prepare_render(
@@ -402,8 +432,8 @@ impl Graph {
                 pass.depth_attachment,
                 if !pass.presentation_pass {
                     vk::Extent2D {
-                        width: self.resources[pass.writes[0]].texture.image.width, // Todo
-                        height: self.resources[pass.writes[0]].texture.image.height, // Todo
+                        width: self.resources.textures[pass.writes[0]].texture.image.width, // Todo
+                        height: self.resources.textures[pass.writes[0]].texture.image.height, // Todo
                     }
                 } else {
                     vk::Extent2D {
@@ -411,7 +441,7 @@ impl Graph {
                         height: present_image[0].height, // Todo
                     }
                 },
-                &self.pipelines,
+                &self.resources.pipelines,
             );
 
             // Todo: this could be moved outside the pass loop
@@ -419,7 +449,7 @@ impl Graph {
                 device.handle.cmd_bind_descriptor_sets(
                     command_buffer,
                     vk::PipelineBindPoint::GRAPHICS,
-                    self.pipelines[pass.pipeline_handle].pipeline_layout,
+                    self.resources.pipelines[pass.pipeline_handle].pipeline_layout,
                     crate::DESCRIPTOR_SET_INDEX_VIEW,
                     &[self.descriptor_set_camera.handle],
                     &[],
@@ -431,7 +461,7 @@ impl Graph {
                     device.handle.cmd_bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
-                        self.pipelines[pass.pipeline_handle].pipeline_layout,
+                        self.resources.pipelines[pass.pipeline_handle].pipeline_layout,
                         crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES,
                         &[read_textures_descriptor_set.handle],
                         &[],
@@ -444,8 +474,8 @@ impl Graph {
                     device.handle.cmd_bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
-                        self.pipelines[pass.pipeline_handle].pipeline_layout,
-                        self.pipelines[pass.pipeline_handle]
+                        self.resources.pipelines[pass.pipeline_handle].pipeline_layout,
+                        self.resources.pipelines[pass.pipeline_handle]
                             .reflection
                             .get_binding(pass.uniforms.keys().next().unwrap())
                             .set,
@@ -457,7 +487,7 @@ impl Graph {
 
             if let Some(render_func) = &pass.render_func {
                 puffin::profile_scope!("render_func:", pass.name.as_str());
-                render_func(device, command_buffer, renderer, pass, &self.pipelines);
+                render_func(device, command_buffer, renderer, pass, &self.resources);
             }
 
             unsafe {

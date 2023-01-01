@@ -26,10 +26,10 @@ pub fn setup_gbuffer_pass(
         vertex_input_attribute_descriptions:
             crate::Primitive::get_vertex_input_attribute_descriptions(),
         color_attachment_formats: vec![
-            graph.resources[gbuffer_position].texture.image.format,
-            graph.resources[gbuffer_normal].texture.image.format,
-            graph.resources[gbuffer_albedo].texture.image.format,
-            graph.resources[gbuffer_pbr].texture.image.format,
+            graph.resources.textures[gbuffer_position].texture.image.format,
+            graph.resources.textures[gbuffer_normal].texture.image.format,
+            graph.resources.textures[gbuffer_albedo].texture.image.format,
+            graph.resources.textures[gbuffer_pbr].texture.image.format,
         ],
         depth_stencil_attachment_format: vk::Format::D32_SFLOAT,
     });
@@ -52,8 +52,8 @@ pub fn setup_gbuffer_pass(
         //.depth_attachment(depth_image)
         .depth_attachment(base.depth_image) // Todo: create own Depth image
         .render(
-            move |device, command_buffer, renderer, pass, pipeline_cache| unsafe {
-                let pipeline = &pipeline_cache[pass.pipeline_handle];
+            move |device, command_buffer, renderer, pass, resources| unsafe {
+                let pipeline = resources.pipeline(pass.pipeline_handle);
 
                 // Todo: move to common place
                 device.handle.cmd_bind_descriptor_sets(

@@ -12,7 +12,7 @@ use crate::Renderer;
 pub struct RenderPass {
     pub pipeline_handle: PipelineId,
     pub render_func:
-        Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &Vec<Pipeline>)>>,
+        Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
     pub reads: Vec<TextureId>,
     pub writes: Vec<TextureId>,
     pub depth_attachment: Option<Image>,
@@ -32,7 +32,7 @@ impl RenderPass {
         depth_attachment: Option<Image>,
         uniforms: HashMap<String, UniformData>,
         render_func: Option<
-            Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &Vec<Pipeline>)>,
+            Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>,
         >,
     ) -> RenderPass {
         RenderPass {
@@ -54,7 +54,7 @@ impl RenderPass {
         &mut self,
         device: &Device,
         pipelines: &Vec<Pipeline>,
-        resources: &Vec<GraphResource>,
+        textures: &Vec<GraphTexture>,
     ) {
         puffin::profile_function!();
 
@@ -73,7 +73,7 @@ impl RenderPass {
                 descriptor_set_input_textures.write_combined_image(
                     &device,
                     DescriptorIdentifier::Index(idx as u32),
-                    &resources[read].texture,
+                    &textures[read].texture,
                 );
             }
 

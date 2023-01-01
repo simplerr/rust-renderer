@@ -26,7 +26,7 @@ pub fn setup_forward_pass(
         ),
         vertex_input_attribute_descriptions:
             crate::Primitive::get_vertex_input_attribute_descriptions(),
-        color_attachment_formats: vec![graph.resources[forward_output].texture.image.format],
+        color_attachment_formats: vec![graph.resources.textures[forward_output].texture.image.format],
         // Todo:
         depth_stencil_attachment_format: base.depth_image.format,
     });
@@ -37,8 +37,8 @@ pub fn setup_forward_pass(
         .uniforms("test_params", &(glam::Vec3::new(0.0, 0.0, 1.0)))
         .depth_attachment(base.depth_image) // Todo: create own Depth image
         .render(
-            move |device, command_buffer, renderer, pass, pipeline_cache| unsafe {
-                let pipeline = &pipeline_cache[pass.pipeline_handle];
+            move |device, command_buffer, renderer, pass, resources| unsafe {
+                let pipeline = resources.pipeline(pass.pipeline_handle);
 
                 // Todo: move to common place
                 device.handle.cmd_bind_descriptor_sets(
