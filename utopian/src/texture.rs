@@ -50,8 +50,7 @@ impl Texture {
                 staging_buffer.copy_to_image(device, cb, &image);
             }
 
-            if Image::is_depth_image_fmt(image.desc.format)
-            {
+            if Image::is_depth_image_fmt(image.desc.format) {
                 image.transition_layout(
                     device,
                     cb,

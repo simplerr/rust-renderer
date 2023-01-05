@@ -23,16 +23,13 @@ pub fn setup_shadow_pass(
         ),
         vertex_input_attribute_descriptions:
             crate::Primitive::get_vertex_input_attribute_descriptions(),
-        color_attachment_formats: vec![],//graph.resources.textures[shadow_map].texture.image.format()],
-        // Todo:
+        color_attachment_formats: vec![],
         depth_stencil_attachment_format: base.depth_image.format(),
     });
 
     graph
         .add_pass(String::from("shadow_pass"), pipeline_handle)
-        //.write(shadow_map)
-        //.depth_attachment(base.depth_image.clone()) // Todo: create own Depth image
-        .depth_attachment(graph.resources.textures[shadow_map].texture.image.clone()) // Todo: create own Depth image
+        .depth_attachment(shadow_map)
         .render(
             move |device, command_buffer, renderer, pass, resources| unsafe {
                 let pipeline = resources.pipeline(pass.pipeline_handle);

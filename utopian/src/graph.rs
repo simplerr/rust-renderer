@@ -26,6 +26,10 @@ pub struct GraphResources {
     pub textures: Vec<GraphTexture>,
     pub pipelines: Vec<Pipeline>,
 }
+pub enum DepthAttachment {
+    GraphTexture(TextureId),
+    External(Image),
+}
 
 pub struct Graph {
     pub passes: Vec<RenderPass>,
@@ -53,7 +57,7 @@ pub struct PassBuilder {
     pub writes: Vec<TextureId>,
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
-    pub depth_attachment: Option<Image>,
+    pub depth_attachment: Option<DepthAttachment>,
     pub presentation_pass: bool,
     pub uniforms: HashMap<String, UniformData>,
 }
@@ -105,8 +109,13 @@ impl PassBuilder {
         self
     }
 
-    pub fn depth_attachment(mut self, depth_attachment: Image) -> Self {
-        self.depth_attachment = Some(depth_attachment);
+    pub fn depth_attachment(mut self, depth_attachment: TextureId) -> Self {
+        self.depth_attachment = Some(DepthAttachment::GraphTexture(depth_attachment));
+        self
+    }
+
+    pub fn external_depth_attachment(mut self, depth_attachment: Image) -> Self {
+        self.depth_attachment = Some(DepthAttachment::External(depth_attachment));
         self
     }
 
@@ -408,17 +417,29 @@ impl Graph {
                 self.resources.textures.get_mut(*read).unwrap().prev_access = next_access;
             }
 
-            for write in &pass.writes {
+            let mut writes_for_synch = pass.writes.clone();
+            // If the depth attachment is owned by the graph make sure it gets a barrier as well
+            if pass.depth_attachment.is_some() {
+                if let DepthAttachment::GraphTexture(depth_attachment) =
+                    pass.depth_attachment.as_ref().unwrap()
+                {
+                    writes_for_synch.push(*depth_attachment);
+                }
+            }
+
+            for write in &writes_for_synch {
                 let next_access = crate::synch::image_pipeline_barrier(
                     &device,
                     command_buffer,
                     &self.resources.textures[*write].texture.image,
                     self.resources.textures[*write].prev_access,
-                    if Image::is_depth_image_fmt(self.resources.textures[*write].texture.image.desc.format) {
+                    if Image::is_depth_image_fmt(
+                        self.resources.textures[*write].texture.image.desc.format,
+                    ) {
                         vk_sync::AccessType::DepthStencilAttachmentWrite
                     } else {
                         vk_sync::AccessType::ColorAttachmentWrite
-                    }
+                    },
                 );
 
                 self.resources.textures.get_mut(*write).unwrap().prev_access = next_access;
@@ -440,23 +461,44 @@ impl Graph {
                 .map(|write| self.resources.textures[*write].texture.image.clone())
                 .collect();
 
+            // Todo: very ugly just to get the extents...
             let extent = if pass.writes.len() > 0 {
                 vk::Extent2D {
                     width: self.resources.textures[pass.writes[0]]
                         .texture
                         .image
-                        .width(), // Todo
+                        .width(),
                     height: self.resources.textures[pass.writes[0]]
                         .texture
                         .image
-                        .height(), // Todo
+                        .height(),
                 }
             } else {
-                vk::Extent2D {
-                    width: pass.depth_attachment.as_ref().unwrap().width(),
-                    height: pass.depth_attachment.as_ref().unwrap().height(),
+                if pass.depth_attachment.is_some() {
+                    match pass.depth_attachment.as_ref().unwrap() {
+                        DepthAttachment::GraphTexture(depth_attachment) => vk::Extent2D {
+                            width: self.resources.textures[*depth_attachment]
+                                .texture
+                                .image
+                                .width(),
+                            height: self.resources.textures[*depth_attachment]
+                                .texture
+                                .image
+                                .height(),
+                        },
+                        DepthAttachment::External(depth_attachment) => vk::Extent2D {
+                            width: depth_attachment.width(),
+                            height: depth_attachment.height(),
+                        },
+                    }
+                } else {
+                    vk::Extent2D {
+                        width: 1,
+                        height: 1,
+                    }
                 }
             };
+
             pass.prepare_render(
                 device,
                 command_buffer,
@@ -465,19 +507,24 @@ impl Graph {
                 } else {
                     present_image
                 },
-                pass.depth_attachment.clone(),
+                // Todo: ugly just to get the different types of depth attachments
+                if pass.depth_attachment.is_some() {
+                    match pass.depth_attachment.as_ref().unwrap() {
+                        DepthAttachment::GraphTexture(depth_attachment) => Some(
+                            self.resources.textures[*depth_attachment]
+                                .texture
+                                .image
+                                .clone(),
+                        ),
+                        DepthAttachment::External(depth_attachment) => {
+                            Some(depth_attachment.clone())
+                        }
+                    }
+                } else {
+                    None
+                },
                 if !pass.presentation_pass {
                     extent
-                    // vk::Extent2D {
-                    //     width: self.resources.textures[pass.writes[0]]
-                    //         .texture
-                    //         .image
-                    //         .width(), // Todo
-                    //     height: self.resources.textures[pass.writes[0]]
-                    //         .texture
-                    //         .image
-                    //         .height(), // Todo
-                    // }
                 } else {
                     vk::Extent2D {
                         width: present_image[0].width(),   // Todo

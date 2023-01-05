@@ -22,7 +22,7 @@ pub fn setup_present_pass(
         .read(forward_output)
         .read(deferred_output)
         .presentation_pass(true)
-        .depth_attachment(base.depth_image.clone())
+        .external_depth_attachment(base.depth_image.clone())
         .render(
             move |device, command_buffer, _renderer, _pass, _pipeline_cache| unsafe {
                 device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);

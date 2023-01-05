@@ -9,17 +9,13 @@ use crate::image::*;
 use crate::pipeline::*;
 use crate::Renderer;
 
-enum DepthAttachment {
-    GraphTexture(TextureId),
-    External(Image)
-}
 pub struct RenderPass {
     pub pipeline_handle: PipelineId,
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
     pub reads: Vec<TextureId>,
     pub writes: Vec<TextureId>,
-    pub depth_attachment: Option<Image>,
+    pub depth_attachment: Option<DepthAttachment>,
     pub presentation_pass: bool,
     pub read_textures_descriptor_set: Option<crate::DescriptorSet>,
     pub name: String,
@@ -33,7 +29,7 @@ impl RenderPass {
         name: String,
         pipeline_handle: PipelineId,
         presentation_pass: bool,
-        depth_attachment: Option<Image>,
+        depth_attachment: Option<DepthAttachment>,
         uniforms: HashMap<String, UniformData>,
         render_func: Option<
             Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>,
