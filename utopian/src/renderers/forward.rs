@@ -16,6 +16,7 @@ pub fn setup_forward_pass(
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
     forward_output: crate::TextureId,
+    shadow_map: crate::TextureId,
 ) {
     puffin::profile_function!();
 
@@ -36,6 +37,7 @@ pub fn setup_forward_pass(
 
     graph
         .add_pass(String::from("forward_pass"), pipeline_handle)
+        .read(shadow_map)
         .write(forward_output)
         .uniforms("test_params", &(glam::Vec3::new(0.0, 0.0, 1.0)))
         .external_depth_attachment(base.depth_image.clone()) // Todo: create own Depth image

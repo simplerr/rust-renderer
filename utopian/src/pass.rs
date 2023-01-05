@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use ash::vk;
+use gltf::buffer::View;
 
 use crate::descriptor_set::DescriptorIdentifier;
 use crate::device::*;
@@ -14,7 +15,7 @@ pub struct RenderPass {
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
     pub reads: Vec<TextureId>,
-    pub writes: Vec<TextureId>,
+    pub writes: Vec<TextureWrite>,
     pub depth_attachment: Option<DepthAttachment>,
     pub presentation_pass: bool,
     pub read_textures_descriptor_set: Option<crate::DescriptorSet>,
@@ -137,7 +138,7 @@ impl RenderPass {
         device: &Device,
         command_buffer: vk::CommandBuffer,
         color_attachments: &[Image],
-        depth_attachment: Option<Image>,
+        depth_attachment: Option<(Image, ViewType)>,
         extent: vk::Extent2D,
         pipelines: &Vec<Pipeline>,
     ) {
@@ -163,7 +164,10 @@ impl RenderPass {
             .color_attachments(&color_attachments)
             .depth_attachment(&if let Some(depth_attachment) = depth_attachment {
                 vk::RenderingAttachmentInfo::builder()
-                    .image_view(depth_attachment.image_view)
+                    .image_view(match depth_attachment.1 {
+                        ViewType::Full() => depth_attachment.0.image_view,
+                        ViewType::Layer(layer) => depth_attachment.0.layer_view(layer),
+                    })
                     .image_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
                     .load_op(vk::AttachmentLoadOp::CLEAR)
                     .store_op(vk::AttachmentStoreOp::STORE)

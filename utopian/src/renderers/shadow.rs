@@ -29,7 +29,7 @@ pub fn setup_shadow_pass(
 
     graph
         .add_pass(String::from("shadow_pass"), pipeline_handle)
-        .depth_attachment(shadow_map)
+        .depth_attachment_layer(shadow_map, 2)
         .render(
             move |device, command_buffer, renderer, pass, resources| unsafe {
                 let pipeline = resources.pipeline(pass.pipeline_handle);

@@ -27,8 +27,20 @@ pub struct GraphResources {
     pub pipelines: Vec<Pipeline>,
 }
 pub enum DepthAttachment {
-    GraphTexture(TextureId),
+    GraphTexture(TextureWrite),
     External(Image),
+}
+
+#[derive(Copy, Clone)]
+pub enum ViewType {
+    Full(),
+    Layer(u32),
+}
+
+#[derive(Copy, Clone)]
+pub struct TextureWrite {
+    pub texture: TextureId,
+    pub view: ViewType,
 }
 
 pub struct Graph {
@@ -54,7 +66,7 @@ pub struct PassBuilder {
     pub name: String,
     pub pipeline_handle: PipelineId,
     pub reads: Vec<TextureId>,
-    pub writes: Vec<TextureId>,
+    pub writes: Vec<TextureWrite>,
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
     pub depth_attachment: Option<DepthAttachment>,
@@ -91,7 +103,10 @@ impl PassBuilder {
     }
 
     pub fn write(mut self, resource_id: TextureId) -> Self {
-        self.writes.push(resource_id);
+        self.writes.push(TextureWrite {
+            texture: resource_id,
+            view: ViewType::Full(),
+        });
         self
     }
 
@@ -110,7 +125,18 @@ impl PassBuilder {
     }
 
     pub fn depth_attachment(mut self, depth_attachment: TextureId) -> Self {
-        self.depth_attachment = Some(DepthAttachment::GraphTexture(depth_attachment));
+        self.depth_attachment = Some(DepthAttachment::GraphTexture(TextureWrite {
+            texture: depth_attachment,
+            view: ViewType::Full(),
+        }));
+        self
+    }
+
+    pub fn depth_attachment_layer(mut self, depth_attachment: TextureId, layer: u32) -> Self {
+        self.depth_attachment = Some(DepthAttachment::GraphTexture(TextureWrite {
+            texture: depth_attachment,
+            view: ViewType::Layer(layer),
+        }));
         self
     }
 
@@ -431,10 +457,14 @@ impl Graph {
                 let next_access = crate::synch::image_pipeline_barrier(
                     &device,
                     command_buffer,
-                    &self.resources.textures[*write].texture.image,
-                    self.resources.textures[*write].prev_access,
+                    &self.resources.textures[write.texture].texture.image,
+                    self.resources.textures[write.texture].prev_access,
                     if Image::is_depth_image_fmt(
-                        self.resources.textures[*write].texture.image.desc.format,
+                        self.resources.textures[write.texture]
+                            .texture
+                            .image
+                            .desc
+                            .format,
                     ) {
                         vk_sync::AccessType::DepthStencilAttachmentWrite
                     } else {
@@ -442,7 +472,11 @@ impl Graph {
                     },
                 );
 
-                self.resources.textures.get_mut(*write).unwrap().prev_access = next_access;
+                self.resources
+                    .textures
+                    .get_mut(write.texture)
+                    .unwrap()
+                    .prev_access = next_access;
             }
 
             if pass.presentation_pass {
@@ -458,17 +492,17 @@ impl Graph {
             let write_attachments: Vec<Image> = pass
                 .writes
                 .iter()
-                .map(|write| self.resources.textures[*write].texture.image.clone())
+                .map(|write| self.resources.textures[write.texture].texture.image.clone())
                 .collect();
 
             // Todo: very ugly just to get the extents...
             let extent = if pass.writes.len() > 0 {
                 vk::Extent2D {
-                    width: self.resources.textures[pass.writes[0]]
+                    width: self.resources.textures[pass.writes[0].texture]
                         .texture
                         .image
                         .width(),
-                    height: self.resources.textures[pass.writes[0]]
+                    height: self.resources.textures[pass.writes[0].texture]
                         .texture
                         .image
                         .height(),
@@ -477,11 +511,11 @@ impl Graph {
                 if pass.depth_attachment.is_some() {
                     match pass.depth_attachment.as_ref().unwrap() {
                         DepthAttachment::GraphTexture(depth_attachment) => vk::Extent2D {
-                            width: self.resources.textures[*depth_attachment]
+                            width: self.resources.textures[depth_attachment.texture]
                                 .texture
                                 .image
                                 .width(),
-                            height: self.resources.textures[*depth_attachment]
+                            height: self.resources.textures[depth_attachment.texture]
                                 .texture
                                 .image
                                 .height(),
@@ -510,14 +544,15 @@ impl Graph {
                 // Todo: ugly just to get the different types of depth attachments
                 if pass.depth_attachment.is_some() {
                     match pass.depth_attachment.as_ref().unwrap() {
-                        DepthAttachment::GraphTexture(depth_attachment) => Some(
-                            self.resources.textures[*depth_attachment]
+                        DepthAttachment::GraphTexture(depth_attachment) => Some((
+                            self.resources.textures[depth_attachment.texture]
                                 .texture
                                 .image
                                 .clone(),
-                        ),
+                            depth_attachment.view,
+                        )),
                         DepthAttachment::External(depth_attachment) => {
-                            Some(depth_attachment.clone())
+                            Some((depth_attachment.clone(), ViewType::Full()))
                         }
                     }
                 } else {

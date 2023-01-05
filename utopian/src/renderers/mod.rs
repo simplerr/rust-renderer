@@ -55,10 +55,12 @@ pub fn build_render_graph(
     let shadow_map = graph.create_texture(
         "shadow_map",
         device,
-        ImageDesc::new_2d_array(1024, 1024, 4, vk::Format::D32_SFLOAT)
+        ImageDesc::new_2d_array(2000, 1100, 4, vk::Format::D32_SFLOAT)
             .aspect(vk::ImageAspectFlags::DEPTH)
             .usage(
-                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST,
+                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT
+                    | vk::ImageUsageFlags::TRANSFER_DST
+                    | vk::ImageUsageFlags::SAMPLED,
             ),
     );
 
@@ -87,7 +89,14 @@ pub fn build_render_graph(
         gbuffer_pbr,
     );
 
-    crate::renderers::forward::setup_forward_pass(&device, graph, &base, &renderer, forward_output);
+    crate::renderers::forward::setup_forward_pass(
+        &device,
+        graph,
+        &base,
+        &renderer,
+        forward_output,
+        shadow_map,
+    );
 
     crate::renderers::deferred::setup_deferred_pass(
         &device,

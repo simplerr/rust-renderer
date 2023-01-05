@@ -16,9 +16,11 @@ layout (location = 5) in mat3 in_tbn;
 
 layout (location = 0) out vec4 out_color;
 
+layout (set = 2, binding = 0) uniform sampler2DArray in_shadow_map;
+
 // Todo: set=2 should be dedicated to input textures but the shader reflection
 // does not support gaps in the descriptor sets
-layout (std140, set = 2, binding = 0) uniform UBO_parameters
+layout (std140, set = 3, binding = 0) uniform UBO_parameters
 {
     vec3 color;
 } test_params;
@@ -43,6 +45,11 @@ Light lights[numLights] = {
    /* Light(lightColor, vec3(-2.0f, 1.0f, -2.0f), 0.0f, vec3(0.0f), 0.0f, vec3(0,0,1), 1.0f, vec3(0.0f), 0.0f, vec4(0.0f)), */
    /* Light(lightColor, vec3(-2.0f, 2.0f, -2.0f), 0.0f, vec3(0.0f), 0.0f, vec3(0,0,1), 1.0f, vec3(0.0f), 0.0f, vec4(0.0f)) */
 };
+
+float linearize_depth(float d, float zNear, float zFar)
+{
+    return zNear * zFar / (zFar + d * (zNear - zFar));
+}
 
 void main() {
     Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
@@ -83,5 +90,11 @@ void main() {
     vec3 color = ambient + Lo;
 
     out_color = vec4(color, 1.0f);
+
+    // Test shadow map...
+    vec2 uv = vec2(gl_FragCoord.x / view.viewport_width, gl_FragCoord.y / view.viewport_height);
+    float depth = texture(in_shadow_map, vec3(uv, 1)).r;
+    depth = linearize_depth(depth, 0.01, 20000.0);
+    out_color.rgb = vec3(depth);
 }
 
