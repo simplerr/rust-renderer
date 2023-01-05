@@ -50,11 +50,7 @@ impl Texture {
                 staging_buffer.copy_to_image(device, cb, &image);
             }
 
-            if image_desc.format == vk::Format::D32_SFLOAT
-                || image_desc.format == vk::Format::D32_SFLOAT_S8_UINT
-                || image_desc.format == vk::Format::D16_UNORM_S8_UINT
-                || image_desc.format == vk::Format::D16_UNORM
-                || image_desc.format == vk::Format::D24_UNORM_S8_UINT
+            if Image::is_depth_image_fmt(image.desc.format)
             {
                 image.transition_layout(
                     device,

@@ -9,6 +9,10 @@ use crate::image::*;
 use crate::pipeline::*;
 use crate::Renderer;
 
+enum DepthAttachment {
+    GraphTexture(TextureId),
+    External(Image)
+}
 pub struct RenderPass {
     pub pipeline_handle: PipelineId,
     pub render_func:

@@ -379,4 +379,12 @@ impl Image {
     pub fn format(&self) -> vk::Format {
         self.desc.format
     }
+
+    pub fn is_depth_image_fmt(format: vk::Format) -> bool {
+        format == vk::Format::D32_SFLOAT
+            || format == vk::Format::D32_SFLOAT_S8_UINT
+            || format == vk::Format::D16_UNORM_S8_UINT
+            || format == vk::Format::D16_UNORM
+            || format == vk::Format::D24_UNORM_S8_UINT
+    }
 }

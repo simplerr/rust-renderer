@@ -6,6 +6,7 @@ pub mod deferred;
 pub mod forward;
 pub mod gbuffer;
 pub mod present;
+pub mod shadow;
 
 pub fn build_render_graph(
     graph: &mut crate::Graph,
@@ -72,6 +73,8 @@ pub fn build_render_graph(
         device,
         ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
     );
+
+    crate::renderers::shadow::setup_shadow_pass(device, graph, base, shadow_map);
 
     crate::renderers::gbuffer::setup_gbuffer_pass(
         &device,

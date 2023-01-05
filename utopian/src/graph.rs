@@ -414,7 +414,11 @@ impl Graph {
                     command_buffer,
                     &self.resources.textures[*write].texture.image,
                     self.resources.textures[*write].prev_access,
-                    vk_sync::AccessType::ColorAttachmentWrite,
+                    if Image::is_depth_image_fmt(self.resources.textures[*write].texture.image.desc.format) {
+                        vk_sync::AccessType::DepthStencilAttachmentWrite
+                    } else {
+                        vk_sync::AccessType::ColorAttachmentWrite
+                    }
                 );
 
                 self.resources.textures.get_mut(*write).unwrap().prev_access = next_access;
@@ -436,6 +440,23 @@ impl Graph {
                 .map(|write| self.resources.textures[*write].texture.image.clone())
                 .collect();
 
+            let extent = if pass.writes.len() > 0 {
+                vk::Extent2D {
+                    width: self.resources.textures[pass.writes[0]]
+                        .texture
+                        .image
+                        .width(), // Todo
+                    height: self.resources.textures[pass.writes[0]]
+                        .texture
+                        .image
+                        .height(), // Todo
+                }
+            } else {
+                vk::Extent2D {
+                    width: pass.depth_attachment.as_ref().unwrap().width(),
+                    height: pass.depth_attachment.as_ref().unwrap().height(),
+                }
+            };
             pass.prepare_render(
                 device,
                 command_buffer,
@@ -446,16 +467,17 @@ impl Graph {
                 },
                 pass.depth_attachment.clone(),
                 if !pass.presentation_pass {
-                    vk::Extent2D {
-                        width: self.resources.textures[pass.writes[0]]
-                            .texture
-                            .image
-                            .width(), // Todo
-                        height: self.resources.textures[pass.writes[0]]
-                            .texture
-                            .image
-                            .height(), // Todo
-                    }
+                    extent
+                    // vk::Extent2D {
+                    //     width: self.resources.textures[pass.writes[0]]
+                    //         .texture
+                    //         .image
+                    //         .width(), // Todo
+                    //     height: self.resources.textures[pass.writes[0]]
+                    //         .texture
+                    //         .image
+                    //         .height(), // Todo
+                    // }
                 } else {
                     vk::Extent2D {
                         width: present_image[0].width(),   // Todo
