@@ -36,11 +36,7 @@ impl Texture {
     pub fn create(device: &Device, pixels: Option<&[u8]>, image_desc: ImageDesc) -> Texture {
         let image = Image::new_from_desc(
             device,
-            image_desc.usage(
-                vk::ImageUsageFlags::TRANSFER_DST
-                    | vk::ImageUsageFlags::SAMPLED
-                    | vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            ),
+            image_desc,
         );
 
         device.execute_and_submit(|device, cb| {
@@ -57,7 +53,20 @@ impl Texture {
                 staging_buffer.copy_to_image(device, cb, &image);
             }
 
-            image.transition_layout(device, cb, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+            if image_desc.format == vk::Format::D32_SFLOAT
+                || image_desc.format == vk::Format::D32_SFLOAT_S8_UINT
+                || image_desc.format == vk::Format::D16_UNORM_S8_UINT
+                || image_desc.format == vk::Format::D16_UNORM
+                || image_desc.format == vk::Format::D24_UNORM_S8_UINT
+            {
+                image.transition_layout(
+                    device,
+                    cb,
+                    vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+                );
+            } else {
+                image.transition_layout(device, cb, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+            }
         });
 
         let sampler_info = vk::SamplerCreateInfo {

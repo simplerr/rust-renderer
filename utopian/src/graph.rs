@@ -447,8 +447,14 @@ impl Graph {
                 pass.depth_attachment,
                 if !pass.presentation_pass {
                     vk::Extent2D {
-                        width: self.resources.textures[pass.writes[0]].texture.image.width(), // Todo
-                        height: self.resources.textures[pass.writes[0]].texture.image.height(), // Todo
+                        width: self.resources.textures[pass.writes[0]]
+                            .texture
+                            .image
+                            .width(), // Todo
+                        height: self.resources.textures[pass.writes[0]]
+                            .texture
+                            .image
+                            .height(), // Todo
                     }
                 } else {
                     vk::Extent2D {

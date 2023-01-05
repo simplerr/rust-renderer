@@ -26,12 +26,10 @@ pub fn setup_forward_pass(
         ),
         vertex_input_attribute_descriptions:
             crate::Primitive::get_vertex_input_attribute_descriptions(),
-        color_attachment_formats: vec![
-            graph.resources.textures[forward_output]
-                .texture
-                .image
-                .format(),
-        ],
+        color_attachment_formats: vec![graph.resources.textures[forward_output]
+            .texture
+            .image
+            .format()],
         // Todo:
         depth_stencil_attachment_format: base.depth_image.format(),
     });

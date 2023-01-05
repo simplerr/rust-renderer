@@ -137,7 +137,7 @@ impl Buffer {
         let buffer_copy_regions = vk::BufferImageCopy::builder()
             .image_subresource(
                 vk::ImageSubresourceLayers::builder()
-                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .aspect_mask(image.desc.aspect_flags)
                     .layer_count(1)
                     .build(),
             )

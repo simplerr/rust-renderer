@@ -3,7 +3,7 @@ use ash::vk::{AccessFlags, ImageLayout, PipelineStageFlags};
 
 use crate::Device;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct ImageDesc {
     pub width: u32,
     pub height: u32,
@@ -25,17 +25,14 @@ impl ImageDesc {
             format,
             image_type: vk::ImageType::TYPE_2D,
             aspect_flags: vk::ImageAspectFlags::COLOR,
-            usage: vk::ImageUsageFlags::default(),
+            usage: vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::SAMPLED
+                | vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            // Todo: better way to set common usage flags
         }
     }
 
-    pub fn new_2d_array(
-        width: u32,
-        height: u32,
-        array_layers: u32,
-        format: vk::Format,
-        usage: vk::ImageUsageFlags,
-    ) -> Self {
+    pub fn new_2d_array(width: u32, height: u32, array_layers: u32, format: vk::Format) -> Self {
         ImageDesc {
             width,
             height,
@@ -44,7 +41,10 @@ impl ImageDesc {
             format,
             image_type: vk::ImageType::TYPE_2D,
             aspect_flags: vk::ImageAspectFlags::COLOR,
-            usage: vk::ImageUsageFlags::default(),
+            usage: vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::SAMPLED
+                | vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            // Todo: better way to set common usage flags
         }
     }
 
@@ -73,6 +73,8 @@ impl Image {
     pub fn new_from_desc(device: &Device, desc: ImageDesc) -> Image {
         puffin::profile_function!();
 
+        println!("{:?}", desc);
+
         unsafe {
             // Create image
             let initial_layout = vk::ImageLayout::UNDEFINED;
@@ -93,6 +95,9 @@ impl Image {
                 initial_layout,
                 ..Default::default()
             };
+            if (desc.format == vk::Format::D32_SFLOAT) {
+                println!("{:#?}", image_create_info);
+            }
             let image = device
                 .handle
                 .create_image(&image_create_info, None)
@@ -186,14 +191,14 @@ impl Image {
     pub fn copy(&self, device: &Device, cb: vk::CommandBuffer, dest: &Image) {
         let copy_region = vk::ImageCopy::builder()
             .src_subresource(vk::ImageSubresourceLayers {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
+                aspect_mask: self.desc.aspect_flags,
                 mip_level: 0,
                 base_array_layer: 0,
                 layer_count: 1,
             })
             .src_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
             .dst_subresource(vk::ImageSubresourceLayers {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
+                aspect_mask: dest.desc.aspect_flags,
                 mip_level: 0,
                 base_array_layer: 0,
                 layer_count: 1,
@@ -268,6 +273,11 @@ impl Image {
                 AccessFlags::COLOR_ATTACHMENT_READ,
                 PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
             ),
+            ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL => (
+                // Note: random flags, no idea if correct
+                AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ,
+                PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+            ),
             _ => unimplemented!(),
         };
 
@@ -277,7 +287,7 @@ impl Image {
             new_layout,
             image: self.image,
             subresource_range: vk::ImageSubresourceRange {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
+                aspect_mask: self.desc.aspect_flags,
                 level_count: 1,
                 layer_count: 1,
                 ..Default::default()

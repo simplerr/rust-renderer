@@ -50,6 +50,17 @@ pub fn build_render_graph(
         ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
     );
 
+    // Shadow map
+    let shadow_map = graph.create_texture(
+        "shadow_map",
+        device,
+        ImageDesc::new_2d(1024, 1024, vk::Format::D32_SFLOAT)
+            .aspect(vk::ImageAspectFlags::DEPTH)
+            .usage(
+                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST,
+            ),
+    );
+
     // Forward & deferred output textures
     let forward_output = graph.create_texture(
         "forward_output",
