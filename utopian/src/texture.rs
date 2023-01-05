@@ -34,10 +34,7 @@ impl Texture {
     }
 
     pub fn create(device: &Device, pixels: Option<&[u8]>, image_desc: ImageDesc) -> Texture {
-        let image = Image::new_from_desc(
-            device,
-            image_desc,
-        );
+        let image = Image::new_from_desc(device, image_desc);
 
         device.execute_and_submit(|device, cb| {
             image.transition_layout(device, cb, vk::ImageLayout::TRANSFER_DST_OPTIMAL);

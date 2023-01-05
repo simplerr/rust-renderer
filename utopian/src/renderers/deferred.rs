@@ -39,7 +39,7 @@ pub fn setup_deferred_pass(
         .read(gbuffer_pbr)
         .write(deferred_output)
         .uniforms("test_params_2", &(glam::Vec3::new(1.0, 0.0, 0.0)))
-        .depth_attachment(base.depth_image)
+        .depth_attachment(base.depth_image.clone())
         .render(
             move |device, command_buffer, renderer, pass, resources| unsafe {
                 let pipeline = resources.pipeline(pass.pipeline_handle);

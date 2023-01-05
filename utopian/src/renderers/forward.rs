@@ -38,7 +38,7 @@ pub fn setup_forward_pass(
         .add_pass(String::from("forward_pass"), pipeline_handle)
         .write(forward_output)
         .uniforms("test_params", &(glam::Vec3::new(0.0, 0.0, 1.0)))
-        .depth_attachment(base.depth_image) // Todo: create own Depth image
+        .depth_attachment(base.depth_image.clone()) // Todo: create own Depth image
         .render(
             move |device, command_buffer, renderer, pass, resources| unsafe {
                 let pipeline = resources.pipeline(pass.pipeline_handle);

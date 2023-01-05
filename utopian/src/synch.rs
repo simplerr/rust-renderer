@@ -25,8 +25,8 @@ pub fn image_pipeline_barrier(
             dst_queue_family_index: 0,
             image: image.image, // Todo transition all images
             range: vk::ImageSubresourceRange::builder()
-                .aspect_mask(vk::ImageAspectFlags::COLOR)
-                .layer_count(1)
+                .aspect_mask(image.desc.aspect_flags)
+                .layer_count(image.desc.array_layers)
                 .level_count(1)
                 .build(),
         }],

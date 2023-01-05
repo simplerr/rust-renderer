@@ -60,10 +60,11 @@ impl ImageDesc {
 }
 
 // Todo: Hack
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Image {
     pub image: vk::Image,
     pub image_view: vk::ImageView,
+    pub layer_views: Vec<vk::ImageView>,
     pub device_memory: vk::DeviceMemory,
     pub current_layout: vk::ImageLayout,
     pub desc: ImageDesc,
@@ -123,12 +124,45 @@ impl Image {
                 .bind_image_memory(image, device_memory, 0)
                 .expect("Unable to bind device memory to image");
 
-            let image_view =
-                Image::create_image_view(device, image, desc.format, desc.aspect_flags);
+            let view_type = if desc.image_type == vk::ImageType::TYPE_2D && desc.array_layers == 1 {
+                vk::ImageViewType::TYPE_2D
+            } else if desc.image_type == vk::ImageType::TYPE_2D && desc.array_layers > 1 {
+                vk::ImageViewType::TYPE_2D_ARRAY
+            } else {
+                unimplemented!()
+            };
+
+            let image_view = Image::create_image_view(
+                device,
+                image,
+                desc.format,
+                desc.aspect_flags,
+                view_type,
+                0,
+                desc.array_layers,
+            );
+
+            let mut layer_views = vec![];
+
+            if desc.array_layers > 1 {
+                for layer in 0..desc.array_layers {
+                    let view = Image::create_image_view(
+                        device,
+                        image,
+                        desc.format,
+                        desc.aspect_flags,
+                        view_type,
+                        layer,
+                        1,
+                    );
+                    layer_views.push(view);
+                }
+            }
 
             Image {
                 image,
                 image_view,
+                layer_views,
                 device_memory,
                 current_layout: initial_layout,
                 desc,
@@ -137,11 +171,28 @@ impl Image {
     }
 
     pub fn new_from_handle(device: &Device, image: vk::Image, desc: ImageDesc) -> Image {
-        let image_view = Image::create_image_view(device, image, desc.format, desc.aspect_flags);
+        let view_type = if desc.image_type == vk::ImageType::TYPE_2D && desc.array_layers == 1 {
+            vk::ImageViewType::TYPE_2D
+        } else if desc.image_type == vk::ImageType::TYPE_2D && desc.array_layers > 1 {
+            vk::ImageViewType::TYPE_2D_ARRAY
+        } else {
+            unimplemented!()
+        };
+
+        let image_view = Image::create_image_view(
+            device,
+            image,
+            desc.format,
+            desc.aspect_flags,
+            view_type,
+            0,
+            1,
+        );
 
         Image {
             image,
             image_view,
+            layer_views: vec![],
             device_memory: vk::DeviceMemory::null(),
             current_layout: vk::ImageLayout::UNDEFINED,
             desc,
@@ -153,6 +204,9 @@ impl Image {
         image: vk::Image,
         format: vk::Format,
         aspect_flags: vk::ImageAspectFlags,
+        view_type: vk::ImageViewType,
+        base_array_layer: u32,
+        layer_count: u32,
     ) -> vk::ImageView {
         // Create image view
         let components = match aspect_flags {
@@ -167,13 +221,14 @@ impl Image {
         };
 
         let image_view_info = vk::ImageViewCreateInfo {
-            view_type: vk::ImageViewType::TYPE_2D,
+            view_type,
             format,
             components,
             subresource_range: vk::ImageSubresourceRange {
                 aspect_mask: aspect_flags,
+                base_array_layer,
                 level_count: 1,
-                layer_count: 1,
+                layer_count,
                 ..Default::default()
             },
             image,
@@ -289,7 +344,7 @@ impl Image {
             subresource_range: vk::ImageSubresourceRange {
                 aspect_mask: self.desc.aspect_flags,
                 level_count: 1,
-                layer_count: 1,
+                layer_count: self.desc.array_layers,
                 ..Default::default()
             },
             ..Default::default()
@@ -306,6 +361,11 @@ impl Image {
                 &[texture_barrier],
             );
         }
+    }
+
+    pub fn layer_view(&self, layer: u32) -> vk::ImageView {
+        assert!(layer < self.layer_views.len() as u32);
+        self.layer_views[layer as usize]
     }
 
     pub fn width(&self) -> u32 {

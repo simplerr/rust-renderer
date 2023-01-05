@@ -373,7 +373,7 @@ impl Application {
                             device,
                             command_buffer,
                             &self.renderer,
-                            &[self.base.present_images[present_index as usize]],
+                            &[self.base.present_images[present_index as usize].clone()],
                         );
                     }
 

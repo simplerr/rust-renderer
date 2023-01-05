@@ -59,7 +59,7 @@ pub fn setup_gbuffer_pass(
         .write(gbuffer_albedo)
         .write(gbuffer_pbr)
         //.depth_attachment(depth_image)
-        .depth_attachment(base.depth_image) // Todo: create own Depth image
+        .depth_attachment(base.depth_image.clone()) // Todo: create own Depth image
         .render(
             move |device, command_buffer, renderer, pass, resources| unsafe {
                 let pipeline = resources.pipeline(pass.pipeline_handle);

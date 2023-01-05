@@ -54,7 +54,7 @@ pub fn build_render_graph(
     let shadow_map = graph.create_texture(
         "shadow_map",
         device,
-        ImageDesc::new_2d(1024, 1024, vk::Format::D32_SFLOAT)
+        ImageDesc::new_2d_array(1024, 1024, 4, vk::Format::D32_SFLOAT)
             .aspect(vk::ImageAspectFlags::DEPTH)
             .usage(
                 vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST,

@@ -433,7 +433,7 @@ impl Graph {
             let write_attachments: Vec<Image> = pass
                 .writes
                 .iter()
-                .map(|write| self.resources.textures[*write].texture.image)
+                .map(|write| self.resources.textures[*write].texture.image.clone())
                 .collect();
 
             pass.prepare_render(
@@ -444,7 +444,7 @@ impl Graph {
                 } else {
                     present_image
                 },
-                pass.depth_attachment,
+                pass.depth_attachment.clone(),
                 if !pass.presentation_pass {
                     vk::Extent2D {
                         width: self.resources.textures[pass.writes[0]]
