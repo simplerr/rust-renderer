@@ -390,13 +390,10 @@ impl Raytracing {
         screen_size: vk::Extent2D,
         format: vk::Format,
     ) -> Image {
-        let storage_image = Image::new(
+        let storage_image = Image::new_from_desc(
             device,
-            screen_size.width,
-            screen_size.height,
-            format,
-            vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE,
-            vk::ImageAspectFlags::COLOR,
+            ImageDesc::new_2d(screen_size.width, screen_size.height, format)
+                .usage(vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE),
         );
 
         device.execute_and_submit(|device, cb| {

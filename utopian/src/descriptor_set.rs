@@ -93,7 +93,7 @@ impl DescriptorSet {
 
         DescriptorSet {
             handle: descriptor_sets[0],
-            pool : descriptor_pool,
+            pool: descriptor_pool,
             binding_map,
         }
     }

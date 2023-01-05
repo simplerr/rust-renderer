@@ -1,5 +1,7 @@
 use ash::vk;
 
+use crate::image::ImageDesc;
+
 pub mod deferred;
 pub mod forward;
 pub mod gbuffer;
@@ -26,14 +28,39 @@ pub fn build_render_graph(
     // Todo: cache textures
 
     // G-buffer textures
-    let gbuffer_position = graph.create_texture("gbuffer_position", device, extent, rgba32_fmt);
-    let gbuffer_normal = graph.create_texture("gbuffer_normal", device, extent, rgba32_fmt);
-    let gbuffer_albedo = graph.create_texture("gbuffer_albedo", device, extent, rgba8_format);
-    let gbuffer_pbr = graph.create_texture("gbuffer_pbr", device, extent, rgba32_fmt);
+    let gbuffer_position = graph.create_texture(
+        "gbuffer_position",
+        device,
+        ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
+    );
+
+    let gbuffer_normal = graph.create_texture(
+        "gbuffer_normal",
+        device,
+        ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
+    );
+    let gbuffer_albedo = graph.create_texture(
+        "gbuffer_albedo",
+        device,
+        ImageDesc::new_2d(extent[0], extent[1], rgba8_format),
+    );
+    let gbuffer_pbr = graph.create_texture(
+        "gbuffer_pbr",
+        device,
+        ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
+    );
 
     // Forward & deferred output textures
-    let forward_output = graph.create_texture("forward_output", device, extent, rgba32_fmt);
-    let deferred_output = graph.create_texture("deferred_output", device, extent, rgba32_fmt);
+    let forward_output = graph.create_texture(
+        "forward_output",
+        device,
+        ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
+    );
+    let deferred_output = graph.create_texture(
+        "deferred_output",
+        device,
+        ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
+    );
 
     crate::renderers::gbuffer::setup_gbuffer_pass(
         &device,

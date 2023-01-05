@@ -142,8 +142,8 @@ impl Buffer {
                     .build(),
             )
             .image_extent(vk::Extent3D {
-                width: image.width,
-                height: image.height,
+                width: image.width(),
+                height: image.height(),
                 depth: 1,
             });
 

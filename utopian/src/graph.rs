@@ -184,10 +184,18 @@ impl Graph {
 
         for pass in &self.passes {
             if let Some(descriptor_set) = &pass.uniforms_descriptor_set {
-                unsafe { device.handle.destroy_descriptor_pool(descriptor_set.pool, None) };
+                unsafe {
+                    device
+                        .handle
+                        .destroy_descriptor_pool(descriptor_set.pool, None)
+                };
             }
             if let Some(descriptor_set) = &pass.read_textures_descriptor_set {
-                unsafe { device.handle.destroy_descriptor_pool(descriptor_set.pool, None) };
+                unsafe {
+                    device
+                        .handle
+                        .destroy_descriptor_pool(descriptor_set.pool, None)
+                };
             }
         }
 
@@ -245,7 +253,6 @@ impl Graph {
 
     pub fn add_pass(&mut self, name: String, pipeline_handle: PipelineId) -> PassBuilder {
         PassBuilder {
-            //graph: self,
             name,
             pipeline_handle,
             reads: vec![],
@@ -261,19 +268,18 @@ impl Graph {
         &mut self,
         debug_name: &str,
         device: &crate::Device,
-        extent: [u32; 2],
-        format: vk::Format,
+        image_desc: ImageDesc,
     ) -> TextureId {
         puffin::profile_function!();
 
         // Todo: Cannot rely on debug_name being unique
         // Todo: shall use a Hash to include extent and format of the texture
-        self.resources.textures
+        self.resources
+            .textures
             .iter()
             .position(|iter| iter.texture.debug_name == debug_name)
             .unwrap_or_else(|| {
-                let mut texture =
-                    crate::Texture::create(&device, None, extent[0], extent[1], format);
+                let mut texture = crate::Texture::create(&device, None, image_desc);
                 texture.set_debug_name(device, debug_name);
 
                 self.resources.textures.push(GraphTexture {
@@ -293,7 +299,8 @@ impl Graph {
     ) -> BufferId {
         // Todo: Cannot rely on debug_name being unique
 
-        self.resources.buffers
+        self.resources
+            .buffers
             .iter()
             .position(|iter| iter.debug_name == debug_name)
             .unwrap_or_else(|| {
@@ -338,8 +345,16 @@ impl Graph {
         }
 
         for pass in &mut self.passes {
-            pass.try_create_read_texture_descriptor_set(device, &self.resources.pipelines, &self.resources.textures);
-            pass.try_create_uniform_buffer_descriptor_set(device, &self.resources.pipelines, &self.resources.buffers);
+            pass.try_create_read_texture_descriptor_set(
+                device,
+                &self.resources.pipelines,
+                &self.resources.textures,
+            );
+            pass.try_create_uniform_buffer_descriptor_set(
+                device,
+                &self.resources.pipelines,
+                &self.resources.buffers,
+            );
 
             // Todo: free descriptor sets
 
@@ -432,13 +447,13 @@ impl Graph {
                 pass.depth_attachment,
                 if !pass.presentation_pass {
                     vk::Extent2D {
-                        width: self.resources.textures[pass.writes[0]].texture.image.width, // Todo
-                        height: self.resources.textures[pass.writes[0]].texture.image.height, // Todo
+                        width: self.resources.textures[pass.writes[0]].texture.image.width(), // Todo
+                        height: self.resources.textures[pass.writes[0]].texture.image.height(), // Todo
                     }
                 } else {
                     vk::Extent2D {
-                        width: present_image[0].width,   // Todo
-                        height: present_image[0].height, // Todo
+                        width: present_image[0].width(),   // Todo
+                        height: present_image[0].height(), // Todo
                     }
                 },
                 &self.resources.pipelines,

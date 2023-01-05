@@ -347,21 +347,24 @@ impl VulkanBase {
                     Image::new_from_handle(
                         device,
                         image,
-                        surface_resolution.width,
-                        surface_resolution.height,
-                        surface_format.format,
-                        vk::ImageAspectFlags::COLOR,
+                        ImageDesc::new_2d(
+                            surface_resolution.width,
+                            surface_resolution.height,
+                            surface_format.format,
+                        ),
                     )
                 })
                 .collect();
 
-            let depth_image = Image::new(
+            let depth_image = Image::new_from_desc(
                 device,
-                surface_resolution.width,
-                surface_resolution.height,
-                vk::Format::D32_SFLOAT,
-                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-                vk::ImageAspectFlags::DEPTH,
+                ImageDesc::new_2d(
+                    surface_resolution.width,
+                    surface_resolution.height,
+                    vk::Format::D32_SFLOAT,
+                )
+                .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
+                .aspect(vk::ImageAspectFlags::DEPTH),
             );
 
             device.execute_and_submit(|device, cb| {

@@ -24,8 +24,13 @@ pub fn setup_deferred_pass(
         fragment_path: "utopian/shaders/deferred/deferred.frag",
         vertex_input_binding_descriptions: vec![],
         vertex_input_attribute_descriptions: vec![],
-        color_attachment_formats: vec![graph.resources.textures[deferred_output].texture.image.format],
-        depth_stencil_attachment_format: base.depth_image.format,
+        color_attachment_formats: vec![
+            graph.resources.textures[deferred_output]
+                .texture
+                .image
+                .format(),
+        ],
+        depth_stencil_attachment_format: base.depth_image.format(),
     });
 
     graph

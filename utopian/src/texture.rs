@@ -25,9 +25,7 @@ impl Texture {
         let mut texture = Texture::create(
             device,
             Some(&image_data),
-            width,
-            height,
-            vk::Format::R8G8B8A8_UNORM,
+            ImageDesc::new_2d(width, height, vk::Format::R8G8B8A8_UNORM),
         );
 
         texture.set_debug_name(device, path);
@@ -35,22 +33,14 @@ impl Texture {
         texture
     }
 
-    pub fn create(
-        device: &Device,
-        pixels: Option<&[u8]>,
-        width: u32,
-        height: u32,
-        format: vk::Format,
-    ) -> Texture {
-        let image = Image::new(
+    pub fn create(device: &Device, pixels: Option<&[u8]>, image_desc: ImageDesc) -> Texture {
+        let image = Image::new_from_desc(
             device,
-            width,
-            height,
-            format,
-            vk::ImageUsageFlags::TRANSFER_DST
-                | vk::ImageUsageFlags::SAMPLED
-                | vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            vk::ImageAspectFlags::COLOR,
+            image_desc.usage(
+                vk::ImageUsageFlags::TRANSFER_DST
+                    | vk::ImageUsageFlags::SAMPLED
+                    | vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            ),
         );
 
         device.execute_and_submit(|device, cb| {

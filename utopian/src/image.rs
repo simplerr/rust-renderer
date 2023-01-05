@@ -3,6 +3,62 @@ use ash::vk::{AccessFlags, ImageLayout, PipelineStageFlags};
 
 use crate::Device;
 
+#[derive(Copy, Clone)]
+pub struct ImageDesc {
+    pub width: u32,
+    pub height: u32,
+    pub depth: u32,
+    pub array_layers: u32,
+    pub format: vk::Format,
+    pub image_type: vk::ImageType,
+    pub aspect_flags: vk::ImageAspectFlags,
+    pub usage: vk::ImageUsageFlags,
+}
+
+impl ImageDesc {
+    pub fn new_2d(width: u32, height: u32, format: vk::Format) -> Self {
+        ImageDesc {
+            width,
+            height,
+            depth: 1,
+            array_layers: 1,
+            format,
+            image_type: vk::ImageType::TYPE_2D,
+            aspect_flags: vk::ImageAspectFlags::COLOR,
+            usage: vk::ImageUsageFlags::default(),
+        }
+    }
+
+    pub fn new_2d_array(
+        width: u32,
+        height: u32,
+        array_layers: u32,
+        format: vk::Format,
+        usage: vk::ImageUsageFlags,
+    ) -> Self {
+        ImageDesc {
+            width,
+            height,
+            depth: 1,
+            array_layers,
+            format,
+            image_type: vk::ImageType::TYPE_2D,
+            aspect_flags: vk::ImageAspectFlags::COLOR,
+            usage: vk::ImageUsageFlags::default(),
+        }
+    }
+
+    pub fn aspect(mut self, aspect_flags: vk::ImageAspectFlags) -> Self {
+        self.aspect_flags = aspect_flags;
+        self
+    }
+
+    pub fn usage(mut self, usage_flags: vk::ImageUsageFlags) -> Self {
+        self.usage = usage_flags;
+        self
+    }
+}
+
 // Todo: Hack
 #[derive(Copy, Clone)]
 pub struct Image {
@@ -10,20 +66,11 @@ pub struct Image {
     pub image_view: vk::ImageView,
     pub device_memory: vk::DeviceMemory,
     pub current_layout: vk::ImageLayout,
-    pub format: vk::Format,
-    pub width: u32,
-    pub height: u32,
+    pub desc: ImageDesc,
 }
 
 impl Image {
-    pub fn new(
-        device: &Device,
-        width: u32,
-        height: u32,
-        format: vk::Format,
-        usage: vk::ImageUsageFlags,
-        aspect_flags: vk::ImageAspectFlags,
-    ) -> Image {
+    pub fn new_from_desc(device: &Device, desc: ImageDesc) -> Image {
         puffin::profile_function!();
 
         unsafe {
@@ -31,17 +78,17 @@ impl Image {
             let initial_layout = vk::ImageLayout::UNDEFINED;
             let image_create_info = vk::ImageCreateInfo {
                 image_type: vk::ImageType::TYPE_2D,
-                format,
+                format: desc.format,
                 extent: vk::Extent3D {
-                    width,
-                    height,
+                    width: desc.width,
+                    height: desc.height,
                     depth: 1,
                 },
                 mip_levels: 1,
-                array_layers: 1,
+                array_layers: desc.array_layers,
                 samples: vk::SampleCountFlags::TYPE_1,
                 tiling: vk::ImageTiling::OPTIMAL,
-                usage,
+                usage: desc.usage,
                 sharing_mode: vk::SharingMode::EXCLUSIVE,
                 initial_layout,
                 ..Default::default()
@@ -71,38 +118,28 @@ impl Image {
                 .bind_image_memory(image, device_memory, 0)
                 .expect("Unable to bind device memory to image");
 
-            let image_view = Image::create_image_view(device, image, format, aspect_flags);
+            let image_view =
+                Image::create_image_view(device, image, desc.format, desc.aspect_flags);
 
             Image {
                 image,
                 image_view,
                 device_memory,
                 current_layout: initial_layout,
-                format,
-                width,
-                height,
+                desc,
             }
         }
     }
 
-    pub fn new_from_handle(
-        device: &Device,
-        image: vk::Image,
-        width: u32,
-        height: u32,
-        format: vk::Format,
-        aspect_flags: vk::ImageAspectFlags,
-    ) -> Image {
-        let image_view = Image::create_image_view(device, image, format, aspect_flags);
+    pub fn new_from_handle(device: &Device, image: vk::Image, desc: ImageDesc) -> Image {
+        let image_view = Image::create_image_view(device, image, desc.format, desc.aspect_flags);
 
         Image {
             image,
             image_view,
             device_memory: vk::DeviceMemory::null(),
             current_layout: vk::ImageLayout::UNDEFINED,
-            format,
-            width,
-            height,
+            desc,
         }
     }
 
@@ -163,8 +200,8 @@ impl Image {
             })
             .dst_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
             .extent(vk::Extent3D {
-                width: self.width,
-                height: self.height,
+                width: self.desc.width,
+                height: self.desc.height,
                 depth: 1,
             })
             .build();
@@ -259,5 +296,17 @@ impl Image {
                 &[texture_barrier],
             );
         }
+    }
+
+    pub fn width(&self) -> u32 {
+        self.desc.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.desc.height
+    }
+
+    pub fn format(&self) -> vk::Format {
+        self.desc.format
     }
 }

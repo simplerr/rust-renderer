@@ -13,8 +13,8 @@ pub fn setup_present_pass(
         fragment_path: "utopian/shaders/present/present.frag",
         vertex_input_binding_descriptions: vec![],
         vertex_input_attribute_descriptions: vec![],
-        color_attachment_formats: vec![base.present_images[0].format],
-        depth_stencil_attachment_format: base.depth_image.format,
+        color_attachment_formats: vec![base.present_images[0].format()],
+        depth_stencil_attachment_format: base.depth_image.format(),
     });
 
     graph

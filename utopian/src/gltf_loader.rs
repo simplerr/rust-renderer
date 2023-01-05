@@ -2,6 +2,7 @@ use ash::vk;
 use glam::{Mat4, Vec2, Vec3, Vec4};
 
 use crate::device::*;
+use crate::image::ImageDesc;
 use crate::primitive::*;
 use crate::texture::*;
 
@@ -194,9 +195,7 @@ pub fn load_gltf(device: &Device, path: &str) -> Model {
         let texture = Texture::create(
             device,
             Some(&image.pixels),
-            image.width,
-            image.height,
-            vk::Format::R8G8B8A8_UNORM,
+            ImageDesc::new_2d(image.width, image.height, vk::Format::R8G8B8A8_UNORM),
         );
 
         model.textures.push(texture);
