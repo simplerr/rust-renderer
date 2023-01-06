@@ -93,7 +93,7 @@ void main() {
 
     // Test shadow map...
     vec2 uv = vec2(gl_FragCoord.x / view.viewport_width, gl_FragCoord.y / view.viewport_height);
-    float depth = texture(in_shadow_map, vec3(uv, 1)).r;
+    float depth = texture(in_shadow_map, vec3(uv, 0)).r;
     depth = linearize_depth(depth, 0.01, 20000.0);
     out_color.rgb = vec3(depth);
 }

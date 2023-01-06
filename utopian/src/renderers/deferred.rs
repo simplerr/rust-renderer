@@ -44,16 +44,6 @@ pub fn setup_deferred_pass(
             move |device, command_buffer, renderer, pass, resources| unsafe {
                 let pipeline = resources.pipeline(pass.pipeline_handle);
 
-                // Todo: move to common place
-                device.handle.cmd_bind_descriptor_sets(
-                    command_buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    pipeline.pipeline_layout,
-                    crate::DESCRIPTOR_SET_INDEX_BINDLESS,
-                    &[renderer.bindless_descriptor_set],
-                    &[],
-                );
-
                 device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
             },
         )

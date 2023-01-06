@@ -26,6 +26,11 @@ layout(push_constant) uniform PushConsts {
    ivec3 pad;
 } pushConsts;
 
+layout (std140, set = 2, binding = 0) uniform UBO_parameters
+{
+    mat4 matrix;
+} cascade_view_projection;
+
 void main() {
     Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
     Vertex vertex = verticesSSBO[mesh.vertex_buffer].vertices[gl_VertexIndex];
@@ -43,7 +48,8 @@ void main() {
     out_color = vertex.color;
     out_normal = mat3(transpose(inverse(pushConsts.world))) * vertex.normal.xyz;
     out_tangent = vertex.tangent;
-    gl_Position = view.projection * view.view * pushConsts.world * vec4(vertex.pos.xyz, 1.0);
+    //gl_Position = view.projection * view.view * pushConsts.world * vec4(vertex.pos.xyz, 1.0);
+    gl_Position = cascade_view_projection.matrix * pushConsts.world * vec4(vertex.pos.xyz, 1.0);
 #else
     vec3 bitangentL = cross(normal.xyz, tangent.xyz);
     vec3 T = normalize(mat3(pushConsts.world) * tangent.xyz);

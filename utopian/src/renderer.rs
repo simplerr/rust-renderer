@@ -287,4 +287,64 @@ impl Renderer {
 
         gpu_index
     }
+
+    pub fn draw_meshes(
+        &self,
+        device: &Device,
+        command_buffer: vk::CommandBuffer,
+        pipeline_layout: vk::PipelineLayout,
+    ) {
+        #[allow(dead_code)]
+        struct PushConstants {
+            world: glam::Mat4,
+            color: glam::Vec4,
+            mesh_index: u32,
+            pad: [u32; 3],
+        }
+
+        unsafe {
+            for instance in &self.instances {
+                for (i, mesh) in instance.model.meshes.iter().enumerate() {
+                    let push_data = PushConstants {
+                        world: instance.transform * instance.model.transforms[i],
+                        color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
+                        mesh_index: mesh.gpu_mesh,
+                        pad: [0; 3],
+                    };
+
+                    device.handle.cmd_push_constants(
+                        command_buffer,
+                        pipeline_layout,
+                        vk::ShaderStageFlags::ALL,
+                        0,
+                        std::slice::from_raw_parts(
+                            &push_data as *const _ as *const u8,
+                            std::mem::size_of_val(&push_data),
+                        ),
+                    );
+
+                    device.handle.cmd_bind_vertex_buffers(
+                        command_buffer,
+                        0,
+                        &[mesh.primitive.vertex_buffer.buffer],
+                        &[0],
+                    );
+                    device.handle.cmd_bind_index_buffer(
+                        command_buffer,
+                        mesh.primitive.index_buffer.buffer,
+                        0,
+                        vk::IndexType::UINT32,
+                    );
+                    device.handle.cmd_draw_indexed(
+                        command_buffer,
+                        mesh.primitive.indices.len() as u32,
+                        1,
+                        0,
+                        0,
+                        1,
+                    );
+                }
+            }
+        }
+    }
 }

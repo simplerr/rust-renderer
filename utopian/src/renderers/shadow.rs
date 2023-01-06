@@ -27,66 +27,41 @@ pub fn setup_shadow_pass(
         depth_stencil_attachment_format: base.depth_image.format(),
     });
 
-    graph
-        .add_pass(String::from("shadow_pass"), pipeline_handle)
-        .depth_attachment_layer(shadow_map, 2)
-        .render(
-            move |device, command_buffer, renderer, pass, resources| unsafe {
-                let pipeline = resources.pipeline(pass.pipeline_handle);
+    let cascade_directions = [
+        glam::Vec3::new(1.0, 0.0, 0.0),
+        glam::Vec3::new(0.0, 0.0, 1.0),
+        glam::Vec3::new(-1.0, 0.0, 0.0),
+        glam::Vec3::new(0.0, 0.0, -1.0),
+    ];
 
-                // Todo: move to common place
-                device.handle.cmd_bind_descriptor_sets(
-                    command_buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    pipeline.pipeline_layout,
-                    crate::DESCRIPTOR_SET_INDEX_BINDLESS,
-                    &[renderer.bindless_descriptor_set],
-                    &[],
-                );
+    let num_cascades = 4;
+    for cascade in 0..num_cascades {
+        let view_matrix = glam::Mat4::look_at_rh(
+            glam::Vec3::new(0.0, 0.0, 0.0),
+            cascade_directions[cascade],
+            glam::Vec3::new(0.0, 1.0, 0.0),
+        );
 
-                for instance in &renderer.instances {
-                    for (i, mesh) in instance.model.meshes.iter().enumerate() {
-                        let push_data = PushConstants {
-                            world: instance.transform * instance.model.transforms[i],
-                            color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
-                            mesh_index: mesh.gpu_mesh,
-                            pad: [0; 3],
-                        };
+        let projection_matrix = glam::Mat4::perspective_rh(
+            f32::to_radians(60.0),
+            2000.0 / 1100.0,
+            0.01,
+            20000.0,
+        );
 
-                        device.handle.cmd_push_constants(
-                            command_buffer,
-                            pipeline.pipeline_layout,
-                            vk::ShaderStageFlags::ALL,
-                            0,
-                            std::slice::from_raw_parts(
-                                &push_data as *const _ as *const u8,
-                                std::mem::size_of_val(&push_data),
-                            ),
-                        );
+        let view_projection_matrix = projection_matrix * view_matrix;
+        graph
+            .add_pass(format!("shadow_pass_{cascade}"), pipeline_handle)
+            // Todo: only one uniform buffer with this name is created!
+            .uniforms("cascade_view_projection", &view_projection_matrix)
+            .depth_attachment_layer(shadow_map, cascade as u32)
+            .render(
+                move |device, command_buffer, renderer, pass, resources| {
+                    let pipeline = resources.pipeline(pass.pipeline_handle);
 
-                        device.handle.cmd_bind_vertex_buffers(
-                            command_buffer,
-                            0,
-                            &[mesh.primitive.vertex_buffer.buffer],
-                            &[0],
-                        );
-                        device.handle.cmd_bind_index_buffer(
-                            command_buffer,
-                            mesh.primitive.index_buffer.buffer,
-                            0,
-                            vk::IndexType::UINT32,
-                        );
-                        device.handle.cmd_draw_indexed(
-                            command_buffer,
-                            mesh.primitive.indices.len() as u32,
-                            1,
-                            0,
-                            0,
-                            1,
-                        );
-                    }
-                }
-            },
-        )
-        .build(&device, graph);
+                    renderer.draw_meshes(device, command_buffer, pipeline.pipeline_layout);
+                },
+            )
+            .build(&device, graph);
+    }
 }

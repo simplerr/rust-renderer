@@ -569,8 +569,20 @@ impl Graph {
                 &self.resources.pipelines,
             );
 
+            // Bind descriptor sets that are used by all passes.
+            // This includes bindless resources, view data, input textures
+            // and uniform buffers from each pass with constants.
             // Todo: this could be moved outside the pass loop
             unsafe {
+                device.handle.cmd_bind_descriptor_sets(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.resources.pipelines[pass.pipeline_handle].pipeline_layout,
+                    crate::DESCRIPTOR_SET_INDEX_BINDLESS,
+                    &[renderer.bindless_descriptor_set],
+                    &[],
+                );
+
                 device.handle.cmd_bind_descriptor_sets(
                     command_buffer,
                     vk::PipelineBindPoint::GRAPHICS,
@@ -578,11 +590,9 @@ impl Graph {
                     crate::DESCRIPTOR_SET_INDEX_VIEW,
                     &[self.descriptor_set_camera.handle],
                     &[],
-                )
-            };
+                );
 
-            if let Some(read_textures_descriptor_set) = &pass.read_textures_descriptor_set {
-                unsafe {
+                if let Some(read_textures_descriptor_set) = &pass.read_textures_descriptor_set {
                     device.handle.cmd_bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
@@ -591,11 +601,9 @@ impl Graph {
                         &[read_textures_descriptor_set.handle],
                         &[],
                     )
-                };
-            }
+                }
 
-            if let Some(uniforms_descriptor_set) = &pass.uniforms_descriptor_set {
-                unsafe {
+                if let Some(uniforms_descriptor_set) = &pass.uniforms_descriptor_set {
                     device.handle.cmd_bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
@@ -607,8 +615,8 @@ impl Graph {
                         &[uniforms_descriptor_set.handle],
                         &[],
                     )
-                };
-            }
+                }
+            };
 
             if let Some(render_func) = &pass.render_func {
                 puffin::profile_scope!("render_func:", pass.name.as_str());
