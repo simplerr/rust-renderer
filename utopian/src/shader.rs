@@ -143,6 +143,7 @@ pub fn compile_glsl_shader(path: &str) -> Result<shaderc::CompilationArtifact, s
         shaderc::TargetEnv::Vulkan,
         shaderc::EnvVersion::Vulkan1_2 as u32,
     );
+    options.set_generate_debug_info();
     options.set_include_callback(|include_request, _include_type, _source, _size| {
         let include_path = Path::new(path).parent().unwrap();
         let mut include_path = include_path.join(include_request);
