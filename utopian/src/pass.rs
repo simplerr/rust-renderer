@@ -20,7 +20,7 @@ pub struct RenderPass {
     pub presentation_pass: bool,
     pub read_textures_descriptor_set: Option<crate::DescriptorSet>,
     pub name: String,
-    pub uniforms: HashMap<String, UniformData>,
+    pub uniforms: HashMap<String, (String, UniformData)>,
     pub uniform_buffer: Option<BufferId>,
     pub uniforms_descriptor_set: Option<crate::DescriptorSet>,
 }
@@ -31,7 +31,7 @@ impl RenderPass {
         pipeline_handle: PipelineId,
         presentation_pass: bool,
         depth_attachment: Option<DepthAttachment>,
-        uniforms: HashMap<String, UniformData>,
+        uniforms: HashMap<String, (String, UniformData)>,
         render_func: Option<
             Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>,
         >,
@@ -98,7 +98,7 @@ impl RenderPass {
             // Todo: why unexpected size of 8 from size_of_val?
 
             // Create the descriptor set that uses the uniform buffer
-            let uniform_name = self.uniforms.keys().next().unwrap();
+            let uniform_name = &self.uniforms.values().next().unwrap().0;
             let binding = pipelines[self.pipeline_handle]
                 .reflection
                 .get_binding(&uniform_name);
@@ -129,7 +129,7 @@ impl RenderPass {
         puffin::profile_function!();
 
         if let Some(buffer_id) = self.uniform_buffer {
-            buffers[buffer_id].update_memory(device, &self.uniforms.values().next().unwrap().data)
+            buffers[buffer_id].update_memory(device, &self.uniforms.values().next().unwrap().1.data)
         }
     }
 

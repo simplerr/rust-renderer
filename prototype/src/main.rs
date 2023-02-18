@@ -121,7 +121,7 @@ impl Application {
             ui,
             fps_timer: utopian::FpsTimer::new(),
             raytracing_enabled: raytracing_supported,
-            profiling_enabled: true,
+            profiling_enabled: false,
             shader_watcher,
         }
     }

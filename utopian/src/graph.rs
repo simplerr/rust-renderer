@@ -71,7 +71,8 @@ pub struct PassBuilder {
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
     pub depth_attachment: Option<DepthAttachment>,
     pub presentation_pass: bool,
-    pub uniforms: HashMap<String, UniformData>,
+    // The key is the uniform name with the pass name as prefix
+    pub uniforms: HashMap<String, (String, UniformData)>,
 }
 
 impl GraphResources {
@@ -156,16 +157,19 @@ impl PassBuilder {
 
             assert!(data_u8.len() < MAX_UNIFORMS_SIZE);
 
-            if let Some(entry) = self.uniforms.get_mut(name) {
-                entry.data[..data_u8.len()].copy_from_slice(data_u8);
-                entry.size = size as u64;
+            // Pass name + uniform name
+            let unique_name = self.name.clone() + "_" + name;
+
+            if let Some(entry) = self.uniforms.get_mut(&unique_name) {
+                entry.1.data[..data_u8.len()].copy_from_slice(data_u8);
+                entry.1.size = size as u64;
             } else {
                 let mut new_entry = UniformData {
                     data: [0; MAX_UNIFORMS_SIZE],
                     size: size as u64,
                 };
                 new_entry.data[..data_u8.len()].copy_from_slice(data_u8);
-                self.uniforms.insert(name.to_string(), new_entry);
+                self.uniforms.insert(unique_name.to_string(), (name.to_string(), new_entry));
             }
         }
         self
@@ -193,7 +197,7 @@ impl PassBuilder {
             pass.uniform_buffer.replace(graph.create_buffer(
                 &self.uniforms.keys().next().unwrap(),
                 device,
-                self.uniforms.values().next().unwrap().size as u64,
+                self.uniforms.values().next().unwrap().1.size as u64,
             ));
         }
 
@@ -610,7 +614,7 @@ impl Graph {
                         self.resources.pipelines[pass.pipeline_handle].pipeline_layout,
                         self.resources.pipelines[pass.pipeline_handle]
                             .reflection
-                            .get_binding(pass.uniforms.keys().next().unwrap())
+                            .get_binding(&pass.uniforms.values().next().unwrap().0)
                             .set,
                         &[uniforms_descriptor_set.handle],
                         &[],
