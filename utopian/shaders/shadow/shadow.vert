@@ -62,7 +62,7 @@ void main() {
     out_color = color;
     out_normal = mat3(transpose(inverse(pushConsts.world))) * normal.xyz;
     out_tangent = tangent;
-    gl_Position = view.projection * view.view * pushConsts.world * vec4(pos.xyz, 1.0);
+    gl_Position = cascade_view_projection.matrix * pushConsts.world * vec4(pos.xyz, 1.0);
 #endif
 
 }

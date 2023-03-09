@@ -20,10 +20,10 @@ layout (set = 2, binding = 0) uniform sampler2DArray in_shadow_map;
 
 // Todo: set=2 should be dedicated to input textures but the shader reflection
 // does not support gaps in the descriptor sets
-layout (std140, set = 3, binding = 0) uniform UBO_parameters
+layout (std140, set = 3, binding = 0) uniform UBO_shadowmapParams
 {
-    vec3 color;
-} test_params;
+    mat4 view_projection_matrices[4];
+} shadowmapParams;
 
 layout(push_constant) uniform PushConsts {
     mat4 world;
@@ -49,6 +49,48 @@ Light lights[numLights] = {
 float linearize_depth(float d, float zNear, float zFar)
 {
     return zNear * zFar / (zFar + d * (zNear - zFar));
+}
+
+float calculateShadow(vec3 position, out uint cascadeIndex)
+{
+   vec4 lightSpacePosition = shadowmapParams.view_projection_matrices[0] * vec4(position, 1.0f);
+   vec4 projCoordinate = lightSpacePosition / lightSpacePosition.w;
+   projCoordinate.xy = projCoordinate.xy * 0.5f + 0.5f;
+
+   // Todo: Hack: Wtf: Why is this needed!?
+   // Wasted hours on it........
+   projCoordinate.y = 1.0 - projCoordinate.y;
+
+   float shadow = 0.0f;
+   vec2 texelSize = 1.0 / textureSize(in_shadow_map, 0).xy;
+   int count = 0;
+   int range = 0;
+   for (int x = -range; x <= range; x++)
+   {
+      for (int y = -range; y <= range; y++)
+      {
+         // If fragment depth is outside frustum do no shadowing
+         if (projCoordinate.z <= 1.0f && projCoordinate.z > -1.0f)
+         {
+            vec2 offset = vec2(x, y) * texelSize;
+            float closestDepth = texture(in_shadow_map, vec3(projCoordinate.xy + offset * 0.0, cascadeIndex)).r;
+            float bias = 0.0005;
+            const float shadowFactor = 0.3f;
+            float testDepth = projCoordinate.z - bias;
+            shadow += (testDepth > closestDepth ? shadowFactor : 1.0f);
+         }
+         else
+         {
+            shadow += 1.0f;
+         }
+
+         count++;
+      }
+   }
+
+   shadow /= (count);
+
+   return shadow;
 }
 
 void main() {
@@ -89,12 +131,11 @@ void main() {
     vec3 ambient = vec3(0.03) * diffuse_color.rgb * occlusion;
     vec3 color = ambient + Lo;
 
-    out_color = vec4(color, 1.0f);
+    // Shadow testing
+    uint cascadeIndex = 0;
+    float shadow = calculateShadow(in_pos, cascadeIndex);
+    color = color * shadow;
 
-    // Test shadow map...
-    vec2 uv = vec2(gl_FragCoord.x / view.viewport_width, gl_FragCoord.y / view.viewport_height);
-    float depth = texture(in_shadow_map, vec3(uv, 0)).r;
-    depth = linearize_depth(depth, 0.01, 20000.0);
-    out_color.rgb = vec3(depth);
+    out_color = vec4(color, 1.0f);
 }
 

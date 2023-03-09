@@ -13,7 +13,8 @@ pub fn setup_shadow_pass(
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
     shadow_map: crate::TextureId,
-) {
+    sun_dir: glam::Vec3,
+) -> [glam::Mat4; 4] {
     puffin::profile_function!();
 
     let pipeline_handle = graph.create_pipeline(crate::PipelineDesc {
@@ -28,31 +29,31 @@ pub fn setup_shadow_pass(
     });
 
     let cascade_directions = [
-        glam::Vec3::new(1.0, 0.0, 0.0),
+        sun_dir,
         glam::Vec3::new(0.0, 0.0, 1.0),
         glam::Vec3::new(-1.0, 0.0, 0.0),
         glam::Vec3::new(0.0, 0.0, -1.0),
     ];
 
+    let mut cascade_matrices = [glam::Mat4::IDENTITY; 4];
+
     let num_cascades = 4;
     for cascade in 0..num_cascades {
+        let origin = 50.0 * cascade_directions[cascade].normalize();
         let view_matrix = glam::Mat4::look_at_rh(
-            glam::Vec3::new(0.0, 0.0, 0.0),
-            cascade_directions[cascade],
+            origin,
+            origin - sun_dir.normalize(),
             glam::Vec3::new(0.0, 1.0, 0.0),
         );
 
-        let projection_matrix = glam::Mat4::perspective_rh(
-            f32::to_radians(60.0),
-            2000.0 / 1100.0,
-            0.01,
-            20000.0,
-        );
+        let size = 25.0;
+        let projection_matrix = glam::Mat4::orthographic_rh(-size, size, -size, size, 0.1, 100.0);
 
         let view_projection_matrix = projection_matrix * view_matrix;
+        cascade_matrices[cascade] = view_projection_matrix;
+
         graph
             .add_pass(format!("shadow_pass_{cascade}"), pipeline_handle)
-            // Todo: only one uniform buffer with this name is created!
             .uniforms("cascade_view_projection", &view_projection_matrix)
             .depth_attachment_layer(shadow_map, cascade as u32)
             .render(
@@ -64,4 +65,6 @@ pub fn setup_shadow_pass(
             )
             .build(&device, graph);
     }
+
+    cascade_matrices
 }

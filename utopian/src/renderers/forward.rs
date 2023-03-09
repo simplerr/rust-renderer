@@ -17,6 +17,7 @@ pub fn setup_forward_pass(
     renderer: &crate::Renderer,
     forward_output: crate::TextureId,
     shadow_map: crate::TextureId,
+    cascade_matrices: [glam::Mat4; 4],
 ) {
     puffin::profile_function!();
 
@@ -38,7 +39,7 @@ pub fn setup_forward_pass(
         .add_pass(String::from("forward_pass"), pipeline_handle)
         .read(shadow_map)
         .write(forward_output)
-        .uniforms("test_params", &(glam::Vec3::new(0.0, 0.0, 1.0)))
+        .uniforms("shadowmapParams", &(cascade_matrices))
         .external_depth_attachment(base.depth_image.clone()) // Todo: create own Depth image
         .render(
             move |device, command_buffer, renderer, pass, resources| {

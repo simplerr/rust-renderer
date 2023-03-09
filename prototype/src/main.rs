@@ -108,6 +108,7 @@ impl Application {
             &base,
             &renderer,
             &camera_uniform_buffer,
+            view_data.sun_dir
         );
 
         Application {
@@ -365,6 +366,7 @@ impl Application {
                             &self.base,
                             &self.renderer,
                             &self.camera_ubo,
+                            self.view_data.sun_dir,
                         );
 
                         self.graph.prepare(device, &self.renderer);

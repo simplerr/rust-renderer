@@ -14,6 +14,7 @@ pub fn build_render_graph(
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
     camera_uniform_buffer: &crate::Buffer,
+    sun_dir: glam::Vec3, // Todo: pass more than just sun direction
 ) {
     puffin::profile_function!();
 
@@ -55,7 +56,7 @@ pub fn build_render_graph(
     let shadow_map = graph.create_texture(
         "shadow_map",
         device,
-        ImageDesc::new_2d_array(2000, 1100, 4, vk::Format::D32_SFLOAT)
+        ImageDesc::new_2d_array(4096, 4096, 4, vk::Format::D32_SFLOAT)
             .aspect(vk::ImageAspectFlags::DEPTH)
             .usage(
                 vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT
@@ -76,7 +77,7 @@ pub fn build_render_graph(
         ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
     );
 
-    crate::renderers::shadow::setup_shadow_pass(device, graph, base, shadow_map);
+    let cascade_matrices = crate::renderers::shadow::setup_shadow_pass(device, graph, base, shadow_map, sun_dir);
 
     crate::renderers::gbuffer::setup_gbuffer_pass(
         &device,
@@ -96,6 +97,7 @@ pub fn build_render_graph(
         &renderer,
         forward_output,
         shadow_map,
+        cascade_matrices,
     );
 
     crate::renderers::deferred::setup_deferred_pass(
@@ -117,6 +119,7 @@ pub fn build_render_graph(
         &renderer,
         forward_output,
         deferred_output,
+        shadow_map,
     );
 
     // let forward_renderer = crate::renderers::forward::ForwardRenderer::new(

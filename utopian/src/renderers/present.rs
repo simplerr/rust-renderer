@@ -5,6 +5,7 @@ pub fn setup_present_pass(
     renderer: &crate::Renderer,
     forward_output: crate::TextureId,
     deferred_output: crate::TextureId,
+    shadow_map: crate::TextureId,
 ) {
     puffin::profile_function!();
 
@@ -21,6 +22,7 @@ pub fn setup_present_pass(
         .add_pass(String::from("present_pass"), pipeline_handle)
         .read(forward_output)
         .read(deferred_output)
+        .read(shadow_map)
         .presentation_pass(true)
         .external_depth_attachment(base.depth_image.clone())
         .render(

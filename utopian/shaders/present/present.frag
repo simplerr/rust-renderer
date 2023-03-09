@@ -13,12 +13,13 @@ layout (location = 0) out vec4 out_color;
 
 layout (set = 2, binding = 0) uniform sampler2D in_forward_texture;
 layout (set = 2, binding = 1) uniform sampler2D in_deferred_texture;
+layout (set = 2, binding = 2) uniform sampler2DArray in_shadow_map;
 
 void main() {
-    vec2 uv = vec2(in_uv.x, in_uv.y - 1.0);
+    vec2 uv = vec2(in_uv.x, 1.0 - in_uv.y);
 
     vec3 color;
-    if (uv.x < 0.5) {
+    if (true || uv.x < 0.5) {
         color = texture(in_forward_texture, uv).rgb;
     }
     else {
@@ -28,6 +29,10 @@ void main() {
     /* Tonemapping */
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2));
+
+    if (uv.x < 0.25 && uv.y < 0.25) {
+        color = texture(in_shadow_map, vec3(in_uv * 4.0, 0.0)).rgb;
+    }
 
     out_color = vec4(color, 1.0);
 }
