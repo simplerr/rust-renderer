@@ -1,5 +1,3 @@
-use ash::vk;
-
 #[allow(dead_code)]
 struct PushConstants {
     world: glam::Mat4,

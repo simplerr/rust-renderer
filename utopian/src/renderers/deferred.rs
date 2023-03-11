@@ -1,5 +1,3 @@
-use ash::vk;
-
 #[allow(dead_code)]
 struct PushConstants {
     world: glam::Mat4,
@@ -12,7 +10,6 @@ pub fn setup_deferred_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
-    renderer: &crate::Renderer,
     gbuffer_position: crate::TextureId,
     gbuffer_normal: crate::TextureId,
     gbuffer_albedo: crate::TextureId,
@@ -41,9 +38,7 @@ pub fn setup_deferred_pass(
         .uniforms("test_params_2", &(glam::Vec3::new(1.0, 0.0, 0.0)))
         .external_depth_attachment(base.depth_image.clone())
         .render(
-            move |device, command_buffer, renderer, pass, resources| unsafe {
-                let pipeline = resources.pipeline(pass.pipeline_handle);
-
+            move |device, command_buffer, _renderer, _pass, _resources| unsafe {
                 device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
             },
         )

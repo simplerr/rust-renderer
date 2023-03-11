@@ -12,8 +12,7 @@ pub fn build_render_graph(
     graph: &mut crate::Graph,
     device: &crate::Device,
     base: &crate::VulkanBase,
-    renderer: &crate::Renderer,
-    camera_uniform_buffer: &crate::Buffer,
+    _renderer: &crate::Renderer,
     sun_dir: glam::Vec3, // Todo: pass more than just sun direction
 ) {
     puffin::profile_function!();
@@ -83,7 +82,6 @@ pub fn build_render_graph(
         &device,
         graph,
         &base,
-        &renderer,
         gbuffer_position,
         gbuffer_normal,
         gbuffer_albedo,
@@ -94,7 +92,6 @@ pub fn build_render_graph(
         &device,
         graph,
         &base,
-        &renderer,
         forward_output,
         shadow_map,
         cascade_matrices,
@@ -104,7 +101,6 @@ pub fn build_render_graph(
         &device,
         graph,
         &base,
-        &renderer,
         gbuffer_position,
         gbuffer_normal,
         gbuffer_albedo,
@@ -116,7 +112,6 @@ pub fn build_render_graph(
         &device,
         graph,
         &base,
-        &renderer,
         forward_output,
         deferred_output,
         shadow_map,

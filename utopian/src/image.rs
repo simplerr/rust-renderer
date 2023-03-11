@@ -96,7 +96,7 @@ impl Image {
                 initial_layout,
                 ..Default::default()
             };
-            if (desc.format == vk::Format::D32_SFLOAT) {
+            if desc.format == vk::Format::D32_SFLOAT {
                 println!("{:#?}", image_create_info);
             }
             let image = device

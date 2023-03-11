@@ -107,7 +107,6 @@ impl Application {
             &base.device,
             &base,
             &renderer,
-            &camera_uniform_buffer,
             view_data.sun_dir
         );
 
@@ -365,7 +364,6 @@ impl Application {
                             &self.base.device,
                             &self.base,
                             &self.renderer,
-                            &self.camera_ubo,
                             self.view_data.sun_dir,
                         );
 

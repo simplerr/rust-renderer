@@ -2,7 +2,6 @@ pub fn setup_present_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
-    renderer: &crate::Renderer,
     forward_output: crate::TextureId,
     deferred_output: crate::TextureId,
     shadow_map: crate::TextureId,

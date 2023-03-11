@@ -169,7 +169,8 @@ impl PassBuilder {
                     size: size as u64,
                 };
                 new_entry.data[..data_u8.len()].copy_from_slice(data_u8);
-                self.uniforms.insert(unique_name.to_string(), (name.to_string(), new_entry));
+                self.uniforms
+                    .insert(unique_name.to_string(), (name.to_string(), new_entry));
             }
         }
         self

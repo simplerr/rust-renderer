@@ -1,7 +1,3 @@
-use std::sync::Arc;
-
-use ash::vk;
-
 #[allow(dead_code)]
 struct PushConstants {
     world: glam::Mat4,
@@ -14,7 +10,6 @@ pub fn setup_forward_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
-    renderer: &crate::Renderer,
     forward_output: crate::TextureId,
     shadow_map: crate::TextureId,
     cascade_matrices: [glam::Mat4; 4],

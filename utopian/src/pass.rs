@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use ash::vk;
-use gltf::buffer::View;
 
 use crate::descriptor_set::DescriptorIdentifier;
 use crate::device::*;

@@ -12,7 +12,6 @@ pub fn setup_gbuffer_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
-    renderer: &crate::Renderer,
     gbuffer_position: crate::TextureId,
     gbuffer_normal: crate::TextureId,
     gbuffer_albedo: crate::TextureId,
@@ -60,12 +59,10 @@ pub fn setup_gbuffer_pass(
         .write(gbuffer_pbr)
         //.depth_attachment(depth_image)
         .external_depth_attachment(base.depth_image.clone()) // Todo: create own Depth image
-        .render(
-            move |device, command_buffer, renderer, pass, resources| unsafe {
-                let pipeline = resources.pipeline(pass.pipeline_handle);
+        .render(move |device, command_buffer, renderer, pass, resources| {
+            let pipeline = resources.pipeline(pass.pipeline_handle);
 
-                renderer.draw_meshes(device, command_buffer, pipeline.pipeline_layout);
-            },
-        )
+            renderer.draw_meshes(device, command_buffer, pipeline.pipeline_layout);
+        })
         .build(&device, graph);
 }
