@@ -122,4 +122,12 @@ impl Camera {
             .driver_mut::<YawPitch>()
             .set_rotation_quat(rotation);
     }
+
+    pub(crate) fn get_near_plane(&self) -> f32 {
+        self.z_near
+    }
+
+    pub(crate) fn get_far_plane(&self) -> f32 {
+        self.z_far
+    }
 }

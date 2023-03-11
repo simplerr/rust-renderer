@@ -3,9 +3,9 @@ pub fn create_scene(
     camera: &mut utopian::Camera,
     device: &utopian::Device,
 ) {
-    // create_cornell_box_scene(renderer, camera, device);
+    //create_cornell_box_scene(renderer, camera, device);
     create_sponza_scene(renderer, camera, device);
-    // create_cube_scene(renderer, camera, device);
+    //create_cube_scene(renderer, camera, device);
 }
 
 pub fn create_cornell_box_scene(
@@ -110,6 +110,18 @@ pub fn create_cube_scene(
     camera.set_position_target(
         glam::Vec3::new(-2.5, 3.0, -2.5),
         glam::Vec3::new(10.0, 1.0, 10.0),
+    );
+
+    let model = utopian::model_loader::ModelLoader::load_cube(device);
+
+    renderer.add_model(
+        device,
+        model,
+        glam::Mat4::from_scale_rotation_translation(
+            glam::Vec3::new(1000.0, 1.0, 1000.0),
+            glam::Quat::IDENTITY,
+            glam::Vec3::new(0.0, -5.0, 0.0),
+        ),
     );
 
     for x in 0..10 {

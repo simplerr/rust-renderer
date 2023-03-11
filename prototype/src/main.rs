@@ -49,7 +49,7 @@ impl Application {
             60.0,
             width as f32 / height as f32,
             0.01,
-            20000.0,
+            1000.0,
             0.02,
         );
 
@@ -107,7 +107,8 @@ impl Application {
             &base.device,
             &base,
             &renderer,
-            view_data.sun_dir
+            view_data.sun_dir,
+            &camera,
         );
 
         Application {
@@ -365,6 +366,7 @@ impl Application {
                             &self.base,
                             &self.renderer,
                             self.view_data.sun_dir,
+                            &self.camera,
                         );
 
                         self.graph.prepare(device, &self.renderer);

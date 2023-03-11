@@ -14,6 +14,7 @@ pub fn build_render_graph(
     base: &crate::VulkanBase,
     _renderer: &crate::Renderer,
     sun_dir: glam::Vec3, // Todo: pass more than just sun direction
+    camera: &crate::Camera,
 ) {
     puffin::profile_function!();
 
@@ -76,7 +77,9 @@ pub fn build_render_graph(
         ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
     );
 
-    let cascade_matrices = crate::renderers::shadow::setup_shadow_pass(device, graph, base, shadow_map, sun_dir);
+    let (cascade_matrices, cascade_depths) = crate::renderers::shadow::setup_shadow_pass(
+        device, graph, base, shadow_map, sun_dir, camera,
+    );
 
     crate::renderers::gbuffer::setup_gbuffer_pass(
         &device,
@@ -94,7 +97,7 @@ pub fn build_render_graph(
         &base,
         forward_output,
         shadow_map,
-        cascade_matrices,
+        (cascade_matrices, cascade_depths),
     );
 
     crate::renderers::deferred::setup_deferred_pass(

@@ -30,8 +30,17 @@ void main() {
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2));
 
-    if (uv.x < 0.25 && uv.y < 0.25) {
+    if (uv.x > 0.75 && uv.y < 0.25) {
         color = texture(in_shadow_map, vec3(in_uv * 4.0, 0.0)).rgb;
+    }
+    else if (uv.x > 0.75 && uv.y < 0.50) {
+        color = texture(in_shadow_map, vec3(in_uv * 4.0, 1.0)).rgb;
+    }
+    else if (uv.x > 0.75 && uv.y < 0.75) {
+        color = texture(in_shadow_map, vec3(in_uv * 4.0, 2.0)).rgb;
+    }
+    else if (uv.x > 0.75 && uv.y < 1.0) {
+        color = texture(in_shadow_map, vec3(in_uv * 4.0, 3.0)).rgb;
     }
 
     out_color = vec4(color, 1.0);
