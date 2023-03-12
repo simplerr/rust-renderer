@@ -15,15 +15,24 @@ layout (set = 2, binding = 0) uniform sampler2D in_forward_texture;
 layout (set = 2, binding = 1) uniform sampler2D in_deferred_texture;
 layout (set = 2, binding = 2) uniform sampler2DArray in_shadow_map;
 
+layout(std140, set = 3, binding = 0) uniform FXAA_settings
+{
+   vec4 enabled_debug_threshold;
+} settings_fxaa;
+
+#include "include/fxaa.glsl"
+
 void main() {
     vec2 uv = vec2(in_uv.x, 1.0 - in_uv.y);
 
     vec3 color;
     if (true || uv.x < 0.5) {
-        color = texture(in_forward_texture, uv).rgb;
+        //color = texture(in_forward_texture, uv).rgb;
+        color = fxaa(uv, in_forward_texture);
     }
     else {
-        color = texture(in_deferred_texture, uv).rgb;
+        //color = texture(in_deferred_texture, uv).rgb;
+        color = fxaa(uv, in_deferred_texture);
     }
 
     /* Tonemapping */
