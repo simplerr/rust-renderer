@@ -15,6 +15,7 @@ pub fn setup_deferred_pass(
     gbuffer_albedo: crate::TextureId,
     gbuffer_pbr: crate::TextureId,
     shadow_map: crate::TextureId,
+    ssao_output: crate::TextureId,
     cascade_data: ([glam::Mat4; 4], [f32; 4]),
     deferred_output: crate::TextureId,
 ) {
@@ -37,6 +38,7 @@ pub fn setup_deferred_pass(
         .read(gbuffer_albedo)
         .read(gbuffer_pbr)
         .read(shadow_map)
+        .read(ssao_output)
         .write(deferred_output)
         .uniforms("shadowmapParams", &(cascade_data))
         .external_depth_attachment(base.depth_image.clone())

@@ -7,6 +7,7 @@ pub mod forward;
 pub mod gbuffer;
 pub mod present;
 pub mod shadow;
+pub mod ssao;
 
 pub fn build_render_graph(
     graph: &mut crate::Graph,
@@ -77,6 +78,12 @@ pub fn build_render_graph(
         ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
     );
 
+    let ssao_output = graph.create_texture(
+        "ssao_output",
+        device,
+        ImageDesc::new_2d(extent[0], extent[1], vk::Format::R16G16B16A16_SFLOAT),
+    );
+
     let (cascade_matrices, cascade_depths) = crate::renderers::shadow::setup_shadow_pass(
         device, graph, base, shadow_map, sun_dir, camera,
     );
@@ -89,6 +96,15 @@ pub fn build_render_graph(
         gbuffer_normal,
         gbuffer_albedo,
         gbuffer_pbr,
+    );
+
+    crate::renderers::ssao::setup_ssao_pass(
+        &device,
+        graph,
+        &base,
+        gbuffer_position,
+        gbuffer_normal,
+        ssao_output,
     );
 
     crate::renderers::forward::setup_forward_pass(
@@ -109,6 +125,7 @@ pub fn build_render_graph(
         gbuffer_albedo,
         gbuffer_pbr,
         shadow_map,
+        ssao_output,
         (cascade_matrices, cascade_depths),
         deferred_output,
     );
