@@ -16,10 +16,17 @@ layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_normal;
 layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_albedo;
 layout (set = 2, binding = 3) uniform sampler2D in_gbuffer_pbr;
 
-layout (std140, set = 3, binding = 0) uniform UBO_parameters
+layout (set = 2, binding = 4) uniform sampler2DArray in_shadow_map;
+
+// Todo: set=2 should be dedicated to input textures but the shader reflection
+// does not support gaps in the descriptor sets
+layout (std140, set = 3, binding = 0) uniform UBO_shadowmapParams
 {
-    vec3 color;
-} test_params_2;
+    mat4 view_projection_matrices[4];
+    vec4 cascade_splits;
+} shadowmapParams;
+
+#include "include/shadow_mapping.glsl"
 
 layout(push_constant) uniform PushConsts {
     mat4 world;
@@ -75,6 +82,16 @@ void main() {
     // Todo: IBL
     vec3 ambient = vec3(0.03) * diffuse_color.rgb * occlusion;
     vec3 color = ambient + Lo;
+
+    // Shadow
+    uint cascadeIndex = 0;
+    float shadow = calculateShadow(position, cascadeIndex);
+    color = color * shadow;
+
+//#define CASCADE_DEBUG
+#ifdef CASCADE_DEBUG
+    color.rgb *= cascade_index_to_debug_color(cascadeIndex);
+#endif
 
     out_color = vec4(color, 1.0f);
 }

@@ -26,6 +26,8 @@ layout (std140, set = 3, binding = 0) uniform UBO_shadowmapParams
     vec4 cascade_splits;
 } shadowmapParams;
 
+#include "include/shadow_mapping.glsl"
+
 layout(push_constant) uniform PushConsts {
     mat4 world;
     vec4 color;
@@ -46,64 +48,6 @@ Light lights[numLights] = {
    /* Light(lightColor, vec3(-2.0f, 1.0f, -2.0f), 0.0f, vec3(0.0f), 0.0f, vec3(0,0,1), 1.0f, vec3(0.0f), 0.0f, vec4(0.0f)), */
    /* Light(lightColor, vec3(-2.0f, 2.0f, -2.0f), 0.0f, vec3(0.0f), 0.0f, vec3(0,0,1), 1.0f, vec3(0.0f), 0.0f, vec4(0.0f)) */
 };
-
-float linearize_depth(float d, float zNear, float zFar)
-{
-    return zNear * zFar / (zFar + d * (zNear - zFar));
-}
-
-#define SHADOW_MAP_CASCADE_COUNT 4
-
-float calculateShadow(vec3 position, out uint cascadeIndex)
-{
-
-   vec3 viewPosition = (view.view * vec4(position, 1.0f)).xyz;
-   cascadeIndex = 0;
-   for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
-      if(viewPosition.z < -shadowmapParams.cascade_splits[i]) {
-         cascadeIndex = i + 1;
-      }
-   }
-
-   vec4 lightSpacePosition = shadowmapParams.view_projection_matrices[cascadeIndex] * vec4(position, 1.0f);
-   vec4 projCoordinate = lightSpacePosition / lightSpacePosition.w;
-   projCoordinate.xy = projCoordinate.xy * 0.5f + 0.5f;
-
-   // Todo: Hack: Wtf: Why is this needed!?
-   // Wasted hours on it........
-   projCoordinate.y = 1.0 - projCoordinate.y;
-
-   float shadow = 0.0f;
-   vec2 texelSize = 1.0 / textureSize(in_shadow_map, 0).xy;
-   int count = 0;
-   int range = 1;
-   for (int x = -range; x <= range; x++)
-   {
-      for (int y = -range; y <= range; y++)
-      {
-         // If fragment depth is outside frustum do no shadowing
-         if (projCoordinate.z <= 1.0f && projCoordinate.z > -1.0f)
-         {
-            vec2 offset = vec2(x, y) * texelSize;
-            float closestDepth = texture(in_shadow_map, vec3(projCoordinate.xy + offset, cascadeIndex)).r;
-            float bias = 0.0005;
-            const float shadowFactor = 0.3f;
-            float testDepth = projCoordinate.z - bias;
-            shadow += (testDepth > closestDepth ? shadowFactor : 1.0f);
-         }
-         else
-         {
-            shadow += 1.0f;
-         }
-
-         count++;
-      }
-   }
-
-   shadow /= (count);
-
-   return shadow;
-}
 
 void main() {
     Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
@@ -143,27 +87,14 @@ void main() {
     vec3 ambient = vec3(0.03) * diffuse_color.rgb * occlusion;
     vec3 color = ambient + Lo;
 
-    // Shadow testing
+    // Shadow
     uint cascadeIndex = 0;
     float shadow = calculateShadow(in_pos, cascadeIndex);
     color = color * shadow;
 
 //#define CASCADE_DEBUG
 #ifdef CASCADE_DEBUG
-    switch(cascadeIndex) {
-        case 0 :
-            color.rgb *= vec3(1.0f, 0.25f, 0.25f);
-            break;
-        case 1 :
-            color.rgb *= vec3(0.25f, 1.0f, 0.25f);
-            break;
-        case 2 :
-            color.rgb *= vec3(0.25f, 0.25f, 1.0f);
-            break;
-        case 3 :
-            color.rgb *= vec3(1.0f, 1.0f, 0.25f);
-            break;
-      }
+    color.rgb *= cascade_index_to_debug_color(cascadeIndex);
 #endif
 
     out_color = vec4(color, 1.0f);

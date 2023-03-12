@@ -14,6 +14,8 @@ pub fn setup_deferred_pass(
     gbuffer_normal: crate::TextureId,
     gbuffer_albedo: crate::TextureId,
     gbuffer_pbr: crate::TextureId,
+    shadow_map: crate::TextureId,
+    cascade_data: ([glam::Mat4; 4], [f32; 4]),
     deferred_output: crate::TextureId,
 ) {
     let pipeline_handle = graph.create_pipeline(crate::PipelineDesc {
@@ -34,8 +36,9 @@ pub fn setup_deferred_pass(
         .read(gbuffer_normal)
         .read(gbuffer_albedo)
         .read(gbuffer_pbr)
+        .read(shadow_map)
         .write(deferred_output)
-        .uniforms("test_params_2", &(glam::Vec3::new(1.0, 0.0, 0.0)))
+        .uniforms("shadowmapParams", &(cascade_data))
         .external_depth_attachment(base.depth_image.clone())
         .render(
             move |device, command_buffer, _renderer, _pass, _resources| unsafe {

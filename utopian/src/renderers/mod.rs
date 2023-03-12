@@ -108,6 +108,8 @@ pub fn build_render_graph(
         gbuffer_normal,
         gbuffer_albedo,
         gbuffer_pbr,
+        shadow_map,
+        (cascade_matrices, cascade_depths),
         deferred_output,
     );
 
