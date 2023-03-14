@@ -13,3 +13,12 @@ layout (std140, set = 1, binding = 0) uniform UBO_view
     uint viewport_height;
     vec3 sun_dir;
 } view;
+
+// Due to gl_Position not being multiplied by -1 we need to flip the
+// y axis of the uv coordinates. Todo: this should be possible to  get rid of.
+#define ENABLE_UV_Y_FLIP
+#ifdef ENABLE_UV_Y_FLIP
+    #define FLIP_UV_Y(uv) vec2(uv.x, 1.0 - uv.y)
+#else
+    #define FLIP_UV_Y(uv) uv
+#endif

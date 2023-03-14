@@ -65,6 +65,7 @@ vec4 kernelSamples[KERNEL_SIZE] = vec4[](
 
 void main()
 {
+   // Note: not sure why this does not need to be flipped with FLIP_UV_Y
    vec2 uv = in_uv;
 
    // Get G-Buffer values
@@ -102,8 +103,8 @@ void main()
       offset = view.projection * offset;
       offset.xyz /= offset.w;
       offset.xyz = offset.xyz * 0.5f + 0.5f;
-      offset.y = 1.0 - offset.y; // Todo: why is this needed?
-      
+      offset.xy = FLIP_UV_Y(offset.xy);
+
       float sampleDepth = (view.view * vec4(texture(in_gbuffer_position, offset.xy).xyz, 1.0f)).z;
 
       float rangeCheck = smoothstep(0.0f, 1.0f, settings_ubo.radius / abs(fragPosView.z - sampleDepth));

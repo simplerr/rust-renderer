@@ -23,10 +23,10 @@ layout(std140, set = 3, binding = 0) uniform FXAA_settings
 #include "include/fxaa.glsl"
 
 void main() {
-    vec2 uv = vec2(in_uv.x, 1.0 - in_uv.y);
+    vec2 uv = FLIP_UV_Y(in_uv);
 
     vec3 color;
-    if (false && uv.x < 0.5) {
+    if (uv.x < 0.5) {
         //color = texture(in_forward_texture, uv).rgb;
         color = fxaa(uv, in_forward_texture);
     }

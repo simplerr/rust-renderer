@@ -50,7 +50,7 @@ Light lights[numLights] = {
 };
 
 void main() {
-    vec2 uv = vec2(in_uv.x, in_uv.y - 1.0);
+    vec2 uv = FLIP_UV_Y(in_uv);
 
     uint material_index = uint(texture(in_gbuffer_pbr, uv).a);
     Material material = materialsSSBO.materials[material_index];

@@ -19,10 +19,7 @@ float calculateShadow(vec3 position, out uint cascadeIndex)
    vec4 lightSpacePosition = shadowmapParams.view_projection_matrices[cascadeIndex] * vec4(position, 1.0f);
    vec4 projCoordinate = lightSpacePosition / lightSpacePosition.w;
    projCoordinate.xy = projCoordinate.xy * 0.5f + 0.5f;
-
-   // Todo: Hack: Wtf: Why is this needed!?
-   // Wasted hours on it........
-   projCoordinate.y = 1.0 - projCoordinate.y;
+   projCoordinate.xy = FLIP_UV_Y(projCoordinate.xy);
 
    float shadow = 0.0f;
    vec2 texelSize = 1.0 / textureSize(in_shadow_map, 0).xy;
