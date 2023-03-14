@@ -15,7 +15,7 @@ float rgb2luma(vec3 rgb)
 }
 
 // Implementation from http://blog.simonrodriguez.fr/articles/30-07-2016_implementing_fxaa.html
-vec3 fxaa(vec2 uv, sampler2D inputTexture)
+vec3 fxaa(sampler2D inputTexture, vec2 uv)
 {
    vec3 colorCenter = texture(inputTexture, uv).rgb;
    vec3 outColor = colorCenter;

@@ -25,20 +25,31 @@ layout(std140, set = 3, binding = 0) uniform FXAA_settings
 void main() {
     vec2 uv = FLIP_UV_Y(in_uv);
 
-    vec3 color;
+    vec3 color = vec3(0.0);
+
+    // Just for testing
     if (uv.x < 0.5) {
-        //color = texture(in_forward_texture, uv).rgb;
-        color = fxaa(uv, in_forward_texture);
+        if (view.fxaa_enabled == 1) {
+            color = fxaa(in_forward_texture, uv);
+        }
+        else {
+            color = texture(in_forward_texture, uv).rgb;
+        }
     }
     else {
-        //color = texture(in_deferred_texture, uv).rgb;
-        color = fxaa(uv, in_deferred_texture);
+        if (view.fxaa_enabled == 1) {
+            color = fxaa(in_deferred_texture, uv);
+        }
+        else {
+            color = texture(in_deferred_texture, uv).rgb;
+        }
     }
 
     /* Tonemapping */
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2));
 
+#ifdef DEBUG_SHADOW_MAP
     if (uv.x > 0.75 && uv.y < 0.25) {
         color = texture(in_shadow_map, vec3(in_uv * 4.0, 0.0)).rgb;
     }
@@ -51,6 +62,7 @@ void main() {
     else if (uv.x > 0.75 && uv.y < 1.0) {
         color = texture(in_shadow_map, vec3(in_uv * 4.0, 3.0)).rgb;
     }
+#endif
 
     out_color = vec4(color, 1.0);
 }

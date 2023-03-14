@@ -7,11 +7,18 @@ layout (std140, set = 1, binding = 0) uniform UBO_view
     mat4 inverse_projection;
     vec3 eye_pos;
     uint samples_per_frame;
+    vec3 sun_dir;
     uint total_samples;
     uint num_bounces;
     uint viewport_width;
     uint viewport_height;
-    vec3 sun_dir;
+    uint pad1;
+
+    // render settings
+    uint shadows_enabled;
+    uint ssao_enabled;
+    uint fxaa_enabled;
+    uint pad2;
 } view;
 
 // Due to gl_Position not being multiplied by -1 we need to flip the

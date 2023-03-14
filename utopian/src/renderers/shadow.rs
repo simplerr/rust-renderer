@@ -16,6 +16,7 @@ pub fn setup_shadow_pass(
     shadow_map: crate::TextureId,
     sun_dir: glam::Vec3,
     camera: &camera::Camera,
+    enabled: bool,
 ) -> ([glam::Mat4; 4], [f32; 4]) {
     puffin::profile_function!();
 
@@ -128,9 +129,12 @@ pub fn setup_shadow_pass(
             .uniforms("cascade_view_projection", &view_projection_matrix)
             .depth_attachment_layer(shadow_map, i as u32)
             .render(move |device, command_buffer, renderer, pass, resources| {
-                let pipeline = resources.pipeline(pass.pipeline_handle);
+                // Todo: This is a hack to get around the fact that we can't properly disable a pass
+                if enabled {
+                    let pipeline = resources.pipeline(pass.pipeline_handle);
 
-                renderer.draw_meshes(device, command_buffer, pipeline.pipeline_layout);
+                    renderer.draw_meshes(device, command_buffer, pipeline.pipeline_layout);
+                }
             })
             .build(&device, graph);
     }

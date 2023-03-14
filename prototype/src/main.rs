@@ -1,26 +1,10 @@
 use ash::vk;
 use glam::{Mat4, Vec3};
 
-#[allow(dead_code)]
-#[derive(Clone, Debug, Copy)]
-struct ViewUniformData {
-    view: glam::Mat4,
-    projection: glam::Mat4,
-    inverse_view: glam::Mat4,
-    inverse_projection: glam::Mat4,
-    eye_pos: glam::Vec3,
-    samples_per_frame: u32,
-    total_samples: u32,
-    num_bounces: u32,
-    viewport_width: u32,
-    viewport_height: u32,
-    sun_dir: glam::Vec3,
-}
-
 struct Application {
     base: utopian::VulkanBase,
     graph: utopian::Graph,
-    view_data: ViewUniformData,
+    view_data: utopian::ViewUniformData,
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
     renderer: utopian::Renderer,
@@ -54,7 +38,7 @@ impl Application {
         );
 
         // Move from here
-        let view_data = ViewUniformData {
+        let view_data = utopian::ViewUniformData {
             view: camera.get_view(),
             projection: camera.get_projection(),
             inverse_view: camera.get_view().inverse(),
@@ -66,6 +50,11 @@ impl Application {
             viewport_width: width,
             viewport_height: height,
             sun_dir: Vec3::new(0.0, 0.9, 0.15).normalize(),
+            shadows_enabled: 1,
+            ssao_enabled: 1,
+            fxaa_enabled: 1,
+            pad1: 0,
+            pad2: 0,
         };
 
         let slice = unsafe { std::slice::from_raw_parts(&view_data, 1) };
@@ -107,7 +96,7 @@ impl Application {
             &base.device,
             &base,
             &renderer,
-            view_data.sun_dir,
+            &view_data,
             &camera,
         );
 
@@ -184,7 +173,7 @@ impl Application {
         camera_pos: &mut Vec3,
         camera_dir: &mut Vec3,
         fps: u32,
-        view_data: &mut ViewUniformData,
+        view_data: &mut utopian::ViewUniformData,
         selected_transform: &mut Mat4,
     ) {
         egui::Window::new("rust-renderer 0.0.1")
@@ -226,21 +215,47 @@ impl Application {
                 });
                 ui.label("Sun direction");
                 ui.horizontal(|ui| {
-                    ui.label("x:");
-                    ui.add(egui::widgets::Slider::new(
-                        &mut view_data.sun_dir.x,
-                        0.0..=1.0,
-                    ));
-                    ui.label("y:");
-                    ui.add(egui::widgets::Slider::new(
-                        &mut view_data.sun_dir.y,
-                        0.0..=1.0,
-                    ));
-                    ui.label("z:");
-                    ui.add(egui::widgets::Slider::new(
-                        &mut view_data.sun_dir.z,
-                        0.0..=1.0,
-                    ));
+                    egui::Grid::new("sun_dir").show(ui, |ui| {
+                        ui.label("x:");
+                        ui.add(egui::widgets::Slider::new(
+                            &mut view_data.sun_dir.x,
+                            0.0..=1.0,
+                        ));
+                        ui.end_row();
+                        ui.label("y:");
+                        ui.add(egui::widgets::Slider::new(
+                            &mut view_data.sun_dir.y,
+                            0.0..=1.0,
+                        ));
+                        ui.end_row();
+                        ui.label("z:");
+                        ui.add(egui::widgets::Slider::new(
+                            &mut view_data.sun_dir.z,
+                            0.0..=1.0,
+                        ));
+                    });
+                });
+                ui.horizontal(|ui| {
+                    // Bloated code due to needing u32 since view data is a uniform buffer
+                    egui::Grid::new("settings_grid").show(ui, |ui| {
+                        ui.label("Shadows:");
+                        let mut shadows = view_data.shadows_enabled == 1;
+                        ui.add(egui::widgets::Checkbox::new(&mut shadows, ""));
+                        view_data.shadows_enabled = shadows as u32;
+                        ui.end_row();
+
+                        let mut ssao = view_data.ssao_enabled == 1;
+                        ui.label("SSAO:");
+                        ui.add(egui::widgets::Checkbox::new(&mut ssao, ""));
+                        view_data.ssao_enabled = ssao as u32;
+                        ui.end_row();
+
+                        ui.label("FXAA:");
+                        let mut fxaa = view_data.fxaa_enabled == 1;
+                        ui.add(egui::widgets::Checkbox::new(&mut fxaa, ""));
+                        view_data.fxaa_enabled = fxaa as u32;
+                        ui.end_row();
+                    });
                 });
             });
 
@@ -365,7 +380,7 @@ impl Application {
                             &self.base.device,
                             &self.base,
                             &self.renderer,
-                            self.view_data.sun_dir,
+                            &self.view_data,
                             &self.camera,
                         );
 

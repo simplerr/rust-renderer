@@ -33,6 +33,30 @@ pub struct Renderer {
     next_bindless_index_buffer_index: u32,
 }
 
+#[allow(dead_code)]
+#[derive(Clone, Debug, Copy)]
+#[repr(C)]
+pub struct ViewUniformData {
+    pub view: glam::Mat4,
+    pub projection: glam::Mat4,
+    pub inverse_view: glam::Mat4,
+    pub inverse_projection: glam::Mat4,
+    pub eye_pos: glam::Vec3,
+    pub samples_per_frame: u32,
+    pub sun_dir: glam::Vec3,
+    pub total_samples: u32,
+    pub num_bounces: u32,
+    pub viewport_width: u32,
+    pub viewport_height: u32,
+    pub pad1: u32,
+
+    // render settings
+    pub shadows_enabled: u32,
+    pub ssao_enabled: u32,
+    pub fxaa_enabled: u32,
+    pub pad2: u32,
+}
+
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 struct GpuMaterial {

@@ -74,8 +74,6 @@ impl Image {
     pub fn new_from_desc(device: &Device, desc: ImageDesc) -> Image {
         puffin::profile_function!();
 
-        println!("{:?}", desc);
-
         unsafe {
             // Create image
             let initial_layout = vk::ImageLayout::UNDEFINED;
@@ -96,9 +94,6 @@ impl Image {
                 initial_layout,
                 ..Default::default()
             };
-            if desc.format == vk::Format::D32_SFLOAT {
-                println!("{:#?}", image_create_info);
-            }
             let image = device
                 .handle
                 .create_image(&image_create_info, None)

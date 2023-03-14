@@ -85,16 +85,21 @@ void main() {
     vec3 color = ambient + Lo;
 
     // Shadow
-    uint cascadeIndex = 0;
-    float shadow = calculateShadow(position, cascadeIndex);
-    color = color * shadow;
+    if (view.shadows_enabled == 1) {
+        uint cascadeIndex = 0;
+        float shadow = calculateShadow(position, cascadeIndex);
+        color = color * shadow;
 
-    color *= ssao;
+        //#define CASCADE_DEBUG
+        #ifdef CASCADE_DEBUG
+            color.rgb *= cascade_index_to_debug_color(cascadeIndex);
+        #endif
+    }
 
-//#define CASCADE_DEBUG
-#ifdef CASCADE_DEBUG
-    color.rgb *= cascade_index_to_debug_color(cascadeIndex);
-#endif
+    if (view.ssao_enabled == 1) {
+        color *= ssao;
+    }
+
 
     out_color = vec4(color, 1.0f);
 }
