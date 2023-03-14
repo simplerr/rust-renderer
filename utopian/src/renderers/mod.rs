@@ -81,7 +81,7 @@ pub fn build_render_graph(
     let ssao_output = graph.create_texture(
         "ssao_output",
         device,
-        ImageDesc::new_2d(extent[0], extent[1], vk::Format::R16G16B16A16_SFLOAT),
+        ImageDesc::new_2d(extent[0], extent[1], vk::Format::R16_UNORM),
     );
 
     let (cascade_matrices, cascade_depths) = crate::renderers::shadow::setup_shadow_pass(
