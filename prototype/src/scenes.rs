@@ -3,6 +3,15 @@ pub fn create_scene(
     camera: &mut utopian::Camera,
     device: &utopian::Device,
 ) {
+    let sphere =
+        utopian::gltf_loader::load_gltf(device, "utopian/data/models/sphere.gltf");
+
+    renderer.add_model(
+        device,
+        sphere,
+        glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+    );
+
     //create_cornell_box_scene(renderer, camera, device);
     create_sponza_scene(renderer, camera, device);
     //create_cube_scene(renderer, camera, device);

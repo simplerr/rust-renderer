@@ -14,27 +14,6 @@ layout(binding = 2, set = 2, rgba32f) uniform image2D accumulation_image;
 layout(location = 0) rayPayloadEXT Payload rayPayload;
 layout(location = 1) rayPayloadEXT Payload shadowRayPayload;
 
-float luminance(vec3 rgb)
-{
-   // Coefficents from the BT.709 standard
-   return dot(rgb, vec3(0.2126f, 0.7152f, 0.0722f));
-}
-
-float linearToSrgb(float linearColor)
-{
-   if (linearColor < 0.0031308f) {
-      return linearColor * 12.92f;
-   }
-   else {
-      return 1.055f * float(pow(linearColor, 1.0f / 2.4f)) - 0.055f;
-   }
-}
-
-vec3 linearToSrgb(vec3 linearColor)
-{
-   return vec3(linearToSrgb(linearColor.x), linearToSrgb(linearColor.y), linearToSrgb(linearColor.z));
-}
-
 // Clever offset_ray function from Ray Tracing Gems chapter 6
 // Offsets the ray origin from current position p, along normal n (which must be geometric normal)
 // so that no self-intersection can occur.

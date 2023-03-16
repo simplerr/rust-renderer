@@ -28,7 +28,7 @@ void main() {
     vec3 color = vec3(0.0);
 
     // Just for testing
-    if (uv.x < 0.5) {
+    if (false && uv.x < 0.5) {
         if (view.fxaa_enabled == 1) {
             color = fxaa(in_forward_texture, uv);
         }
@@ -46,8 +46,8 @@ void main() {
     }
 
     /* Tonemapping */
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0/2.2));
+    // color = color / (color + vec3(1.0));
+    color = linearToSrgb(color);
 
 #ifdef DEBUG_SHADOW_MAP
     if (uv.x > 0.75 && uv.y < 0.25) {

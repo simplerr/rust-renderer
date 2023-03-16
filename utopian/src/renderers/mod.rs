@@ -2,6 +2,7 @@ use ash::vk;
 
 use crate::image::ImageDesc;
 
+pub mod atmosphere;
 pub mod deferred;
 pub mod forward;
 pub mod gbuffer;
@@ -135,6 +136,15 @@ pub fn build_render_graph(
         ssao_output,
         (cascade_matrices, cascade_depths),
         deferred_output,
+    );
+
+    crate::renderers::atmosphere::setup_atmosphere_pass(
+        &device,
+        graph,
+        &base,
+        deferred_output,
+        camera,
+        true,
     );
 
     crate::renderers::present::setup_present_pass(
