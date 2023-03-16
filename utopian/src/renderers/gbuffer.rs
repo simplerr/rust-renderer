@@ -58,7 +58,7 @@ pub fn setup_gbuffer_pass(
         .write(gbuffer_albedo)
         .write(gbuffer_pbr)
         //.depth_attachment(depth_image)
-        .external_depth_attachment(base.depth_image.clone()) // Todo: create own Depth image
+        .external_depth_attachment(base.depth_image.clone(), vk::AttachmentLoadOp::CLEAR) // Todo: create own Depth image
         .render(move |device, command_buffer, renderer, pass, resources| {
             let pipeline = resources.pipeline(pass.pipeline_handle);
 

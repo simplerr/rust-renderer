@@ -41,7 +41,6 @@ pub fn setup_deferred_pass(
         .read(ssao_output)
         .write(deferred_output)
         .uniforms("shadowmapParams", &(cascade_data))
-        .external_depth_attachment(base.depth_image.clone())
         .render(
             move |device, command_buffer, _renderer, _pass, _resources| unsafe {
                 device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);

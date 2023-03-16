@@ -136,8 +136,8 @@ impl RenderPass {
         &self,
         device: &Device,
         command_buffer: vk::CommandBuffer,
-        color_attachments: &[Image],
-        depth_attachment: Option<(Image, ViewType)>,
+        color_attachments: &[(Image, vk::AttachmentLoadOp)],
+        depth_attachment: Option<(Image, ViewType, vk::AttachmentLoadOp)>,
         extent: vk::Extent2D,
         pipelines: &Vec<Pipeline>,
     ) {
@@ -145,9 +145,9 @@ impl RenderPass {
             .iter()
             .map(|image| {
                 vk::RenderingAttachmentInfo::builder()
-                    .image_view(image.image_view)
+                    .image_view(image.0.image_view)
                     .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                    .load_op(vk::AttachmentLoadOp::CLEAR)
+                    .load_op(image.1)
                     .store_op(vk::AttachmentStoreOp::STORE)
                     .clear_value(vk::ClearValue {
                         color: vk::ClearColorValue {
@@ -168,7 +168,7 @@ impl RenderPass {
                         ViewType::Layer(layer) => depth_attachment.0.layer_view(layer),
                     })
                     .image_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-                    .load_op(vk::AttachmentLoadOp::CLEAR)
+                    .load_op(depth_attachment.2)
                     .store_op(vk::AttachmentStoreOp::STORE)
                     .clear_value(vk::ClearValue {
                         depth_stencil: vk::ClearDepthStencilValue {

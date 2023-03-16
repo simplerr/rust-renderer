@@ -3,8 +3,7 @@ pub fn create_scene(
     camera: &mut utopian::Camera,
     device: &utopian::Device,
 ) {
-    let sphere =
-        utopian::gltf_loader::load_gltf(device, "utopian/data/models/sphere.gltf");
+    let sphere = utopian::gltf_loader::load_gltf(device, "utopian/data/models/sphere.gltf");
 
     renderer.add_model(
         device,

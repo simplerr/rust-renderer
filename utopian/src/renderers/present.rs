@@ -29,7 +29,6 @@ pub fn setup_present_pass(
             &(glam::Vec4::new(1.0, 0.0, fxaa_threshold, 0.0)),
         )
         .presentation_pass(true)
-        .external_depth_attachment(base.depth_image.clone())
         .render(
             move |device, command_buffer, _renderer, _pass, _pipeline_cache| unsafe {
                 device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);

@@ -28,7 +28,7 @@ pub struct GraphResources {
 }
 pub enum DepthAttachment {
     GraphTexture(TextureWrite),
-    External(Image),
+    External(Image, vk::AttachmentLoadOp),
 }
 
 #[derive(Copy, Clone)]
@@ -41,6 +41,7 @@ pub enum ViewType {
 pub struct TextureWrite {
     pub texture: TextureId,
     pub view: ViewType,
+    pub load_op: vk::AttachmentLoadOp,
 }
 
 pub struct Graph {
@@ -107,6 +108,16 @@ impl PassBuilder {
         self.writes.push(TextureWrite {
             texture: resource_id,
             view: ViewType::Full(),
+            load_op: vk::AttachmentLoadOp::CLEAR,
+        });
+        self
+    }
+
+    pub fn load_write(mut self, resource_id: TextureId) -> Self {
+        self.writes.push(TextureWrite {
+            texture: resource_id,
+            view: ViewType::Full(),
+            load_op: vk::AttachmentLoadOp::LOAD,
         });
         self
     }
@@ -129,6 +140,7 @@ impl PassBuilder {
         self.depth_attachment = Some(DepthAttachment::GraphTexture(TextureWrite {
             texture: depth_attachment,
             view: ViewType::Full(),
+            load_op: vk::AttachmentLoadOp::CLEAR, // Todo
         }));
         self
     }
@@ -137,12 +149,17 @@ impl PassBuilder {
         self.depth_attachment = Some(DepthAttachment::GraphTexture(TextureWrite {
             texture: depth_attachment,
             view: ViewType::Layer(layer),
+            load_op: vk::AttachmentLoadOp::CLEAR, // Todo
         }));
         self
     }
 
-    pub fn external_depth_attachment(mut self, depth_attachment: Image) -> Self {
-        self.depth_attachment = Some(DepthAttachment::External(depth_attachment));
+    pub fn external_depth_attachment(
+        mut self,
+        depth_attachment: Image,
+        load_op: vk::AttachmentLoadOp,
+    ) -> Self {
+        self.depth_attachment = Some(DepthAttachment::External(depth_attachment, load_op));
         self
     }
 
@@ -494,10 +511,15 @@ impl Graph {
                 );
             }
 
-            let write_attachments: Vec<Image> = pass
+            let write_attachments: Vec<(Image, vk::AttachmentLoadOp)> = pass
                 .writes
                 .iter()
-                .map(|write| self.resources.textures[write.texture].texture.image.clone())
+                .map(|write| {
+                    (
+                        self.resources.textures[write.texture].texture.image.clone(),
+                        write.load_op,
+                    )
+                })
                 .collect();
 
             // Todo: very ugly just to get the extents...
@@ -525,7 +547,7 @@ impl Graph {
                                 .image
                                 .height(),
                         },
-                        DepthAttachment::External(depth_attachment) => vk::Extent2D {
+                        DepthAttachment::External(depth_attachment, _) => vk::Extent2D {
                             width: depth_attachment.width(),
                             height: depth_attachment.height(),
                         },
@@ -538,13 +560,16 @@ impl Graph {
                 }
             };
 
+            assert_eq!(present_image.len(), 1);
+            let present_image = [(present_image[0].clone(), vk::AttachmentLoadOp::CLEAR)];
+
             pass.prepare_render(
                 device,
                 command_buffer,
                 if !pass.presentation_pass {
                     write_attachments.as_slice()
                 } else {
-                    present_image
+                    &present_image
                 },
                 // Todo: ugly just to get the different types of depth attachments
                 if pass.depth_attachment.is_some() {
@@ -555,9 +580,10 @@ impl Graph {
                                 .image
                                 .clone(),
                             depth_attachment.view,
+                            depth_attachment.load_op,
                         )),
-                        DepthAttachment::External(depth_attachment) => {
-                            Some((depth_attachment.clone(), ViewType::Full()))
+                        DepthAttachment::External(depth_attachment, load_op) => {
+                            Some((depth_attachment.clone(), ViewType::Full(), *load_op))
                         }
                     }
                 } else {
@@ -567,8 +593,8 @@ impl Graph {
                     extent
                 } else {
                     vk::Extent2D {
-                        width: present_image[0].width(),   // Todo
-                        height: present_image[0].height(), // Todo
+                        width: present_image[0].0.width(),   // Todo
+                        height: present_image[0].0.height(), // Todo
                     }
                 },
                 &self.resources.pipelines,

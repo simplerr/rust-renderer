@@ -1,3 +1,5 @@
+use ash::vk;
+
 #[allow(dead_code)]
 struct PushConstants {
     world: glam::Mat4,
@@ -35,7 +37,7 @@ pub fn setup_forward_pass(
         .read(shadow_map)
         .write(forward_output)
         .uniforms("shadowmapParams", &(cascade_data))
-        .external_depth_attachment(base.depth_image.clone()) // Todo: create own Depth image
+        .external_depth_attachment(base.depth_image.clone(), vk::AttachmentLoadOp::CLEAR) // Todo: create own Depth image
         .render(move |device, command_buffer, renderer, pass, resources| {
             let pipeline = resources.pipeline(pass.pipeline_handle);
 

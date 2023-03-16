@@ -24,13 +24,13 @@ pub fn setup_atmosphere_pass(
     });
 
     let projection = camera.get_projection();
-    // Mat4::from_rotation_x(std::f32::consts::PI) * 
-    let world = Mat4::from_scale(Vec3::splat(16.0));
+    let world = Mat4::from_scale(Vec3::splat(1000.0));
 
     graph
         .add_pass(String::from("atmosphere_pass"), pipeline_handle)
-        .write(atmosphere_output)
+        .load_write(atmosphere_output)
         .uniforms("ubo_constants", &(projection, world))
+        .external_depth_attachment(base.depth_image.clone(), vk::AttachmentLoadOp::LOAD)
         .render(
             move |device, command_buffer, _renderer, _pass, _resources| unsafe {
                 // Todo: This is a hack to get around the fact that we can't properly disable a pass
