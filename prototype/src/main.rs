@@ -219,19 +219,19 @@ impl Application {
                         ui.label("x:");
                         ui.add(egui::widgets::Slider::new(
                             &mut view_data.sun_dir.x,
-                            0.0..=1.0,
+                            -1.0..=1.0,
                         ));
                         ui.end_row();
                         ui.label("y:");
                         ui.add(egui::widgets::Slider::new(
                             &mut view_data.sun_dir.y,
-                            0.0..=1.0,
+                            -1.0..=1.0,
                         ));
                         ui.end_row();
                         ui.label("z:");
                         ui.add(egui::widgets::Slider::new(
                             &mut view_data.sun_dir.z,
-                            0.0..=1.0,
+                            -1.0..=1.0,
                         ));
                     });
                 });

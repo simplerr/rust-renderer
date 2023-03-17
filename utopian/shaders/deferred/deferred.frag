@@ -38,10 +38,9 @@ layout(push_constant) uniform PushConsts {
 vec4 lightColor = vec4(vec3(50.0f), 1.0f);
 vec4 red = vec4(50.0, 0.0, 0.0, 1.0);
 vec4 green = vec4(0.0, 50.0, 0.0, 1.0);
-const int numLights = 4;
+const int numLights = 3;
 
 Light lights[numLights] = {
-    Light(vec4(3.0f), vec3(0.0f, 1.0f, -2.0f), 0.0f, vec3(1.0f), 0.0f, vec3(0.2,0.001399,0.0), 0.0f, vec3(0.0f), 0.0f, vec4(0.0f)),
     Light(lightColor, vec3(1.0f, 1.0f, 3.0f), 0.0f, vec3(0.0f), 0.0f, vec3(0,0,1), 1.0f, vec3(0.0f), 0.0f, vec4(0.0f)),
     Light(red, vec3(8.0f, 6.0f, 0.0f), 0.0f, vec3(0.0f), 0.0f, vec3(0,0,1), 1.0f, vec3(0.0f), 0.0f, vec4(0.0f)),
     Light(green, vec3(8.0f, 1.0f, 0.0f), 0.0f, vec3(0.0f), 0.0f, vec3(0,0,3), 1.0f, vec3(0.0f), 0.0f, vec4(0.0f)),
@@ -75,6 +74,10 @@ void main() {
 
     /* Direct lighting */
     vec3 Lo = vec3(0.0);
+
+    Light sun_light = Light(vec4(1.0f), vec3(0.0f), 0.0f, view.sun_dir * vec3(-1, 1, -1), 0.0f, vec3(1.0), 0.0f, vec3(0.0f), 0.0f, vec4(0.0f));
+    Lo += surfaceShading(pixel, sun_light, view.eye_pos.xyz, 1.0f);
+
     for (int i = 0; i < numLights; i++)
     {
        Lo += surfaceShading(pixel, lights[i], view.eye_pos.xyz, 1.0f);
