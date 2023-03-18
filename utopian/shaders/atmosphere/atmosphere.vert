@@ -12,7 +12,7 @@ layout (location = 2) in vec2 uv;
 layout (location = 3) in vec4 color;
 layout (location = 4) in vec4 tangent;
 
-layout (set = 2, binding = 0) uniform UBO_constants
+layout (set = 3, binding = 0) uniform UBO_constants
 {
    mat4 projection;
    mat4 world;

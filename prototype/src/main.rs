@@ -34,7 +34,7 @@ impl Application {
             width as f32 / height as f32,
             0.01,
             1000.0,
-            0.02,
+            0.20,
         );
 
         // Move from here
@@ -53,8 +53,8 @@ impl Application {
             shadows_enabled: 1,
             ssao_enabled: 1,
             fxaa_enabled: 1,
+            cubemap_enabled: 1,
             pad1: 0,
-            pad2: 0,
         };
 
         let slice = unsafe { std::slice::from_raw_parts(&view_data, 1) };
@@ -254,6 +254,12 @@ impl Application {
                         let mut fxaa = view_data.fxaa_enabled == 1;
                         ui.add(egui::widgets::Checkbox::new(&mut fxaa, ""));
                         view_data.fxaa_enabled = fxaa as u32;
+                        ui.end_row();
+
+                        ui.label("Use cubemap:");
+                        let mut cubemap = view_data.cubemap_enabled == 1;
+                        ui.add(egui::widgets::Checkbox::new(&mut cubemap, ""));
+                        view_data.cubemap_enabled = cubemap as u32;
                         ui.end_row();
                     });
                 });

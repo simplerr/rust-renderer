@@ -7,11 +7,15 @@
 #include "include/view.glsl"
 #include "include/atmosphere.glsl"
 
-layout (location = 0) in vec3 in_pos_l;
+layout (location = 0) in vec2 in_uv;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform samplerCube in_cubemap;
+layout (std140, set = 2, binding = 0) uniform UBO_parameters
+{
+   mat4 view;
+   mat4 projection;
+} params;
 
 // Function to extract camera position from a view matrix
 vec3 extractCameraPosition(mat4 viewMatrix) {
@@ -22,22 +26,24 @@ vec3 extractCameraPosition(mat4 viewMatrix) {
 
 void main()
 {
-   //vec3 rayStart = sharedVariables.eyePos.xyz;
+   vec3 ndc = vec3(in_uv, 0.0) * 2.0 - 1.0;
+   vec4 clipSpace = vec4(ndc, 1.0);
+   vec4 viewSpace = inverse(params.projection) * clipSpace;
+   viewSpace.w = 0.0;
+   vec4 worldSpace = inverse(params.view) * viewSpace;
+   vec3 worldDir = normalize(worldSpace.xyz);
+
    vec3 rayStart = extractCameraPosition(view.view);
-   vec3 rayDir = normalize(in_pos_l);
+   vec3 rayDir = worldDir;
    float rayLength = 999999999.0f;
    vec3 sunDir = view.sun_dir;
    vec3 lightColor = vec3(1.0f);
 
-   vec3 color = vec3(0.0);
+   vec3 transmittance;
+   vec3 color = IntegrateScattering(rayStart, rayDir, rayLength, sunDir, lightColor, transmittance);
 
-   if (view.cubemap_enabled == 1) {
-      color = texture(in_cubemap, rayDir * vec3(1, -1, 1)).rgb;
-   }
-   else {
-      vec3 transmittance;
-      color = IntegrateScattering(rayStart, rayDir, rayLength, sunDir, lightColor, transmittance);
-   }
+   // color = vec3(in_uv, 0.0);
+   // color = worldDir;
 
    out_color = vec4(vec3(color), 1.0f);
 }

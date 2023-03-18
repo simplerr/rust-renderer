@@ -54,7 +54,7 @@ pub struct ViewUniformData {
     pub shadows_enabled: u32,
     pub ssao_enabled: u32,
     pub fxaa_enabled: u32,
-    pub pad2: u32,
+    pub cubemap_enabled: u32,
 }
 
 #[derive(Clone, Copy, Debug)]

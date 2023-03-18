@@ -3,6 +3,17 @@ use ash::vk::{AccessFlags, ImageLayout, PipelineStageFlags};
 
 use crate::Device;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImageType {
+    Tex1d = 0,
+    Tex1dArray = 1,
+    Tex2d = 2,
+    Tex2dArray = 3,
+    Tex3d = 4,
+    Cube = 5,
+    CubeArray = 6,
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct ImageDesc {
     pub width: u32,
@@ -10,7 +21,7 @@ pub struct ImageDesc {
     pub depth: u32,
     pub array_layers: u32,
     pub format: vk::Format,
-    pub image_type: vk::ImageType,
+    pub image_type: ImageType,
     pub aspect_flags: vk::ImageAspectFlags,
     pub usage: vk::ImageUsageFlags,
 }
@@ -23,7 +34,7 @@ impl ImageDesc {
             depth: 1,
             array_layers: 1,
             format,
-            image_type: vk::ImageType::TYPE_2D,
+            image_type: ImageType::Tex2d,
             aspect_flags: vk::ImageAspectFlags::COLOR,
             usage: vk::ImageUsageFlags::TRANSFER_DST
                 | vk::ImageUsageFlags::SAMPLED
@@ -39,7 +50,23 @@ impl ImageDesc {
             depth: 1,
             array_layers,
             format,
-            image_type: vk::ImageType::TYPE_2D,
+            image_type: ImageType::Tex2dArray,
+            aspect_flags: vk::ImageAspectFlags::COLOR,
+            usage: vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::SAMPLED
+                | vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            // Todo: better way to set common usage flags
+        }
+    }
+
+    pub fn new_cubemap(width: u32, height: u32, format: vk::Format) -> Self {
+        ImageDesc {
+            width,
+            height,
+            depth: 1,
+            array_layers: 6,
+            format,
+            image_type: ImageType::Cube,
             aspect_flags: vk::ImageAspectFlags::COLOR,
             usage: vk::ImageUsageFlags::TRANSFER_DST
                 | vk::ImageUsageFlags::SAMPLED
@@ -92,6 +119,13 @@ impl Image {
                 usage: desc.usage,
                 sharing_mode: vk::SharingMode::EXCLUSIVE,
                 initial_layout,
+                flags: if desc.image_type == ImageType::Cube
+                    || desc.image_type == ImageType::CubeArray
+                {
+                    vk::ImageCreateFlags::CUBE_COMPATIBLE
+                } else {
+                    vk::ImageCreateFlags::empty()
+                },
                 ..Default::default()
             };
             let image = device
@@ -119,10 +153,12 @@ impl Image {
                 .bind_image_memory(image, device_memory, 0)
                 .expect("Unable to bind device memory to image");
 
-            let view_type = if desc.image_type == vk::ImageType::TYPE_2D && desc.array_layers == 1 {
+            let view_type = if desc.image_type == ImageType::Tex2d && desc.array_layers == 1 {
                 vk::ImageViewType::TYPE_2D
-            } else if desc.image_type == vk::ImageType::TYPE_2D && desc.array_layers > 1 {
+            } else if desc.image_type == ImageType::Tex2dArray && desc.array_layers > 1 {
                 vk::ImageViewType::TYPE_2D_ARRAY
+            } else if desc.image_type == ImageType::Cube {
+                vk::ImageViewType::CUBE
             } else {
                 unimplemented!()
             };
@@ -139,14 +175,20 @@ impl Image {
 
             let mut layer_views = vec![];
 
-            if desc.array_layers > 1 {
+            if desc.array_layers > 1
+            /*&& desc.image_type == ImageType::Tex2dArray */
+            {
                 for layer in 0..desc.array_layers {
                     let view = Image::create_image_view(
                         device,
                         image,
                         desc.format,
                         desc.aspect_flags,
-                        view_type,
+                        if desc.image_type == ImageType::Cube {
+                            vk::ImageViewType::TYPE_2D
+                        } else {
+                            view_type
+                        },
                         layer,
                         1,
                     );
@@ -166,10 +208,12 @@ impl Image {
     }
 
     pub fn new_from_handle(device: &Device, image: vk::Image, desc: ImageDesc) -> Image {
-        let view_type = if desc.image_type == vk::ImageType::TYPE_2D && desc.array_layers == 1 {
+        let view_type = if desc.image_type == ImageType::Tex2d && desc.array_layers == 1 {
             vk::ImageViewType::TYPE_2D
-        } else if desc.image_type == vk::ImageType::TYPE_2D && desc.array_layers > 1 {
+        } else if desc.image_type == ImageType::Tex2dArray && desc.array_layers > 1 {
             vk::ImageViewType::TYPE_2D_ARRAY
+        } else if desc.image_type == ImageType::Cube {
+            vk::ImageViewType::CUBE
         } else {
             unimplemented!()
         };

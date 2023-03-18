@@ -3,6 +3,7 @@ use ash::vk;
 use crate::image::ImageDesc;
 
 pub mod atmosphere;
+pub mod cubemap;
 pub mod deferred;
 pub mod forward;
 pub mod gbuffer;
@@ -67,6 +68,12 @@ pub fn build_render_graph(
             ),
     );
 
+    let cubemap = graph.create_texture(
+        "cubemap",
+        device,
+        ImageDesc::new_cubemap(256, 256, rgba32_fmt),
+    );
+
     // Forward & deferred output textures
     let forward_output = graph.create_texture(
         "forward_output",
@@ -115,6 +122,15 @@ pub fn build_render_graph(
         view_data.ssao_enabled == 1,
     );
 
+    crate::renderers::cubemap::setup_cubemap_pass(
+        &device,
+        graph,
+        &base,
+        cubemap,
+        camera,
+        view_data.cubemap_enabled == 1,
+    );
+
     crate::renderers::forward::setup_forward_pass(
         &device,
         graph,
@@ -143,6 +159,7 @@ pub fn build_render_graph(
         graph,
         &base,
         deferred_output,
+        cubemap,
         camera,
         true,
     );

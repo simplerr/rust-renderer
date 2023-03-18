@@ -136,7 +136,7 @@ impl RenderPass {
         &self,
         device: &Device,
         command_buffer: vk::CommandBuffer,
-        color_attachments: &[(Image, vk::AttachmentLoadOp)],
+        color_attachments: &[(Image, ViewType, vk::AttachmentLoadOp)],
         depth_attachment: Option<(Image, ViewType, vk::AttachmentLoadOp)>,
         extent: vk::Extent2D,
         pipelines: &Vec<Pipeline>,
@@ -145,9 +145,12 @@ impl RenderPass {
             .iter()
             .map(|image| {
                 vk::RenderingAttachmentInfo::builder()
-                    .image_view(image.0.image_view)
+                    .image_view(match image.1 {
+                        ViewType::Full() => image.0.image_view,
+                        ViewType::Layer(layer) => image.0.layer_view(layer),
+                    })
                     .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                    .load_op(image.1)
+                    .load_op(image.2)
                     .store_op(vk::AttachmentStoreOp::STORE)
                     .clear_value(vk::ClearValue {
                         color: vk::ClearColorValue {

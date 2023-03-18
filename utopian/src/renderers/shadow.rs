@@ -1,14 +1,6 @@
 use crate::camera;
 use glam::{Mat4, Vec3, Vec4Swizzles};
 
-#[allow(dead_code)]
-struct PushConstants {
-    world: glam::Mat4,
-    color: glam::Vec4,
-    mesh_index: u32,
-    pad: [u32; 3],
-}
-
 pub fn setup_shadow_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
@@ -30,6 +22,10 @@ pub fn setup_shadow_pass(
         color_attachment_formats: vec![],
         depth_stencil_attachment_format: base.depth_image.format(),
     });
+
+    // Todo:
+    // Currently there is no good way to fully disable a pass so all this
+    // code will allways run for now.
 
     const SHADOW_MAP_CASCADE_COUNT: u32 = 4;
 

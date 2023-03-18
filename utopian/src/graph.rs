@@ -113,6 +113,15 @@ impl PassBuilder {
         self
     }
 
+    pub fn write_layer(mut self, resource_id: TextureId, layer: u32) -> Self {
+        self.writes.push(TextureWrite {
+            texture: resource_id,
+            view: ViewType::Layer(layer),
+            load_op: vk::AttachmentLoadOp::CLEAR,
+        });
+        self
+    }
+
     pub fn load_write(mut self, resource_id: TextureId) -> Self {
         self.writes.push(TextureWrite {
             texture: resource_id,
@@ -511,12 +520,13 @@ impl Graph {
                 );
             }
 
-            let write_attachments: Vec<(Image, vk::AttachmentLoadOp)> = pass
+            let write_attachments: Vec<(Image, ViewType, vk::AttachmentLoadOp)> = pass
                 .writes
                 .iter()
                 .map(|write| {
                     (
                         self.resources.textures[write.texture].texture.image.clone(),
+                        write.view,
                         write.load_op,
                     )
                 })
@@ -561,7 +571,11 @@ impl Graph {
             };
 
             assert_eq!(present_image.len(), 1);
-            let present_image = [(present_image[0].clone(), vk::AttachmentLoadOp::CLEAR)];
+            let present_image = [(
+                present_image[0].clone(),
+                ViewType::Full(),
+                vk::AttachmentLoadOp::CLEAR,
+            )];
 
             pass.prepare_render(
                 device,
