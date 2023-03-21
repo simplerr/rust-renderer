@@ -24,6 +24,7 @@ pub struct ImageDesc {
     pub image_type: ImageType,
     pub aspect_flags: vk::ImageAspectFlags,
     pub usage: vk::ImageUsageFlags,
+    pub mip_levels: u32,
 }
 
 impl ImageDesc {
@@ -36,10 +37,11 @@ impl ImageDesc {
             format,
             image_type: ImageType::Tex2d,
             aspect_flags: vk::ImageAspectFlags::COLOR,
+            // Todo: better way to set common usage flags
             usage: vk::ImageUsageFlags::TRANSFER_DST
                 | vk::ImageUsageFlags::SAMPLED
                 | vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            // Todo: better way to set common usage flags
+            mip_levels: 1,
         }
     }
 
@@ -52,10 +54,11 @@ impl ImageDesc {
             format,
             image_type: ImageType::Tex2dArray,
             aspect_flags: vk::ImageAspectFlags::COLOR,
+            // Todo: better way to set common usage flags
             usage: vk::ImageUsageFlags::TRANSFER_DST
                 | vk::ImageUsageFlags::SAMPLED
                 | vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            // Todo: better way to set common usage flags
+            mip_levels: 1,
         }
     }
 
@@ -68,10 +71,11 @@ impl ImageDesc {
             format,
             image_type: ImageType::Cube,
             aspect_flags: vk::ImageAspectFlags::COLOR,
+            // Todo: better way to set common usage flags
             usage: vk::ImageUsageFlags::TRANSFER_DST
                 | vk::ImageUsageFlags::SAMPLED
                 | vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            // Todo: better way to set common usage flags
+            mip_levels: 1,
         }
     }
 
@@ -82,6 +86,11 @@ impl ImageDesc {
 
     pub fn usage(mut self, usage_flags: vk::ImageUsageFlags) -> Self {
         self.usage = usage_flags;
+        self
+    }
+
+    pub fn mip_levels(mut self, mip_levels: u32) -> Self {
+        self.mip_levels = mip_levels;
         self
     }
 }
@@ -112,7 +121,7 @@ impl Image {
                     height: desc.height,
                     depth: 1,
                 },
-                mip_levels: 1,
+                mip_levels: desc.mip_levels,
                 array_layers: desc.array_layers,
                 samples: vk::SampleCountFlags::TYPE_1,
                 tiling: vk::ImageTiling::OPTIMAL,
@@ -171,6 +180,7 @@ impl Image {
                 view_type,
                 0,
                 desc.array_layers,
+                desc.mip_levels,
             );
 
             let mut layer_views = vec![];
@@ -191,6 +201,7 @@ impl Image {
                         },
                         layer,
                         1,
+                        desc.mip_levels,
                     );
                     layer_views.push(view);
                 }
@@ -226,6 +237,7 @@ impl Image {
             view_type,
             0,
             1,
+            desc.mip_levels,
         );
 
         Image {
@@ -246,6 +258,7 @@ impl Image {
         view_type: vk::ImageViewType,
         base_array_layer: u32,
         layer_count: u32,
+        mip_levels: u32,
     ) -> vk::ImageView {
         // Create image view
         let components = match aspect_flags {
@@ -266,8 +279,9 @@ impl Image {
             subresource_range: vk::ImageSubresourceRange {
                 aspect_mask: aspect_flags,
                 base_array_layer,
-                level_count: 1,
                 layer_count,
+                base_mip_level: 0,
+                level_count: mip_levels,
                 ..Default::default()
             },
             image,

@@ -71,6 +71,8 @@ impl Texture {
             max_anisotropy: 1.0,
             border_color: vk::BorderColor::FLOAT_OPAQUE_WHITE,
             compare_op: vk::CompareOp::NEVER,
+            min_lod: 0.0,
+            max_lod: image_desc.mip_levels as f32,
             ..Default::default()
         };
 

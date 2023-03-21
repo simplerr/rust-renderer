@@ -32,7 +32,8 @@ void main()
    vec3 color = vec3(0.0);
 
    if (view.cubemap_enabled == 1) {
-      color = texture(in_cubemap, rayDir * vec3(1, -1, 1)).rgb;
+      //color = texture(in_cubemap, rayDir * vec3(1, -1, 1)).rgb;
+      color = textureLod(in_cubemap, rayDir * vec3(1, -1, 1), 0).rgb;
    }
    else {
       vec3 transmittance;

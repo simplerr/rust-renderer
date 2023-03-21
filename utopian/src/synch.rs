@@ -27,7 +27,7 @@ pub fn image_pipeline_barrier(
             range: vk::ImageSubresourceRange::builder()
                 .aspect_mask(image.desc.aspect_flags)
                 .layer_count(image.desc.array_layers)
-                .level_count(1)
+                .level_count(image.desc.mip_levels)
                 .build(),
         }],
     );

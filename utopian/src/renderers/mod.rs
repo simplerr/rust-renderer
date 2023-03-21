@@ -71,7 +71,7 @@ pub fn build_render_graph(
     let cubemap = graph.create_texture(
         "cubemap",
         device,
-        ImageDesc::new_cubemap(256, 256, rgba32_fmt),
+        ImageDesc::new_cubemap(256, 256, rgba32_fmt).mip_levels(4),
     );
 
     // Forward & deferred output textures
