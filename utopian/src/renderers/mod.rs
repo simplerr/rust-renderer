@@ -127,7 +127,6 @@ pub fn build_render_graph(
         graph,
         &base,
         cubemap,
-        camera,
         view_data.cubemap_enabled == 1,
     );
 

@@ -13,6 +13,12 @@ pub struct Buffer {
     pub debug_name: String,
 }
 
+// Helper function that only copies the data that fits into the destination
+fn copy_data_to_destination(dest: &mut [u8], data_u8: &[u8]) {
+    let copy_length = std::cmp::min(dest.len(), data_u8.len());
+    dest[0..copy_length].copy_from_slice(&data_u8[0..copy_length]);
+}
+
 impl Buffer {
     pub fn create_buffer(
         device: &Device,
@@ -90,12 +96,12 @@ impl Buffer {
         unsafe {
             let data_u8 = std::slice::from_raw_parts(
                 data.as_ptr() as *const u8,
-                self.size as usize, // data.len() * core::mem::size_of::<T>(),
+                data.len() * core::mem::size_of::<T>(),
             );
 
             if self.memory_location != gpu_allocator::MemoryLocation::GpuOnly {
-                self.allocation.mapped_slice_mut().unwrap()[0..data_u8.len()]
-                    .copy_from_slice(data_u8);
+                let dest = self.allocation.mapped_slice_mut().unwrap();
+                copy_data_to_destination(dest, data_u8);
             } else {
                 let mut staging_buffer = Buffer::create_buffer(
                     device,
@@ -104,8 +110,8 @@ impl Buffer {
                     gpu_allocator::MemoryLocation::CpuToGpu,
                 );
 
-                staging_buffer.allocation.mapped_slice_mut().unwrap()[0..data_u8.len()]
-                    .copy_from_slice(data_u8);
+                let dest = staging_buffer.allocation.mapped_slice_mut().unwrap();
+                copy_data_to_destination(dest, data_u8);
 
                 device.execute_and_submit(|device, cb| {
                     let regions = vk::BufferCopy::builder()

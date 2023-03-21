@@ -1,4 +1,3 @@
-use ash::vk;
 use glam::{Mat4, Vec3};
 
 pub fn setup_cubemap_pass(
@@ -6,7 +5,6 @@ pub fn setup_cubemap_pass(
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
     cubemap: crate::TextureId,
-    camera: &crate::camera::Camera,
     enabled: bool,
 ) {
     let pipeline_handle = graph.create_pipeline(crate::PipelineDesc {
