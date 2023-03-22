@@ -7,6 +7,7 @@ pub fn setup_atmosphere_pass(
     base: &crate::VulkanBase,
     atmosphere_output: crate::TextureId,
     cubemap: crate::TextureId,
+    cubemap_copy: crate::TextureId,
     camera: &crate::camera::Camera,
     enabled: bool,
 ) {
@@ -31,6 +32,7 @@ pub fn setup_atmosphere_pass(
         .add_pass(String::from("atmosphere_pass"), pipeline_handle)
         .load_write(atmosphere_output)
         .read(cubemap)
+        .read(cubemap_copy)
         .uniforms("ubo_constants", &(projection, world))
         .external_depth_attachment(base.depth_image.clone(), vk::AttachmentLoadOp::LOAD)
         .render(

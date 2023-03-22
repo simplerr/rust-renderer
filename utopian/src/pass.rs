@@ -22,6 +22,7 @@ pub struct RenderPass {
     pub uniforms: HashMap<String, (String, UniformData)>,
     pub uniform_buffer: Option<BufferId>,
     pub uniforms_descriptor_set: Option<crate::DescriptorSet>,
+    pub copy_command: Option<TextureCopy>,
 }
 
 impl RenderPass {
@@ -34,6 +35,7 @@ impl RenderPass {
         render_func: Option<
             Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>,
         >,
+        copy_command: Option<TextureCopy>,
     ) -> RenderPass {
         RenderPass {
             pipeline_handle,
@@ -47,6 +49,7 @@ impl RenderPass {
             uniforms,
             uniform_buffer: None,
             uniforms_descriptor_set: None,
+            copy_command,
         }
     }
 

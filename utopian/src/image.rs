@@ -429,6 +429,14 @@ impl Image {
         self.desc.height
     }
 
+    pub fn extent(&self) -> vk::Extent3D {
+        vk::Extent3D {
+            width: self.desc.width,
+            height: self.desc.height,
+            depth: 1,
+        }
+    }
+
     pub fn format(&self) -> vk::Format {
         self.desc.format
     }

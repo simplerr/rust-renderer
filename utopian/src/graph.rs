@@ -44,6 +44,12 @@ pub struct TextureWrite {
     pub load_op: vk::AttachmentLoadOp,
 }
 
+pub struct TextureCopy {
+    pub src: TextureId,
+    pub dst: TextureId,
+    pub copy_desc: vk::ImageCopy,
+}
+
 pub struct Graph {
     pub passes: Vec<RenderPass>,
     pub resources: GraphResources,
@@ -74,6 +80,7 @@ pub struct PassBuilder {
     pub presentation_pass: bool,
     // The key is the uniform name with the pass name as prefix
     pub uniforms: HashMap<String, (String, UniformData)>,
+    pub copy_command: Option<TextureCopy>,
 }
 
 impl GraphResources {
@@ -202,6 +209,15 @@ impl PassBuilder {
         self
     }
 
+    pub fn copy_image(mut self, src: TextureId, dst: TextureId, copy_desc: vk::ImageCopy) -> Self {
+        self.copy_command.replace(TextureCopy {
+            src,
+            dst,
+            copy_desc,
+        });
+        self
+    }
+
     pub fn build(self, device: &Device, graph: &mut Graph) {
         let mut pass = crate::RenderPass::new(
             self.name,
@@ -210,6 +226,7 @@ impl PassBuilder {
             self.depth_attachment,
             self.uniforms.clone(), // Note: is this clone OK?
             self.render_func,
+            self.copy_command,
         );
 
         for read in &self.reads {
@@ -327,6 +344,7 @@ impl Graph {
             depth_attachment: None,
             presentation_pass: false,
             uniforms: HashMap::new(),
+            copy_command: None,
         }
     }
 
@@ -668,8 +686,55 @@ impl Graph {
                 render_func(device, command_buffer, renderer, pass, &self.resources);
             }
 
+            unsafe { device.handle.cmd_end_rendering(command_buffer) };
+
+            if let Some(copy_command) = &pass.copy_command {
+                puffin::profile_scope!("copy_command:", pass.name.as_str());
+
+                let src = copy_command.src;
+                let dst = copy_command.dst;
+
+                // Image barriers
+                // (a bit verbose, but ok for now)
+                let next_access = crate::synch::image_pipeline_barrier(
+                    &device,
+                    command_buffer,
+                    &self.resources.textures[src].texture.image,
+                    self.resources.textures[src].prev_access,
+                    vk_sync::AccessType::TransferRead,
+                );
+                self.resources.textures.get_mut(src).unwrap().prev_access = next_access;
+
+                let next_access = crate::synch::image_pipeline_barrier(
+                    &device,
+                    command_buffer,
+                    &self.resources.textures[dst].texture.image,
+                    self.resources.textures[dst].prev_access,
+                    vk_sync::AccessType::TransferWrite,
+                );
+                self.resources.textures.get_mut(dst).unwrap().prev_access = next_access;
+
+                let src = &self.resources.textures[src].texture.image;
+                let dst = &self.resources.textures[dst].texture.image;
+
+                // Use aspect flags from images
+                let mut copy_desc = copy_command.copy_desc;
+                copy_desc.src_subresource.aspect_mask = src.desc.aspect_flags;
+                copy_desc.dst_subresource.aspect_mask = dst.desc.aspect_flags;
+
+                unsafe {
+                    device.handle.cmd_copy_image(
+                        command_buffer,
+                        src.image,
+                        vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                        dst.image,
+                        vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                        &[copy_desc],
+                    )
+                };
+            }
+
             unsafe {
-                device.handle.cmd_end_rendering(command_buffer);
                 device.debug_utils.cmd_end_debug_utils_label(command_buffer);
             }
         }

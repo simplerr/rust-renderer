@@ -71,7 +71,20 @@ pub fn build_render_graph(
     let cubemap = graph.create_texture(
         "cubemap",
         device,
-        ImageDesc::new_cubemap(256, 256, rgba32_fmt).mip_levels(4),
+        ImageDesc::new_cubemap(256, 256, rgba32_fmt)
+            .mip_levels(4)
+            .usage(
+                vk::ImageUsageFlags::TRANSFER_DST
+                    | vk::ImageUsageFlags::SAMPLED
+                    | vk::ImageUsageFlags::COLOR_ATTACHMENT
+                    | vk::ImageUsageFlags::TRANSFER_SRC,
+            ),
+    );
+
+    let cubemap_copy = graph.create_texture(
+        "cubemap_copy",
+        device,
+        ImageDesc::new_cubemap(256, 256, vk::Format::R32G32B32A32_SFLOAT).mip_levels(4),
     );
 
     // Forward & deferred output textures
@@ -127,6 +140,7 @@ pub fn build_render_graph(
         graph,
         &base,
         cubemap,
+        cubemap_copy,
         view_data.cubemap_enabled == 1,
     );
 
@@ -159,6 +173,7 @@ pub fn build_render_graph(
         &base,
         deferred_output,
         cubemap,
+        cubemap_copy,
         camera,
         true,
     );

@@ -1,10 +1,14 @@
+use ash::vk;
 use glam::{Mat4, Vec3};
+
+use crate::image::ImageDesc;
 
 pub fn setup_cubemap_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
     cubemap: crate::TextureId,
+    cubemap_copy: crate::TextureId,
     enabled: bool,
 ) {
     let pipeline_handle = graph.create_pipeline(crate::PipelineDesc {
@@ -31,13 +35,34 @@ pub fn setup_cubemap_pass(
             .add_pass(format!("cubemap_pass{layer}"), pipeline_handle)
             .write_layer(cubemap, layer)
             .uniforms("params", &(view_matrices[layer as usize], projection))
-            .render(
-                move |device, command_buffer, _renderer, _pass, _resources| unsafe {
-                    // Todo: This is a hack to get around the fact that we can't properly disable a pass
-                    if enabled {
-                        device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
-                    }
-                },
+            .render(move |device, cb, _renderer, _pass, _resources| unsafe {
+                // Todo: This is a hack to get around the fact that we can't properly disable a pass
+                if enabled {
+                    device.handle.cmd_draw(cb, 3, 1, 0, 0);
+                }
+            })
+            .copy_image(
+                cubemap,
+                cubemap_copy,
+                vk::ImageCopy::builder()
+                    .src_subresource(
+                        vk::ImageSubresourceLayers::builder()
+                            .mip_level(0)
+                            .base_array_layer(layer)
+                            .layer_count(1)
+                            .build(),
+                    )
+                    .src_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+                    .dst_subresource(
+                        vk::ImageSubresourceLayers::builder()
+                            .mip_level(0)
+                            .base_array_layer(layer)
+                            .layer_count(1)
+                            .build(),
+                    )
+                    .dst_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+                    .extent(graph.resources.textures[cubemap].texture.image.extent()) // Todo
+                    .build(),
             )
             .build(&device, graph);
     }
