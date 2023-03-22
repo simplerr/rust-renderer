@@ -441,6 +441,10 @@ impl Image {
         self.desc.format
     }
 
+    pub(crate) fn num_mips(&self) -> u32 {
+        self.desc.mip_levels
+    }
+
     pub fn is_depth_image_fmt(format: vk::Format) -> bool {
         format == vk::Format::D32_SFLOAT
             || format == vk::Format::D32_SFLOAT_S8_UINT
