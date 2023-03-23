@@ -11,7 +11,7 @@ layout (location = 0) in vec3 in_pos_l;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform samplerCube in_cubemap;
+layout (set = 2, binding = 0) uniform samplerCube in_enviroment_map;
 
 // Function to extract camera position from a view matrix
 vec3 extractCameraPosition(mat4 viewMatrix) {
@@ -32,7 +32,7 @@ void main()
    vec3 color = vec3(0.0);
 
    if (view.cubemap_enabled == 1) {
-      color = textureLod(in_cubemap, rayDir * vec3(1, -1, 1), 0).rgb;
+      color = textureLod(in_enviroment_map, rayDir * vec3(1, -1, 1), 0).rgb;
    }
    else {
       vec3 transmittance;

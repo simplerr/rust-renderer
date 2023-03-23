@@ -39,6 +39,7 @@ impl ImageDesc {
             aspect_flags: vk::ImageAspectFlags::COLOR,
             // Todo: better way to set common usage flags
             usage: vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::TRANSFER_SRC
                 | vk::ImageUsageFlags::SAMPLED
                 | vk::ImageUsageFlags::COLOR_ATTACHMENT,
             mip_levels: 1,
