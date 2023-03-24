@@ -13,17 +13,10 @@ layout (location = 0) out vec4 out_color;
 
 layout (set = 2, binding = 0) uniform samplerCube in_enviroment_map;
 
-// Function to extract camera position from a view matrix
-vec3 extractCameraPosition(mat4 viewMatrix) {
-   mat4 inverseViewMatrix = inverse(viewMatrix);
-   vec3 cameraPosition = vec3(inverseViewMatrix[3]);
-   return cameraPosition;
-}
-
 void main()
 {
    //vec3 rayStart = sharedVariables.eyePos.xyz;
-   vec3 rayStart = extractCameraPosition(view.view);
+   vec3 rayStart = extract_camera_position(view.view);
    vec3 rayDir = normalize(in_pos_l);
    float rayLength = 999999999.0f;
    vec3 sunDir = view.sun_dir;

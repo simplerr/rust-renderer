@@ -116,7 +116,7 @@ pub fn build_render_graph(
         view_data.ssao_enabled == 1,
     );
 
-    let environment_map = crate::renderers::ibl::setup_cubemap_pass(
+    let (environment_map, irradiance_map) = crate::renderers::ibl::setup_cubemap_pass(
         &device,
         graph,
         &base,
@@ -151,7 +151,8 @@ pub fn build_render_graph(
         graph,
         &base,
         deferred_output,
-        environment_map,
+        //environment_map,
+        irradiance_map,
         camera,
         true,
     );

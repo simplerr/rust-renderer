@@ -17,23 +17,11 @@ layout (std140, set = 2, binding = 0) uniform UBO_parameters
    mat4 projection;
 } params;
 
-// Function to extract camera position from a view matrix
-vec3 extractCameraPosition(mat4 viewMatrix) {
-   mat4 inverseViewMatrix = inverse(viewMatrix);
-   vec3 cameraPosition = vec3(inverseViewMatrix[3]);
-   return cameraPosition;
-}
-
 void main()
 {
-   vec3 ndc = vec3(in_uv, 0.0) * 2.0 - 1.0;
-   vec4 clipSpace = vec4(ndc, 1.0);
-   vec4 viewSpace = inverse(params.projection) * clipSpace;
-   viewSpace.w = 0.0;
-   vec4 worldSpace = inverse(params.view) * viewSpace;
-   vec3 worldDir = normalize(worldSpace.xyz);
+   vec3 worldDir = world_dir_from_uv(in_uv, params.view, params.projection);
 
-   vec3 rayStart = extractCameraPosition(view.view);
+   vec3 rayStart = extract_camera_position(view.view);
    vec3 rayDir = worldDir;
    float rayLength = 999999999.0f;
    vec3 sunDir = view.sun_dir;
@@ -41,6 +29,8 @@ void main()
 
    vec3 transmittance;
    vec3 color = IntegrateScattering(rayStart, rayDir, rayLength, sunDir, lightColor, transmittance);
+
+   color = sin((rayDir * 0.5 + 0.5) * 60.0);
 
    // color = vec3(in_uv, 0.0);
    // color = worldDir;

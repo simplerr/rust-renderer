@@ -50,3 +50,25 @@ vec3 linearToSrgb(vec3 linearColor)
 {
    return vec3(linearToSrgb(linearColor.x), linearToSrgb(linearColor.y), linearToSrgb(linearColor.z));
 }
+
+vec3 extract_camera_position(mat4 viewMatrix) {
+   mat4 inverseViewMatrix = inverse(viewMatrix);
+   vec3 cameraPosition = vec3(inverseViewMatrix[3]);
+   return cameraPosition;
+}
+
+vec3 world_dir_from_ndc(vec3 ndc, mat4 view, mat4 projection)
+{
+   vec4 clipSpace = vec4(ndc, 1.0);
+   vec4 viewSpace = inverse(projection) * clipSpace;
+   viewSpace.w = 0.0;
+   vec4 worldSpace = inverse(view) * viewSpace;
+   vec3 worldDir = normalize(worldSpace.xyz);
+
+   return worldDir;
+}
+
+vec3 world_dir_from_uv(vec2 uv, mat4 view, mat4 projection)
+{
+   return world_dir_from_ndc(vec3(uv, 0.0) * 2.0 - 1.0, view, projection);
+}
