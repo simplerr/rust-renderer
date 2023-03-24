@@ -9,8 +9,8 @@ pub fn setup_cubemap_pass(
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
     enabled: bool,
-) -> (crate::TextureId, crate::TextureId) {
-    let (mip0_size, num_mips) = (256, 2);
+) -> (crate::TextureId, crate::TextureId, crate::TextureId) {
+    let (mip0_size, num_mips) = (256, 5);
 
     // Todo: can use smaller format?
     let rgba32_fmt = vk::Format::R32G32B32A32_SFLOAT;
@@ -63,6 +63,18 @@ pub fn setup_cubemap_pass(
         depth_stencil_attachment_format: base.depth_image.format(), // Todo: skip this if depth is not needed
     });
 
+    let specular_filter_pipeline = graph.create_pipeline(crate::PipelineDesc {
+        vertex_path: "utopian/shaders/ibl/fullscreen_with_pushconst.vert",
+        fragment_path: "utopian/shaders/ibl/specular_filter.frag",
+        vertex_input_binding_descriptions: vec![],
+        vertex_input_attribute_descriptions: vec![],
+        color_attachment_formats: vec![graph.resources.textures[specular_map]
+            .texture
+            .image
+            .format()],
+        depth_stencil_attachment_format: base.depth_image.format(), // Todo: skip this if depth is not needed
+    });
+
     let projection = Mat4::perspective_rh(90.0_f32.to_radians(), 1.0, 0.01, 20000.0);
     let view_matrices = [
         Mat4::look_at_rh(Vec3::ZERO, Vec3::X, -Vec3::Y),
@@ -72,8 +84,6 @@ pub fn setup_cubemap_pass(
         Mat4::look_at_rh(Vec3::ZERO, Vec3::Z, -Vec3::Y),
         Mat4::look_at_rh(Vec3::ZERO, -Vec3::Z, -Vec3::Y),
     ];
-
-    // Todo: get around the long lines to access image properties...
 
     for mip in 0..num_mips {
         let mip_size = mip0_size as f32 * 0.5f32.powf(mip as f32);
@@ -162,5 +172,79 @@ pub fn setup_cubemap_pass(
             .build(&device, graph);
     }
 
-    (environment_map, irradiance_map)
+    // Specular filter pass (all mip levels)
+    for mip in 0..num_mips {
+        let mip_size = mip0_size as f32 * 0.5f32.powf(mip as f32);
+
+        for layer in 0..6 {
+            graph
+                .add_pass(
+                    format!("specular_filter_pass_layer_{layer}_mip_{mip}"),
+                    specular_filter_pipeline,
+                )
+                .active(renderer.need_environment_map_update)
+                .read(environment_map)
+                .write(offscreen)
+                .uniforms("params", &(view_matrices[layer as usize], projection))
+                .render(move |device, cb, _renderer, pass, resources| unsafe {
+                    // Todo: This is a hack to get around the fact that we can't properly disable a pass
+                    if enabled {
+                        let viewports = [vk::Viewport {
+                            x: 0.0,
+                            y: mip_size as f32,
+                            width: mip_size as f32,
+                            height: -(mip_size as f32),
+                            min_depth: 0.0,
+                            max_depth: 1.0,
+                        }];
+
+                        device.handle.cmd_set_viewport(cb, 0, &viewports);
+
+                        let roughness = mip as f32 / (num_mips - 1) as f32;
+
+                        let pipeline = resources.pipeline(pass.pipeline_handle);
+                        device.handle.cmd_push_constants(
+                            cb,
+                            pipeline.pipeline_layout,
+                            vk::ShaderStageFlags::ALL,
+                            0,
+                            std::slice::from_raw_parts(
+                                &roughness as *const _ as *const u8,
+                                std::mem::size_of_val(&roughness),
+                            ),
+                        );
+
+                        device.handle.cmd_draw(cb, 3, 1, 0, 0);
+                    }
+                })
+                .copy_image(
+                    offscreen,
+                    specular_map,
+                    vk::ImageCopy::builder()
+                        .src_subresource(
+                            vk::ImageSubresourceLayers::builder()
+                                .mip_level(0)
+                                .base_array_layer(0)
+                                .layer_count(1)
+                                .build(),
+                        )
+                        .dst_subresource(
+                            vk::ImageSubresourceLayers::builder()
+                                .mip_level(mip)
+                                .base_array_layer(layer)
+                                .layer_count(1)
+                                .build(),
+                        )
+                        .extent(vk::Extent3D {
+                            width: mip_size as u32,
+                            height: mip_size as u32,
+                            depth: 1,
+                        })
+                        .build(),
+                )
+                .build(&device, graph);
+        }
+    }
+
+    (environment_map, irradiance_map, specular_map)
 }

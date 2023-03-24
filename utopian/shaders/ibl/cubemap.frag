@@ -30,7 +30,8 @@ void main()
    vec3 transmittance;
    vec3 color = IntegrateScattering(rayStart, rayDir, rayLength, sunDir, lightColor, transmittance);
 
-   color = sin((rayDir * 0.5 + 0.5) * 60.0);
+   // For testing filtering:
+   // color = sin((rayDir * 0.5 + 0.5) * 60.0);
 
    // color = vec3(in_uv, 0.0);
    // color = worldDir;

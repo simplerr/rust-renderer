@@ -398,6 +398,9 @@ impl Application {
                             &self.renderer,
                             &[self.base.present_images[present_index as usize].clone()],
                         );
+
+                        // Todo: should be possible to trigger this when needed
+                        self.renderer.need_environment_map_update = false;
                     }
 
                     if self.profiling_enabled {
