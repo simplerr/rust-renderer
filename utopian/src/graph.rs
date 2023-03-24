@@ -81,6 +81,7 @@ pub struct PassBuilder {
     // The key is the uniform name with the pass name as prefix
     pub uniforms: HashMap<String, (String, UniformData)>,
     pub copy_command: Option<TextureCopy>,
+    pub active: bool,
 }
 
 impl GraphResources {
@@ -218,6 +219,11 @@ impl PassBuilder {
         self
     }
 
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
+    }
+
     pub fn build(self, device: &Device, graph: &mut Graph) {
         let mut pass = crate::RenderPass::new(
             self.name,
@@ -227,6 +233,7 @@ impl PassBuilder {
             self.uniforms.clone(), // Note: is this clone OK?
             self.render_func,
             self.copy_command,
+            self.active,
         );
 
         for read in &self.reads {
@@ -345,6 +352,7 @@ impl Graph {
             presentation_pass: false,
             uniforms: HashMap::new(),
             copy_command: None,
+            active: true,
         }
     }
 
@@ -467,6 +475,10 @@ impl Graph {
         puffin::profile_function!();
 
         for pass in &self.passes {
+            if !pass.active {
+                continue;
+            }
+
             let name = std::ffi::CString::new(pass.name.as_str()).unwrap();
             let debug_label = vk::DebugUtilsLabelEXT::builder()
                 .label_name(&name)

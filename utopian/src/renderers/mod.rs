@@ -15,7 +15,7 @@ pub fn build_render_graph(
     graph: &mut crate::Graph,
     device: &crate::Device,
     base: &crate::VulkanBase,
-    _renderer: &crate::Renderer,
+    renderer: &crate::Renderer,
     view_data: &crate::ViewUniformData,
     camera: &crate::Camera,
 ) {
@@ -120,6 +120,7 @@ pub fn build_render_graph(
         &device,
         graph,
         &base,
+        renderer,
         view_data.cubemap_enabled == 1,
     );
 

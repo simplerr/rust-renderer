@@ -23,6 +23,7 @@ pub struct RenderPass {
     pub uniform_buffer: Option<BufferId>,
     pub uniforms_descriptor_set: Option<crate::DescriptorSet>,
     pub copy_command: Option<TextureCopy>,
+    pub active: bool,
 }
 
 impl RenderPass {
@@ -36,6 +37,7 @@ impl RenderPass {
             Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>,
         >,
         copy_command: Option<TextureCopy>,
+        active: bool,
     ) -> RenderPass {
         RenderPass {
             pipeline_handle,
@@ -50,6 +52,7 @@ impl RenderPass {
             uniform_buffer: None,
             uniforms_descriptor_set: None,
             copy_command,
+            active,
         }
     }
 

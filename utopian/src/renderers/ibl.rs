@@ -7,9 +7,12 @@ pub fn setup_cubemap_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
+    renderer: &crate::Renderer,
     enabled: bool,
 ) -> (crate::TextureId, crate::TextureId) {
     let (mip0_size, num_mips) = (256, 2);
+
+    // Todo: can use smaller format?
     let rgba32_fmt = vk::Format::R32G32B32A32_SFLOAT;
 
     let environment_map = graph.create_texture(
@@ -135,6 +138,7 @@ pub fn setup_cubemap_pass(
                 format!("irradiance_filter_pass_layer_{layer}"),
                 irradiance_filter_pipeline,
             )
+            .active(renderer.need_environment_map_update)
             .read(environment_map)
             .write_layer(irradiance_map, layer)
             .uniforms("params", &(view_matrices[layer as usize], projection))

@@ -31,6 +31,9 @@ pub struct Renderer {
     next_bindless_image_index: u32,
     next_bindless_vertex_buffer_index: u32,
     next_bindless_index_buffer_index: u32,
+
+    // This should probably be somewhere else
+    pub need_environment_map_update: bool,
 }
 
 #[allow(dead_code)]
@@ -125,6 +128,7 @@ impl Renderer {
             default_normal_map_index: 0,
             default_occlusion_map_index: 0,
             default_metallic_roughness_map_index: 0,
+            need_environment_map_update: true,
         }
     }
 
