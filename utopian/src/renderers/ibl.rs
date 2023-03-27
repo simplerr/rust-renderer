@@ -9,7 +9,12 @@ pub fn setup_cubemap_pass(
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
     enabled: bool,
-) -> (crate::TextureId, crate::TextureId, crate::TextureId) {
+) -> (
+    crate::TextureId,
+    crate::TextureId,
+    crate::TextureId,
+    crate::TextureId,
+) {
     let (mip0_size, num_mips) = (256, 5);
 
     // Todo: can use smaller format?
@@ -37,6 +42,12 @@ pub fn setup_cubemap_pass(
         "cubemap_offscreen",
         device,
         ImageDesc::new_2d(mip0_size, mip0_size, rgba32_fmt),
+    );
+
+    let brdf_lut = graph.create_texture(
+        "brdf_lut",
+        device,
+        ImageDesc::new_2d(512, 512, vk::Format::R16G16_SFLOAT),
     );
 
     let cubemap_pipeline = graph.create_pipeline(crate::PipelineDesc {
@@ -73,6 +84,15 @@ pub fn setup_cubemap_pass(
             .image
             .format()],
         depth_stencil_attachment_format: base.depth_image.format(), // Todo: skip this if depth is not needed
+    });
+
+    let brdf_lut_pipeline = graph.create_pipeline(crate::PipelineDesc {
+        vertex_path: "utopian/shaders/common/fullscreen.vert",
+        fragment_path: "utopian/shaders/ibl/brdf_lut.frag",
+        vertex_input_binding_descriptions: vec![],
+        vertex_input_attribute_descriptions: vec![],
+        color_attachment_formats: vec![graph.resources.textures[brdf_lut].texture.image.format()],
+        depth_stencil_attachment_format: base.depth_image.format(),
     });
 
     let projection = Mat4::perspective_rh(90.0_f32.to_radians(), 1.0, 0.01, 20000.0);
@@ -246,5 +266,16 @@ pub fn setup_cubemap_pass(
         }
     }
 
-    (environment_map, irradiance_map, specular_map)
+    graph
+        .add_pass(String::from("brdf_lut_pass"), brdf_lut_pipeline)
+        .active(renderer.need_environment_map_update)
+        .write(brdf_lut)
+        .render(
+            move |device, command_buffer, _renderer, _pass, _resources| unsafe {
+                device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
+            },
+        )
+        .build(&device, graph);
+
+    (environment_map, irradiance_map, specular_map, brdf_lut)
 }

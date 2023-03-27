@@ -16,6 +16,9 @@ pub fn setup_deferred_pass(
     gbuffer_pbr: crate::TextureId,
     shadow_map: crate::TextureId,
     ssao_output: crate::TextureId,
+    irradiance_map: crate::TextureId,
+    specular_map: crate::TextureId,
+    brdf_lut: crate::TextureId,
     cascade_data: ([glam::Mat4; 4], [f32; 4]),
     deferred_output: crate::TextureId,
 ) {
@@ -39,6 +42,7 @@ pub fn setup_deferred_pass(
         .read(gbuffer_pbr)
         .read(shadow_map)
         .read(ssao_output)
+        .read(brdf_lut)
         .write(deferred_output)
         .uniforms("shadowmapParams", &(cascade_data))
         .render(

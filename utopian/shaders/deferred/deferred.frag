@@ -17,6 +17,7 @@ layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_albedo;
 layout (set = 2, binding = 3) uniform sampler2D in_gbuffer_pbr;
 layout (set = 2, binding = 4) uniform sampler2DArray in_shadow_map;
 layout (set = 2, binding = 5) uniform sampler2D in_ssao;
+layout (set = 2, binding = 6) uniform sampler2D in_brdf_lut;
 
 // Todo: set=2 should be dedicated to input textures but the shader reflection
 // does not support gaps in the descriptor sets
@@ -103,6 +104,8 @@ void main() {
         color *= ssao;
     }
 
+    vec3 brdf = texture(in_brdf_lut, uv).rgb;
+    color = brdf;
 
     out_color = vec4(color, 1.0f);
 }

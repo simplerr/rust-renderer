@@ -116,13 +116,14 @@ pub fn build_render_graph(
         view_data.ssao_enabled == 1,
     );
 
-    let (environment_map, irradiance_map, specular_map) = crate::renderers::ibl::setup_cubemap_pass(
-        &device,
-        graph,
-        &base,
-        renderer,
-        view_data.cubemap_enabled == 1,
-    );
+    let (environment_map, irradiance_map, specular_map, brdf_lut) =
+        crate::renderers::ibl::setup_cubemap_pass(
+            &device,
+            graph,
+            &base,
+            renderer,
+            view_data.cubemap_enabled == 1,
+        );
 
     crate::renderers::forward::setup_forward_pass(
         &device,
@@ -143,6 +144,9 @@ pub fn build_render_graph(
         gbuffer_pbr,
         shadow_map,
         ssao_output,
+        irradiance_map,
+        specular_map,
+        brdf_lut,
         (cascade_matrices, cascade_depths),
         deferred_output,
     );
