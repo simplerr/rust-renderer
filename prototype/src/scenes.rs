@@ -8,12 +8,39 @@ pub fn create_scene(
     renderer.add_model(
         device,
         sphere,
-        glam::Mat4::from_translation(glam::Vec3::new(0.0, 0.0, 0.0)),
+        glam::Mat4::from_translation(glam::Vec3::new(f32::MAX, f32::MAX, f32::MAX)),
     );
 
     //create_cornell_box_scene(renderer, camera, device);
-    create_sponza_scene(renderer, camera, device);
+    create_metal_rough_spheres(renderer, camera, device);
+    //create_sponza_scene(renderer, camera, device);
     //create_cube_scene(renderer, camera, device);
+}
+
+pub fn create_metal_rough_spheres(
+    renderer: &mut utopian::Renderer,
+    camera: &mut utopian::Camera,
+    device: &utopian::Device,
+) {
+    camera.set_position_target(
+        glam::Vec3::new(0.0, 0.9, 2.0),
+        glam::Vec3::new(0.0, 0.5, 0.0),
+    );
+
+    let spheres = utopian::gltf_loader::load_gltf(
+        device,
+        "prototype/data/models/MetalRoughSpheresNoTextures/glTF/MetalRoughSpheresNoTextures.gltf",
+    );
+
+    renderer.add_model(
+        device,
+        spheres,
+        glam::Mat4::from_scale_rotation_translation(
+            glam::Vec3::new(1000.0, 1000.0, 1000.0),
+            glam::Quat::IDENTITY,
+            glam::Vec3::new(0.0, 0.0, 0.0),
+        ),
+    );
 }
 
 pub fn create_cornell_box_scene(

@@ -12,13 +12,13 @@ layout (std140, set = 1, binding = 0) uniform UBO_view
     uint num_bounces;
     uint viewport_width;
     uint viewport_height;
-    uint pad1;
 
     // render settings
     uint shadows_enabled;
     uint ssao_enabled;
     uint fxaa_enabled;
     uint cubemap_enabled;
+    uint ibl_enabled;
 } view;
 
 // Due to gl_Position not being multiplied by -1 we need to flip the

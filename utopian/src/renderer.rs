@@ -51,13 +51,13 @@ pub struct ViewUniformData {
     pub num_bounces: u32,
     pub viewport_width: u32,
     pub viewport_height: u32,
-    pub pad1: u32,
 
     // render settings
     pub shadows_enabled: u32,
     pub ssao_enabled: u32,
     pub fxaa_enabled: u32,
     pub cubemap_enabled: u32,
+    pub ibl_enabled: u32,
 }
 
 #[derive(Clone, Copy, Debug)]

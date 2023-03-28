@@ -17,7 +17,9 @@ layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_albedo;
 layout (set = 2, binding = 3) uniform sampler2D in_gbuffer_pbr;
 layout (set = 2, binding = 4) uniform sampler2DArray in_shadow_map;
 layout (set = 2, binding = 5) uniform sampler2D in_ssao;
-layout (set = 2, binding = 6) uniform sampler2D in_brdf_lut;
+layout (set = 2, binding = 6) uniform samplerCube in_irradiance_map;
+layout (set = 2, binding = 7) uniform samplerCube in_specular_map;
+layout (set = 2, binding = 8) uniform sampler2D in_brdf_lut;
 
 // Todo: set=2 should be dedicated to input textures but the shader reflection
 // does not support gaps in the descriptor sets
@@ -79,13 +81,40 @@ void main() {
     Light sun_light = Light(vec4(1.0f), vec3(0.0f), 0.0f, view.sun_dir * vec3(-1, 1, -1), 0.0f, vec3(1.0), 0.0f, vec3(0.0f), 0.0f, vec4(0.0f));
     Lo += surfaceShading(pixel, sun_light, view.eye_pos.xyz, 1.0f);
 
-    for (int i = 0; i < numLights; i++)
-    {
-       Lo += surfaceShading(pixel, lights[i], view.eye_pos.xyz, 1.0f);
-    }
+    // for (int i = 0; i < numLights; i++)
+    // {
+    //    Lo += surfaceShading(pixel, lights[i], view.eye_pos.xyz, 1.0f);
+    // }
 
     // Todo: IBL
     vec3 ambient = vec3(0.03) * diffuse_color.rgb * occlusion;
+
+    if (view.ibl_enabled == 1)
+    {
+        vec3 V = normalize(view.eye_pos.xyz - position);
+        vec3 R = reflect(V, normal);
+
+        vec3 F0 = vec3(0.04);
+        F0 = mix(F0, pixel.baseColor, metallic);
+
+        vec3 F = fresnelSchlickRoughness(max(dot(normal, V), 0.0), F0, roughness);
+        vec3 kS = F;
+        vec3 kD = 1.0 - kS;
+        kD *= 1.0 - metallic;
+
+        vec3 irradiance = texture(in_irradiance_map, -normal).rgb;
+        vec3 diffuse    = irradiance * pixel.baseColor;
+
+        // Sample both the pre-filter map and the BRDF lut and combine them together as per the Split-Sum approximation to get the IBL specular part.
+        // Note: 1 - roughness, same as Vulkan-glTF-PBR but differs from LearnOpenGL
+        const float MAX_REFLECTION_LOD = 7.0;
+        vec3 prefilteredColor = textureLod(in_specular_map, R, roughness * MAX_REFLECTION_LOD).rgb;
+        vec2 brdf = texture(in_brdf_lut, vec2(max(dot(normal, V), 0.0), 1.0f - roughness)).rg;
+        vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+
+        ambient = (kD * diffuse + specular) * occlusion;
+    }
+
     vec3 color = ambient + Lo;
 
     // Shadow
@@ -104,8 +133,8 @@ void main() {
         color *= ssao;
     }
 
-    vec3 brdf = texture(in_brdf_lut, uv).rgb;
-    color = brdf;
+    // vec3 brdf = texture(in_brdf_lut, uv).rgb;
+    // color = brdf;
 
     out_color = vec4(color, 1.0f);
 }

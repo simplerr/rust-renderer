@@ -54,7 +54,7 @@ impl Application {
             ssao_enabled: 1,
             fxaa_enabled: 1,
             cubemap_enabled: 1,
-            pad1: 0,
+            ibl_enabled: 1,
         };
 
         let slice = unsafe { std::slice::from_raw_parts(&view_data, 1) };
@@ -175,6 +175,7 @@ impl Application {
         fps: u32,
         view_data: &mut utopian::ViewUniformData,
         selected_transform: &mut Mat4,
+        need_environment_map_update: &mut bool,
     ) {
         egui::Window::new("rust-renderer 0.0.1")
             .resizable(true)
@@ -261,6 +262,16 @@ impl Application {
                         ui.add(egui::widgets::Checkbox::new(&mut cubemap, ""));
                         view_data.cubemap_enabled = cubemap as u32;
                         ui.end_row();
+
+                        ui.label("IBL:");
+                        let mut ibl = view_data.ibl_enabled == 1;
+                        ui.add(egui::widgets::Checkbox::new(&mut ibl, ""));
+                        view_data.ibl_enabled = ibl as u32;
+                        ui.end_row();
+
+                        if ui.button("Generate environment map").clicked() {
+                            *need_environment_map_update = true;
+                        }
                     });
                 });
             });
@@ -302,6 +313,7 @@ impl Application {
                 self.fps_timer.calculate(),
                 &mut self.view_data,
                 &mut self.renderer.instances[0].transform,
+                &mut self.renderer.need_environment_map_update,
             );
 
             self.view_data.sun_dir = self.view_data.sun_dir.normalize();

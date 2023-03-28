@@ -42,6 +42,8 @@ pub fn setup_deferred_pass(
         .read(gbuffer_pbr)
         .read(shadow_map)
         .read(ssao_output)
+        .read(irradiance_map)
+        .read(specular_map)
         .read(brdf_lut)
         .write(deferred_output)
         .uniforms("shadowmapParams", &(cascade_data))
