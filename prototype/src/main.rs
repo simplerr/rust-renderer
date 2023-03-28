@@ -50,8 +50,8 @@ impl Application {
             viewport_width: width,
             viewport_height: height,
             sun_dir: Vec3::new(0.0, 0.9, 0.15).normalize(),
-            shadows_enabled: 1,
-            ssao_enabled: 1,
+            shadows_enabled: 0,
+            ssao_enabled: 0,
             fxaa_enabled: 1,
             cubemap_enabled: 1,
             ibl_enabled: 1,
@@ -330,21 +330,36 @@ impl Application {
                     !self.raytracing_enabled && self.base.device.raytracing_supported;
             }
 
-            if self.shader_watcher.check_if_modification()
-                || input.key_pressed(winit::event::VirtualKeyCode::R)
-            {
+            if let Some(path) = self.shader_watcher.check_if_modification() {
+                //     || input.key_pressed(winit::event::VirtualKeyCode::R)
                 self.view_data.total_samples = 0;
 
-                self.graph.recompile_shaders(
-                    &self.base.device,
-                    Some(self.renderer.bindless_descriptor_set_layout),
-                );
+                if let Some(ext) = path.extension() {
+                    let mut recompile_rt_shaders = false;
+                    if ext == "glsl" {
+                        self.graph.recompile_all_shaders(
+                            &self.base.device,
+                            Some(self.renderer.bindless_descriptor_set_layout),
+                        );
+                        recompile_rt_shaders = true;
+                    } else {
+                        self.graph.recompile_shader(
+                            &self.base.device,
+                            Some(self.renderer.bindless_descriptor_set_layout),
+                            path.clone(),
+                        );
+                    }
 
-                if let Some(raytracing) = &mut self.raytracing {
-                    raytracing.recreate_pipeline(
-                        &self.base.device,
-                        Some(self.renderer.bindless_descriptor_set_layout),
-                    );
+                    if ["rchit", "rgen", "rmiss"].contains(&ext.to_str().unwrap())
+                        || recompile_rt_shaders
+                    {
+                        if let Some(raytracing) = &mut self.raytracing {
+                            raytracing.recreate_pipeline(
+                                &self.base.device,
+                                Some(self.renderer.bindless_descriptor_set_layout),
+                            );
+                        }
+                    }
                 }
             }
 

@@ -454,14 +454,28 @@ impl Graph {
         }
     }
 
-    pub fn recompile_shaders(
+    pub fn recompile_all_shaders(
         &mut self,
         device: &crate::Device,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) {
-        for pass in &mut self.passes {
-            self.resources.pipelines[pass.pipeline_handle]
-                .recreate_pipeline(device, bindless_descriptor_set_layout);
+        for pipeline in &mut self.resources.pipelines {
+            pipeline.recreate_pipeline(device, bindless_descriptor_set_layout);
+        }
+    }
+
+    pub fn recompile_shader(
+        &mut self,
+        device: &crate::Device,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
+        path: std::path::PathBuf,
+    ) {
+        for pipeline in &mut self.resources.pipelines {
+            if path.ends_with(pipeline.pipeline_desc.vertex_path)
+                || path.ends_with(pipeline.pipeline_desc.fragment_path)
+            {
+                pipeline.recreate_pipeline(device, bindless_descriptor_set_layout);
+            }
         }
     }
 

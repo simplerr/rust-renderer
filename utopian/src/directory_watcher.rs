@@ -23,18 +23,19 @@ impl DirectoryWatcher {
         }
     }
 
-    pub fn check_if_modification(&self) -> bool {
+    pub fn check_if_modification(&self) -> Option<std::path::PathBuf> {
         if let Ok(_event) = self.watcher_rx.try_recv() {
             match self.watcher_rx.recv() {
                 Ok(event) => {
-                    if let notify::DebouncedEvent::Write(..) = event {
-                        return true;
+                    if let notify::DebouncedEvent::Write(path) = event {
+                        //println!("File {:?} modified", path);
+                        return Some(path);
                     }
                 }
                 Err(e) => println!("recv Err {:?}", e),
             }
         }
 
-        false
+        None
     }
 }

@@ -209,7 +209,7 @@ impl Renderer {
                     0.0,
                     0.0,
                 ),
-                padding: [0.0; 2]
+                padding: [0.0; 2],
             });
 
             let mesh_index = self.add_mesh(GpuMesh {
