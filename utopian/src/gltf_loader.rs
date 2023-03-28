@@ -24,6 +24,8 @@ pub struct Material {
     pub metallic_roughness_map: u32,
     pub occlusion_map: u32,
     pub base_color_factor: Vec4,
+    pub metallic_factor: f32,
+    pub roughness_factor: f32,
 
     // Ray tracing properties
     pub material_type: MaterialType, // 0 = lambertian, 1 = metal, 2 = dielectric, 3 = diffuse light
@@ -124,6 +126,8 @@ pub fn load_node(
                 });
 
             let base_color_factor = pbr.base_color_factor();
+            let metallic_factor = pbr.metallic_factor();
+            let roughness_factor = pbr.roughness_factor();
 
             model.meshes.push(Mesh {
                 primitive: Primitive::new(device, indices, vertices),
@@ -133,6 +137,8 @@ pub fn load_node(
                     metallic_roughness_map: metallic_roughness_index,
                     occlusion_map: occlusion_index,
                     base_color_factor: Vec4::from(base_color_factor),
+                    metallic_factor,
+                    roughness_factor,
                     material_type: MaterialType::Lambertian,
                     material_property: 0.0,
                 },

@@ -17,6 +17,9 @@ struct Material
    uint metallic_roughness_map;
    uint occlusion_map;
    vec4 base_color_factor;
+   float metallic_factor;
+   float roughness_factor;
+   vec2 padding;
 
    // Ray tracing properties
    // x = type (0 = lambertian, 1 = metal, 2 = dielectric, 3 = diffuse light)

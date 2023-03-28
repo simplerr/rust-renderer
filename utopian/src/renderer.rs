@@ -68,6 +68,9 @@ struct GpuMaterial {
     metallic_roughness_map: u32,
     occlusion_map: u32,
     base_color_factor: Vec4,
+    metallic_factor: f32,
+    roughness_factor: f32,
+    padding: [f32; 2],
 
     // Ray tracing properties
     // x = type (0 = lambertian, 1 = metal, 2 = dielectric, 3 = diffuse light)
@@ -198,12 +201,15 @@ impl Renderer {
                 metallic_roughness_map: metallic_roughness_bindless_index,
                 occlusion_map: occlusion_bindless_index,
                 base_color_factor: mesh.material.base_color_factor,
+                metallic_factor: mesh.material.metallic_factor,
+                roughness_factor: mesh.material.roughness_factor,
                 raytrace_properties: Vec4::new(
                     mesh.material.material_type as u32 as f32,
                     mesh.material.material_property,
                     0.0,
                     0.0,
                 ),
+                padding: [0.0; 2]
             });
 
             let mesh_index = self.add_mesh(GpuMesh {

@@ -65,6 +65,9 @@ void main() {
     float occlusion = texture(in_gbuffer_pbr, uv).b;
     float ssao = texture(in_ssao, in_uv).r;
 
+    roughness *= material.roughness_factor;
+    metallic *= material.metallic_factor;
+
     // From sRGB space to Linear space
     diffuse_color.rgb = pow(diffuse_color.rgb, vec3(2.2));
 
