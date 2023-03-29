@@ -114,6 +114,7 @@ pub fn setup_cubemap_pass(
                     format!("cubemap_pass_layer_{layer}_mip_{mip}"),
                     cubemap_pipeline,
                 )
+                .active(renderer.need_environment_map_update)
                 .write(offscreen)
                 .uniforms("params", &(view_matrices[layer as usize], projection))
                 .render(move |device, cb, _renderer, _pass, _resources| unsafe {
