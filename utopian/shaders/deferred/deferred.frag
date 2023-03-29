@@ -89,13 +89,12 @@ void main() {
     //    Lo += surfaceShading(pixel, lights[i], view.eye_pos.xyz, 1.0f);
     // }
 
-    // Todo: IBL
     vec3 ambient = vec3(0.03) * diffuse_color.rgb * occlusion;
 
     if (view.ibl_enabled == 1)
     {
         vec3 V = normalize(view.eye_pos.xyz - position);
-        vec3 R = reflect(V, normal);
+        vec3 R = -reflect(V, normal); // Note: -1 indicates that the specular cubemp not being as expected
 
         vec3 F0 = vec3(0.04);
         F0 = mix(F0, pixel.baseColor, metallic);
@@ -105,7 +104,7 @@ void main() {
         vec3 kD = 1.0 - kS;
         kD *= 1.0 - metallic;
 
-        vec3 irradiance = texture(in_irradiance_map, -normal).rgb;
+        vec3 irradiance = texture(in_irradiance_map, normal).rgb;
         vec3 diffuse    = irradiance * pixel.baseColor;
 
         // Sample both the pre-filter map and the BRDF lut and combine them together as per the Split-Sum approximation to get the IBL specular part.
@@ -135,9 +134,6 @@ void main() {
     if (view.ssao_enabled == 1) {
         color *= ssao;
     }
-
-    // vec3 brdf = texture(in_brdf_lut, uv).rgb;
-    // color = brdf;
 
     out_color = vec4(color, 1.0f);
 }

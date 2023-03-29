@@ -13,7 +13,7 @@ pub fn create_scene(
 
     //create_cornell_box_scene(renderer, camera, device);
     create_metal_rough_spheres(renderer, camera, device);
-    //create_sponza_scene(renderer, camera, device);
+    create_sponza_scene(renderer, camera, device);
     //create_cube_scene(renderer, camera, device);
 }
 
@@ -37,8 +37,8 @@ pub fn create_metal_rough_spheres(
         spheres,
         glam::Mat4::from_scale_rotation_translation(
             glam::Vec3::new(1000.0, 1000.0, 1000.0),
-            glam::Quat::IDENTITY,
-            glam::Vec3::new(0.0, 0.0, 0.0),
+            glam::Quat::from_rotation_y(std::f32::consts::PI / 2.0),
+            glam::Vec3::new(-10.0, 15.0, 2.5),
         ),
     );
 }

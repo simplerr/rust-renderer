@@ -61,9 +61,7 @@ vec2 integrateBRDF(float roughness, float NoV)
 // Based on https://bruop.github.io/ibl/
 void main()
 {
-    vec2 uv = FLIP_UV_Y(in_uv);
-
-    vec2 res = integrateBRDF(uv.x, uv.y);
+    vec2 res = integrateBRDF(in_uv.y, in_uv.x);
 
     out_color = vec4(res, 0.0, 0.0);
 }

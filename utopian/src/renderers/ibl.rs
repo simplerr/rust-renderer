@@ -15,7 +15,7 @@ pub fn setup_cubemap_pass(
     crate::TextureId,
     crate::TextureId,
 ) {
-    let (mip0_size, num_mips) = (256, 5);
+    let (mip0_size, num_mips) = (512, 7);
 
     // Todo: can use smaller format?
     let rgba32_fmt = vk::Format::R32G32B32A32_SFLOAT;
@@ -23,19 +23,19 @@ pub fn setup_cubemap_pass(
     let environment_map = graph.create_texture(
         "environment_map",
         device,
-        ImageDesc::new_cubemap(256, 256, rgba32_fmt).mip_levels(5),
+        ImageDesc::new_cubemap(mip0_size, mip0_size, rgba32_fmt).mip_levels(num_mips),
     );
 
     let irradiance_map = graph.create_texture(
         "irradiance_map",
         device,
-        ImageDesc::new_cubemap(256, 256, rgba32_fmt), //.mip_levels(5),
+        ImageDesc::new_cubemap(mip0_size, mip0_size, rgba32_fmt),
     );
 
     let specular_map = graph.create_texture(
         "specular_map",
         device,
-        ImageDesc::new_cubemap(256, 256, rgba32_fmt).mip_levels(5),
+        ImageDesc::new_cubemap(mip0_size, mip0_size, rgba32_fmt).mip_levels(num_mips),
     );
 
     let offscreen = graph.create_texture(

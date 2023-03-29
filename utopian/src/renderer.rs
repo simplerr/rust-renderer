@@ -137,7 +137,7 @@ impl Renderer {
 
     pub fn initialize(&mut self, device: &Device) {
         let default_diffuse_map =
-            Texture::load(device, "utopian/data/textures/defaults/checker.jpg");
+            Texture::load(device, "utopian/data/textures/defaults/white_texture.png");
         let default_normal_map =
             Texture::load(device, "utopian/data/textures/defaults/flat_normal_map.png");
         let default_occlusion_map =
