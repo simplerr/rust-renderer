@@ -436,7 +436,7 @@ impl Graph {
             }
         }
 
-        for pass in &mut self.passes {
+        for pass in self.passes.iter_mut().filter(|p| p.active) {
             pass.try_create_read_texture_descriptor_set(
                 device,
                 &self.resources.pipelines,
@@ -488,11 +488,7 @@ impl Graph {
     ) {
         puffin::profile_function!();
 
-        for pass in &self.passes {
-            if !pass.active {
-                continue;
-            }
-
+        for pass in self.passes.iter_mut().filter(|p| p.active) {
             let name = std::ffi::CString::new(pass.name.as_str()).unwrap();
             let debug_label = vk::DebugUtilsLabelEXT::builder()
                 .label_name(&name)
