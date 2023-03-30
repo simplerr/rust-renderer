@@ -15,6 +15,10 @@ pub struct PipelineDesc {
     pub depth_stencil_attachment_format: vk::Format,
 }
 
+pub struct PipelineDescBuilder {
+    desc: PipelineDesc,
+}
+
 pub struct Pipeline {
     pub handle: vk::Pipeline,
     pub pipeline_layout: vk::PipelineLayout,
@@ -273,5 +277,78 @@ impl Pipeline {
                 println!("Failed to recreate rasterization pipeline: {:#?}", error);
             }
         }
+    }
+}
+
+impl PipelineDesc {
+    pub fn builder() -> PipelineDescBuilder {
+        PipelineDescBuilder::new()
+    }
+}
+
+impl PipelineDescBuilder {
+    pub fn new() -> Self {
+        Self {
+            desc: PipelineDesc {
+                vertex_path: "",
+                fragment_path: "",
+                vertex_input_binding_descriptions: Vec::new(),
+                vertex_input_attribute_descriptions: Vec::new(),
+                color_attachment_formats: Vec::new(),
+                depth_stencil_attachment_format: vk::Format::UNDEFINED,
+            },
+        }
+    }
+
+    pub fn vertex_path(mut self, path: &'static str) -> Self {
+        self.desc.vertex_path = path;
+        self
+    }
+
+    pub fn fragment_path(mut self, path: &'static str) -> Self {
+        self.desc.fragment_path = path;
+        self
+    }
+
+    pub fn vertex_input_binding_descriptions(
+        mut self,
+        descriptions: Vec<vk::VertexInputBindingDescription>,
+    ) -> Self {
+        self.desc.vertex_input_binding_descriptions = descriptions;
+        self
+    }
+
+    pub fn vertex_input_attribute_descriptions(
+        mut self,
+        descriptions: Vec<vk::VertexInputAttributeDescription>,
+    ) -> Self {
+        self.desc.vertex_input_attribute_descriptions = descriptions;
+        self
+    }
+
+    pub fn default_primitive_vertex_bindings(mut self) -> Self {
+        self.desc.vertex_input_binding_descriptions =
+            crate::Primitive::get_vertex_input_binding_descriptions();
+        self
+    }
+
+    pub fn default_primitive_vertex_attributes(mut self) -> Self {
+        self.desc.vertex_input_attribute_descriptions =
+            crate::Primitive::get_vertex_input_attribute_descriptions();
+        self
+    }
+
+    pub fn color_attachment_formats(mut self, formats: Vec<vk::Format>) -> Self {
+        self.desc.color_attachment_formats = formats;
+        self
+    }
+
+    pub fn depth_stencil_attachment_format(mut self, format: vk::Format) -> Self {
+        self.desc.depth_stencil_attachment_format = format;
+        self
+    }
+
+    pub fn build(self) -> PipelineDesc {
+        self.desc
     }
 }

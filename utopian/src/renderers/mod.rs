@@ -89,7 +89,6 @@ pub fn build_render_graph(
     let (cascade_matrices, cascade_depths) = crate::renderers::shadow::setup_shadow_pass(
         device,
         graph,
-        base,
         shadow_map,
         view_data.sun_dir,
         camera,
@@ -109,7 +108,6 @@ pub fn build_render_graph(
     crate::renderers::ssao::setup_ssao_pass(
         &device,
         graph,
-        &base,
         gbuffer_position,
         gbuffer_normal,
         ssao_output,
@@ -117,7 +115,7 @@ pub fn build_render_graph(
     );
 
     let (environment_map, irradiance_map, specular_map, brdf_lut) =
-        crate::renderers::ibl::setup_cubemap_pass(&device, graph, &base, renderer);
+        crate::renderers::ibl::setup_cubemap_pass(&device, graph, renderer);
 
     crate::renderers::forward::setup_forward_pass(
         &device,
@@ -131,7 +129,6 @@ pub fn build_render_graph(
     crate::renderers::deferred::setup_deferred_pass(
         &device,
         graph,
-        &base,
         gbuffer_position,
         gbuffer_normal,
         gbuffer_albedo,
@@ -160,7 +157,6 @@ pub fn build_render_graph(
     crate::renderers::present::setup_present_pass(
         &device,
         graph,
-        &base,
         forward_output,
         deferred_output,
         shadow_map,

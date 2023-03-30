@@ -4,7 +4,6 @@ use glam::{Mat4, Vec3, Vec4Swizzles};
 pub fn setup_shadow_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
-    base: &crate::VulkanBase,
     shadow_map: crate::TextureId,
     sun_dir: glam::Vec3,
     camera: &camera::Camera,
@@ -12,16 +11,14 @@ pub fn setup_shadow_pass(
 ) -> ([glam::Mat4; 4], [f32; 4]) {
     puffin::profile_function!();
 
-    let pipeline_handle = graph.create_pipeline(crate::PipelineDesc {
-        vertex_path: "utopian/shaders/shadow/shadow.vert",
-        fragment_path: "utopian/shaders/shadow/shadow.frag",
-        vertex_input_binding_descriptions: crate::Primitive::get_vertex_input_binding_descriptions(
-        ),
-        vertex_input_attribute_descriptions:
-            crate::Primitive::get_vertex_input_attribute_descriptions(),
-        color_attachment_formats: vec![],
-        depth_stencil_attachment_format: base.depth_image.format(),
-    });
+    let pipeline_handle = graph.create_pipeline(
+        crate::PipelineDesc::builder()
+            .vertex_path("utopian/shaders/shadow/shadow.vert")
+            .fragment_path("utopian/shaders/shadow/shadow.frag")
+            .default_primitive_vertex_bindings()
+            .default_primitive_vertex_attributes()
+            .build(),
+    );
 
     // Todo:
     // Currently there is no good way to fully disable a pass so all this

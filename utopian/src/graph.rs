@@ -225,6 +225,8 @@ impl PassBuilder {
     }
 
     pub fn build(self, device: &Device, graph: &mut Graph) {
+        puffin::profile_function!();
+
         let mut pass = crate::RenderPass::new(
             self.name,
             self.pipeline_handle,
@@ -242,6 +244,38 @@ impl PassBuilder {
 
         for write in &self.writes {
             pass.writes.push(*write);
+        }
+
+        // Update attachment formats now that all writes are known
+        graph.pipeline_descs[pass.pipeline_handle].color_attachment_formats = pass
+            .writes
+            .iter()
+            .map(|write| {
+                graph
+                    .resources
+                    .texture(write.texture)
+                    .texture
+                    .image
+                    .format()
+            })
+            .collect();
+
+        if let Some(depth) = &pass.depth_attachment {
+            match depth {
+                DepthAttachment::GraphTexture(write) => {
+                    graph.pipeline_descs[pass.pipeline_handle].depth_stencil_attachment_format =
+                        graph
+                            .resources
+                            .texture(write.texture)
+                            .texture
+                            .image
+                            .format()
+                }
+                DepthAttachment::External(image, _) => {
+                    graph.pipeline_descs[pass.pipeline_handle].depth_stencil_attachment_format =
+                        image.format()
+                }
+            }
         }
 
         if self.uniforms.len() != 0 {

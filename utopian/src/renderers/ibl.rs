@@ -6,7 +6,6 @@ use crate::{image::ImageDesc, render_utils};
 pub fn setup_cubemap_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
-    base: &crate::VulkanBase,
     renderer: &crate::Renderer,
 ) -> (
     crate::TextureId,
@@ -14,6 +13,8 @@ pub fn setup_cubemap_pass(
     crate::TextureId,
     crate::TextureId,
 ) {
+    puffin::profile_function!();
+
     let (mip0_size, num_mips) = (512, 8);
 
     // Todo: can use smaller format?
@@ -49,50 +50,33 @@ pub fn setup_cubemap_pass(
         ImageDesc::new_2d(512, 512, vk::Format::R16G16_SFLOAT),
     );
 
-    let cubemap_pipeline = graph.create_pipeline(crate::PipelineDesc {
-        vertex_path: "utopian/shaders/common/fullscreen.vert",
-        fragment_path: "utopian/shaders/ibl/cubemap.frag",
-        vertex_input_binding_descriptions: vec![],
-        vertex_input_attribute_descriptions: vec![],
-        color_attachment_formats: vec![graph.resources.textures[environment_map]
-            .texture
-            .image
-            .format()],
-        depth_stencil_attachment_format: base.depth_image.format(),
-    });
+    let cubemap_pipeline = graph.create_pipeline(
+        crate::PipelineDesc::builder()
+            .vertex_path("utopian/shaders/common/fullscreen.vert")
+            .fragment_path("utopian/shaders/ibl/cubemap.frag")
+            .build(),
+    );
 
-    let irradiance_filter_pipeline = graph.create_pipeline(crate::PipelineDesc {
-        vertex_path: "utopian/shaders/common/fullscreen.vert",
-        fragment_path: "utopian/shaders/ibl/irradiance_filter.frag",
-        vertex_input_binding_descriptions: vec![],
-        vertex_input_attribute_descriptions: vec![],
-        color_attachment_formats: vec![graph.resources.textures[irradiance_map]
-            .texture
-            .image
-            .format()],
-        depth_stencil_attachment_format: base.depth_image.format(), // Todo: skip this if depth is not needed
-    });
+    let irradiance_filter_pipeline = graph.create_pipeline(
+        crate::PipelineDesc::builder()
+            .vertex_path("utopian/shaders/common/fullscreen.vert")
+            .fragment_path("utopian/shaders/ibl/irradiance_filter.frag")
+            .build(),
+    );
 
-    let specular_filter_pipeline = graph.create_pipeline(crate::PipelineDesc {
-        vertex_path: "utopian/shaders/ibl/fullscreen_with_pushconst.vert",
-        fragment_path: "utopian/shaders/ibl/specular_filter.frag",
-        vertex_input_binding_descriptions: vec![],
-        vertex_input_attribute_descriptions: vec![],
-        color_attachment_formats: vec![graph.resources.textures[specular_map]
-            .texture
-            .image
-            .format()],
-        depth_stencil_attachment_format: base.depth_image.format(), // Todo: skip this if depth is not needed
-    });
+    let specular_filter_pipeline = graph.create_pipeline(
+        crate::PipelineDesc::builder()
+            .vertex_path("utopian/shaders/ibl/fullscreen_with_pushconst.vert")
+            .fragment_path("utopian/shaders/ibl/specular_filter.frag")
+            .build(),
+    );
 
-    let brdf_lut_pipeline = graph.create_pipeline(crate::PipelineDesc {
-        vertex_path: "utopian/shaders/common/fullscreen.vert",
-        fragment_path: "utopian/shaders/ibl/brdf_lut.frag",
-        vertex_input_binding_descriptions: vec![],
-        vertex_input_attribute_descriptions: vec![],
-        color_attachment_formats: vec![graph.resources.textures[brdf_lut].texture.image.format()],
-        depth_stencil_attachment_format: base.depth_image.format(),
-    });
+    let brdf_lut_pipeline = graph.create_pipeline(
+        crate::PipelineDesc::builder()
+            .vertex_path("utopian/shaders/common/fullscreen.vert")
+            .fragment_path("utopian/shaders/ibl/brdf_lut.frag")
+            .build(),
+    );
 
     let projection = Mat4::perspective_rh(90.0_f32.to_radians(), 1.0, 0.01, 20000.0);
     let view_matrices = [

@@ -17,30 +17,16 @@ pub fn setup_gbuffer_pass(
     gbuffer_albedo: crate::TextureId,
     gbuffer_pbr: crate::TextureId,
 ) {
-    let pipeline_handle = graph.create_pipeline(crate::PipelineDesc {
-        vertex_path: "utopian/shaders/gbuffer/gbuffer.vert",
-        fragment_path: "utopian/shaders/gbuffer/gbuffer.frag",
-        vertex_input_binding_descriptions: crate::Primitive::get_vertex_input_binding_descriptions(
-        ),
-        vertex_input_attribute_descriptions:
-            crate::Primitive::get_vertex_input_attribute_descriptions(),
-        color_attachment_formats: vec![
-            graph.resources.textures[gbuffer_position]
-                .texture
-                .image
-                .format(),
-            graph.resources.textures[gbuffer_normal]
-                .texture
-                .image
-                .format(),
-            graph.resources.textures[gbuffer_albedo]
-                .texture
-                .image
-                .format(),
-            graph.resources.textures[gbuffer_pbr].texture.image.format(),
-        ],
-        depth_stencil_attachment_format: vk::Format::D32_SFLOAT,
-    });
+    puffin::profile_function!();
+
+    let pipeline_handle = graph.create_pipeline(
+        crate::PipelineDesc::builder()
+            .vertex_path("utopian/shaders/gbuffer/gbuffer.vert")
+            .fragment_path("utopian/shaders/gbuffer/gbuffer.frag")
+            .default_primitive_vertex_bindings()
+            .default_primitive_vertex_attributes()
+            .build(),
+    );
 
     // let depth_image = crate::Image::new(
     //     device,

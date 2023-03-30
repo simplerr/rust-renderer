@@ -39,6 +39,7 @@ pub use model_loader::ModelLoader;
 pub use pass::RenderPass;
 pub use pipeline::Pipeline;
 pub use pipeline::PipelineDesc;
+pub use pipeline::PipelineDescBuilder;
 pub use primitive::Primitive;
 pub use primitive::Vertex;
 pub use raytracing::Raytracing;

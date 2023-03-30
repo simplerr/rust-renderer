@@ -18,19 +18,14 @@ pub fn setup_forward_pass(
 ) {
     puffin::profile_function!();
 
-    let pipeline_handle = graph.create_pipeline(crate::PipelineDesc {
-        vertex_path: "utopian/shaders/forward/forward.vert",
-        fragment_path: "utopian/shaders/forward/forward.frag",
-        vertex_input_binding_descriptions: crate::Primitive::get_vertex_input_binding_descriptions(
-        ),
-        vertex_input_attribute_descriptions:
-            crate::Primitive::get_vertex_input_attribute_descriptions(),
-        color_attachment_formats: vec![graph.resources.textures[forward_output]
-            .texture
-            .image
-            .format()],
-        depth_stencil_attachment_format: base.depth_image.format(),
-    });
+    let pipeline_handle = graph.create_pipeline(
+        crate::PipelineDesc::builder()
+            .vertex_path("utopian/shaders/forward/forward.vert")
+            .fragment_path("utopian/shaders/forward/forward.frag")
+            .default_primitive_vertex_bindings()
+            .default_primitive_vertex_attributes()
+            .build(),
+    );
 
     graph
         .add_pass(String::from("forward_pass"), pipeline_handle)

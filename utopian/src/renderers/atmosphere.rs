@@ -10,19 +10,16 @@ pub fn setup_atmosphere_pass(
     camera: &crate::camera::Camera,
     enabled: bool,
 ) {
-    let pipeline_handle = graph.create_pipeline(crate::PipelineDesc {
-        vertex_path: "utopian/shaders/atmosphere/atmosphere.vert",
-        fragment_path: "utopian/shaders/atmosphere/atmosphere.frag",
-        vertex_input_binding_descriptions: crate::Primitive::get_vertex_input_binding_descriptions(
-        ),
-        vertex_input_attribute_descriptions:
-            crate::Primitive::get_vertex_input_attribute_descriptions(),
-        color_attachment_formats: vec![graph.resources.textures[atmosphere_output]
-            .texture
-            .image
-            .format()],
-        depth_stencil_attachment_format: base.depth_image.format(),
-    });
+    puffin::profile_function!();
+
+    let pipeline_handle = graph.create_pipeline(
+        crate::PipelineDesc::builder()
+            .vertex_path("utopian/shaders/atmosphere/atmosphere.vert")
+            .fragment_path("utopian/shaders/atmosphere/atmosphere.frag")
+            .default_primitive_vertex_bindings()
+            .default_primitive_vertex_attributes()
+            .build(),
+    );
 
     let projection = camera.get_projection();
     let world = Mat4::from_scale(Vec3::splat(1000.0));
