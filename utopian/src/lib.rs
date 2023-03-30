@@ -14,6 +14,7 @@ pub mod pass;
 pub mod pipeline;
 pub mod primitive;
 pub mod raytracing;
+pub mod render_utils;
 pub mod renderer;
 pub mod renderers;
 pub mod shader;

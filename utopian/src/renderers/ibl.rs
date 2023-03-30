@@ -1,21 +1,20 @@
 use ash::vk;
 use glam::{Mat4, Vec3};
 
-use crate::image::ImageDesc;
+use crate::{image::ImageDesc, render_utils};
 
 pub fn setup_cubemap_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
-    enabled: bool,
 ) -> (
     crate::TextureId,
     crate::TextureId,
     crate::TextureId,
     crate::TextureId,
 ) {
-    let (mip0_size, num_mips) = (512, 7);
+    let (mip0_size, num_mips) = (512, 8);
 
     // Todo: can use smaller format?
     let rgba32_fmt = vk::Format::R32G32B32A32_SFLOAT;
@@ -106,7 +105,7 @@ pub fn setup_cubemap_pass(
     ];
 
     for mip in 0..num_mips {
-        let mip_size = mip0_size as f32 * 0.5f32.powf(mip as f32);
+        let size = (mip0_size as f32 * 0.5f32.powf(mip as f32)) as u32;
 
         for layer in 0..6 {
             graph
@@ -118,20 +117,9 @@ pub fn setup_cubemap_pass(
                 .write(offscreen)
                 .uniforms("params", &(view_matrices[layer as usize], projection))
                 .render(move |device, cb, _renderer, _pass, _resources| unsafe {
-                    // Todo: This is a hack to get around the fact that we can't properly disable a pass
-                    if enabled {
-                        let viewports = [vk::Viewport {
-                            x: 0.0,
-                            y: mip_size as f32,
-                            width: mip_size as f32,
-                            height: -(mip_size as f32),
-                            min_depth: 0.0,
-                            max_depth: 1.0,
-                        }];
-
-                        device.handle.cmd_set_viewport(cb, 0, &viewports);
-                        device.handle.cmd_draw(cb, 3, 1, 0, 0);
-                    }
+                    let viewport = [render_utils::viewport(size, size)];
+                    device.handle.cmd_set_viewport(cb, 0, &viewport);
+                    device.handle.cmd_draw(cb, 3, 1, 0, 0);
                 })
                 .copy_image(
                     offscreen,
@@ -152,8 +140,8 @@ pub fn setup_cubemap_pass(
                                 .build(),
                         )
                         .extent(vk::Extent3D {
-                            width: mip_size as u32,
-                            height: mip_size as u32,
+                            width: size as u32,
+                            height: size as u32,
                             depth: 1,
                         })
                         .build(),
@@ -174,28 +162,16 @@ pub fn setup_cubemap_pass(
             .write_layer(irradiance_map, layer)
             .uniforms("params", &(view_matrices[layer as usize], projection))
             .render(move |device, cb, _renderer, _pass, _resources| unsafe {
-                // Todo: This is a hack to get around the fact that we can't properly disable a pass
-                if enabled {
-                    // Todo: make helper
-                    let viewports = [vk::Viewport {
-                        x: 0.0,
-                        y: mip0_size as f32,
-                        width: mip0_size as f32,
-                        height: -(mip0_size as f32),
-                        min_depth: 0.0,
-                        max_depth: 1.0,
-                    }];
-
-                    device.handle.cmd_set_viewport(cb, 0, &viewports);
-                    device.handle.cmd_draw(cb, 3, 1, 0, 0);
-                }
+                let viewport = [render_utils::viewport(mip0_size, mip0_size)];
+                device.handle.cmd_set_viewport(cb, 0, &viewport);
+                device.handle.cmd_draw(cb, 3, 1, 0, 0);
             })
             .build(&device, graph);
     }
 
     // Specular filter pass (all mip levels)
     for mip in 0..num_mips {
-        let mip_size = mip0_size as f32 * 0.5f32.powf(mip as f32);
+        let mip_size = (mip0_size as f32 * 0.5f32.powf(mip as f32)) as u32;
 
         for layer in 0..6 {
             graph
@@ -208,35 +184,24 @@ pub fn setup_cubemap_pass(
                 .write(offscreen)
                 .uniforms("params", &(view_matrices[layer as usize], projection))
                 .render(move |device, cb, _renderer, pass, resources| unsafe {
-                    // Todo: This is a hack to get around the fact that we can't properly disable a pass
-                    if enabled {
-                        let viewports = [vk::Viewport {
-                            x: 0.0,
-                            y: mip_size as f32,
-                            width: mip_size as f32,
-                            height: -(mip_size as f32),
-                            min_depth: 0.0,
-                            max_depth: 1.0,
-                        }];
+                    let viewport = [render_utils::viewport(mip_size, mip_size)];
+                    device.handle.cmd_set_viewport(cb, 0, &viewport);
 
-                        device.handle.cmd_set_viewport(cb, 0, &viewports);
+                    let roughness = mip as f32 / (num_mips - 1) as f32;
 
-                        let roughness = mip as f32 / (num_mips - 1) as f32;
+                    let pipeline = resources.pipeline(pass.pipeline_handle);
+                    device.handle.cmd_push_constants(
+                        cb,
+                        pipeline.pipeline_layout,
+                        vk::ShaderStageFlags::ALL,
+                        0,
+                        std::slice::from_raw_parts(
+                            &roughness as *const _ as *const u8,
+                            std::mem::size_of_val(&roughness),
+                        ),
+                    );
 
-                        let pipeline = resources.pipeline(pass.pipeline_handle);
-                        device.handle.cmd_push_constants(
-                            cb,
-                            pipeline.pipeline_layout,
-                            vk::ShaderStageFlags::ALL,
-                            0,
-                            std::slice::from_raw_parts(
-                                &roughness as *const _ as *const u8,
-                                std::mem::size_of_val(&roughness),
-                            ),
-                        );
-
-                        device.handle.cmd_draw(cb, 3, 1, 0, 0);
-                    }
+                    device.handle.cmd_draw(cb, 3, 1, 0, 0);
                 })
                 .copy_image(
                     offscreen,
@@ -271,11 +236,9 @@ pub fn setup_cubemap_pass(
         .add_pass(String::from("brdf_lut_pass"), brdf_lut_pipeline)
         .active(renderer.need_environment_map_update)
         .write(brdf_lut)
-        .render(
-            move |device, command_buffer, _renderer, _pass, _resources| unsafe {
-                device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
-            },
-        )
+        .render(move |device, command_buffer, _, _, _| unsafe {
+            device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
+        })
         .build(&device, graph);
 
     (environment_map, irradiance_map, specular_map, brdf_lut)

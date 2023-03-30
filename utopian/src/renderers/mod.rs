@@ -117,13 +117,7 @@ pub fn build_render_graph(
     );
 
     let (environment_map, irradiance_map, specular_map, brdf_lut) =
-        crate::renderers::ibl::setup_cubemap_pass(
-            &device,
-            graph,
-            &base,
-            renderer,
-            view_data.cubemap_enabled == 1,
-        );
+        crate::renderers::ibl::setup_cubemap_pass(&device, graph, &base, renderer);
 
     crate::renderers::forward::setup_forward_pass(
         &device,
