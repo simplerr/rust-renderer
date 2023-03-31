@@ -23,6 +23,7 @@ pub mod texture;
 pub mod vulkan_base;
 
 pub use crate::image::Image;
+pub use crate::image::ImageCopyDescBuilder;
 pub use bindless::*;
 pub use buffer::Buffer;
 pub use camera::Camera;

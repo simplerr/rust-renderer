@@ -454,3 +454,79 @@ impl Image {
             || format == vk::Format::D24_UNORM_S8_UINT
     }
 }
+
+pub struct ImageCopyDescBuilder {
+    image_copy: vk::ImageCopy,
+}
+
+impl ImageCopyDescBuilder {
+    pub fn new(width: u32, height: u32) -> Self {
+        Self {
+            image_copy: vk::ImageCopy::builder()
+                .src_subresource(vk::ImageSubresourceLayers {
+                    aspect_mask: vk::ImageAspectFlags::COLOR,
+                    mip_level: 0,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                })
+                .src_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+                .dst_subresource(vk::ImageSubresourceLayers {
+                    aspect_mask: vk::ImageAspectFlags::COLOR,
+                    mip_level: 0,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                })
+                .dst_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+                .extent(vk::Extent3D {
+                    width,
+                    height,
+                    depth: 1,
+                })
+                .build(),
+        }
+    }
+
+    pub fn src_aspect_mask(mut self, aspect_mask: vk::ImageAspectFlags) -> Self {
+        self.image_copy.src_subresource.aspect_mask = aspect_mask;
+        self
+    }
+
+    pub fn src_mip_level(mut self, mip_level: u32) -> Self {
+        self.image_copy.src_subresource.mip_level = mip_level;
+        self
+    }
+
+    pub fn src_base_array_layer(mut self, base_array_layer: u32) -> Self {
+        self.image_copy.src_subresource.base_array_layer = base_array_layer;
+        self
+    }
+
+    pub fn src_layer_count(mut self, layer_count: u32) -> Self {
+        self.image_copy.src_subresource.layer_count = layer_count;
+        self
+    }
+
+    pub fn dst_aspect_mask(mut self, aspect_mask: vk::ImageAspectFlags) -> Self {
+        self.image_copy.dst_subresource.aspect_mask = aspect_mask;
+        self
+    }
+
+    pub fn dst_mip_level(mut self, mip_level: u32) -> Self {
+        self.image_copy.dst_subresource.mip_level = mip_level;
+        self
+    }
+
+    pub fn dst_base_array_layer(mut self, base_array_layer: u32) -> Self {
+        self.image_copy.dst_subresource.base_array_layer = base_array_layer;
+        self
+    }
+
+    pub fn dst_layer_count(mut self, layer_count: u32) -> Self {
+        self.image_copy.dst_subresource.layer_count = layer_count;
+        self
+    }
+
+    pub fn build(self) -> vk::ImageCopy {
+        self.image_copy
+    }
+}

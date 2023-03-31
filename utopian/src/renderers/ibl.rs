@@ -108,26 +108,9 @@ pub fn setup_cubemap_pass(
                 .copy_image(
                     offscreen,
                     environment_map,
-                    vk::ImageCopy::builder()
-                        .src_subresource(
-                            vk::ImageSubresourceLayers::builder()
-                                .mip_level(0)
-                                .base_array_layer(0)
-                                .layer_count(1)
-                                .build(),
-                        )
-                        .dst_subresource(
-                            vk::ImageSubresourceLayers::builder()
-                                .mip_level(mip)
-                                .base_array_layer(layer)
-                                .layer_count(1)
-                                .build(),
-                        )
-                        .extent(vk::Extent3D {
-                            width: size as u32,
-                            height: size as u32,
-                            depth: 1,
-                        })
+                    crate::ImageCopyDescBuilder::new(size, size)
+                        .dst_base_array_layer(layer)
+                        .dst_mip_level(mip)
                         .build(),
                 )
                 .build(&device, graph);
@@ -190,26 +173,9 @@ pub fn setup_cubemap_pass(
                 .copy_image(
                     offscreen,
                     specular_map,
-                    vk::ImageCopy::builder()
-                        .src_subresource(
-                            vk::ImageSubresourceLayers::builder()
-                                .mip_level(0)
-                                .base_array_layer(0)
-                                .layer_count(1)
-                                .build(),
-                        )
-                        .dst_subresource(
-                            vk::ImageSubresourceLayers::builder()
-                                .mip_level(mip)
-                                .base_array_layer(layer)
-                                .layer_count(1)
-                                .build(),
-                        )
-                        .extent(vk::Extent3D {
-                            width: mip_size as u32,
-                            height: mip_size as u32,
-                            depth: 1,
-                        })
+                    crate::ImageCopyDescBuilder::new(mip_size, mip_size)
+                        .dst_base_array_layer(layer)
+                        .dst_mip_level(mip)
                         .build(),
                 )
                 .build(&device, graph);
