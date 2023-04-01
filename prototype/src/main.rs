@@ -1,5 +1,6 @@
 use ash::vk;
 use glam::{Mat4, Vec3};
+use prototype::ui::U32Checkbox;
 
 struct Application {
     base: utopian::VulkanBase,
@@ -239,35 +240,11 @@ impl Application {
                 ui.horizontal(|ui| {
                     // Bloated code due to needing u32 since view data is a uniform buffer
                     egui::Grid::new("settings_grid").show(ui, |ui| {
-                        ui.label("Shadows:");
-                        let mut shadows = view_data.shadows_enabled == 1;
-                        ui.add(egui::widgets::Checkbox::new(&mut shadows, ""));
-                        view_data.shadows_enabled = shadows as u32;
-                        ui.end_row();
-
-                        let mut ssao = view_data.ssao_enabled == 1;
-                        ui.label("SSAO:");
-                        ui.add(egui::widgets::Checkbox::new(&mut ssao, ""));
-                        view_data.ssao_enabled = ssao as u32;
-                        ui.end_row();
-
-                        ui.label("FXAA:");
-                        let mut fxaa = view_data.fxaa_enabled == 1;
-                        ui.add(egui::widgets::Checkbox::new(&mut fxaa, ""));
-                        view_data.fxaa_enabled = fxaa as u32;
-                        ui.end_row();
-
-                        ui.label("Use cubemap:");
-                        let mut cubemap = view_data.cubemap_enabled == 1;
-                        ui.add(egui::widgets::Checkbox::new(&mut cubemap, ""));
-                        view_data.cubemap_enabled = cubemap as u32;
-                        ui.end_row();
-
-                        ui.label("IBL:");
-                        let mut ibl = view_data.ibl_enabled == 1;
-                        ui.add(egui::widgets::Checkbox::new(&mut ibl, ""));
-                        view_data.ibl_enabled = ibl as u32;
-                        ui.end_row();
+                        ui.add(U32Checkbox::new(&mut view_data.shadows_enabled, "Shadows:"));
+                        ui.add(U32Checkbox::new(&mut view_data.ssao_enabled, "SSAO:"));
+                        ui.add(U32Checkbox::new(&mut view_data.fxaa_enabled, "FXAA:"));
+                        ui.add(U32Checkbox::new(&mut view_data.cubemap_enabled, "Cubemap:"));
+                        ui.add(U32Checkbox::new(&mut view_data.ibl_enabled, "IBL"));
 
                         if ui.button("Generate environment map").clicked() {
                             *need_environment_map_update = true;

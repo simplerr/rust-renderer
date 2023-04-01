@@ -76,3 +76,25 @@ impl Ui {
         );
     }
 }
+
+pub struct U32Checkbox<'a> {
+    value: &'a mut u32,
+    text: &'a str,
+}
+
+impl<'a> U32Checkbox<'a> {
+    pub fn new(value: &'a mut u32, text: &'a str) -> Self {
+        U32Checkbox { value, text }
+    }
+}
+
+impl<'a> egui::Widget for U32Checkbox<'a> {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        let mut bool_value = *self.value == 1;
+        ui.label(self.text);
+        let response = ui.add(egui::widgets::Checkbox::new(&mut bool_value, ""));
+        ui.end_row();
+        *self.value = bool_value as u32;
+        response
+    }
+}
