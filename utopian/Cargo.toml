@@ -17,3 +17,4 @@ dolly = "0.2.0"
 gltf = "0.16.0"
 notify = "4.0.16"
 puffin = { git = "https://github.com/simplerr/puffin.git" }
+gpu-profiler = { git = "https://github.com/simplerr/gpu-profiler.git", features = ["use-ash"] }

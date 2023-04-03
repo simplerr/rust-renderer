@@ -90,16 +90,7 @@ impl Application {
             false => None,
         };
 
-        let mut graph = utopian::Graph::new(&base.device, &camera_uniform_buffer);
-
-        utopian::renderers::build_render_graph(
-            &mut graph,
-            &base.device,
-            &base,
-            &renderer,
-            &view_data,
-            &camera,
-        );
+        let graph = utopian::Graph::new(&base.device, &camera_uniform_buffer);
 
         Application {
             base,
@@ -381,6 +372,9 @@ impl Application {
                             );
                         }
                     } else {
+                        gpu_profiler::profiler().begin_frame();
+                        let gpu_frame_start_ns = puffin::now_ns();
+
                         // Remove passes from previous frame
                         self.graph.clear(&self.base.device);
 
@@ -405,11 +399,19 @@ impl Application {
 
                         // Todo: should be possible to trigger this when needed
                         self.renderer.need_environment_map_update = false;
+
+                        gpu_profiler::profiler().end_frame();
+                        if self.profiling_enabled {
+                            if let Some(report) = gpu_profiler::profiler().last_report() {
+                                report.send_to_puffin(gpu_frame_start_ns);
+                            };
+                        }
                     }
 
                     if self.profiling_enabled {
                         puffin_egui::profiler_window(&self.ui.egui_integration.context());
                     }
+
                     puffin::GlobalProfiler::lock().new_frame();
 
                     // This also does the transition of the swapchain image to PRESENT_SRC_KHR

@@ -522,6 +522,10 @@ impl Graph {
     ) {
         puffin::profile_function!();
 
+        device
+            .frame_profiler
+            .begin_frame(&device.handle, command_buffer);
+
         for pass in self.passes.iter_mut().filter(|p| p.active) {
             let name = std::ffi::CString::new(pass.name.as_str()).unwrap();
             let debug_label = vk::DebugUtilsLabelEXT::builder()
@@ -532,6 +536,13 @@ impl Graph {
                 device
                     .debug_utils
                     .cmd_begin_debug_utils_label(command_buffer, &debug_label)
+            };
+
+            let vk_scope = {
+                let query_id = gpu_profiler::profiler().create_scope(&pass.name);
+                device
+                    .frame_profiler
+                    .begin_scope(&device.handle, command_buffer, query_id)
             };
 
             // Transition pass resources
@@ -790,9 +801,17 @@ impl Graph {
                 };
             }
 
+            device
+                .frame_profiler
+                .end_scope(&device.handle, command_buffer, vk_scope);
+
             unsafe {
                 device.debug_utils.cmd_end_debug_utils_label(command_buffer);
             }
         }
+
+        device
+            .frame_profiler
+            .end_frame(&device.handle, command_buffer);
     }
 }

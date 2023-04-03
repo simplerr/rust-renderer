@@ -13,6 +13,7 @@ pub mod model_loader;
 pub mod pass;
 pub mod pipeline;
 pub mod primitive;
+pub mod profiler_backend;
 pub mod raytracing;
 pub mod render_utils;
 pub mod renderer;

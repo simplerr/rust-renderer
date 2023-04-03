@@ -20,6 +20,7 @@ pub struct Device {
     pub gpu_allocator: Arc<Mutex<gpu_allocator::vulkan::Allocator>>,
     pub raytracing_supported: bool,
     pub debug_utils: ash::extensions::ext::DebugUtils,
+    pub frame_profiler: crate::profiler_backend::VkProfilerData,
 }
 
 impl Drop for Device {
@@ -161,7 +162,7 @@ impl Device {
             // println!("{:#?}", rt_pipeline_properties);
             // println!("{:#?}", as_features);
 
-            let gpu_allocator = Allocator::new(&AllocatorCreateDesc {
+            let mut gpu_allocator = Allocator::new(&AllocatorCreateDesc {
                 instance: instance.clone(),
                 device: device.clone(),
                 physical_device,
@@ -175,6 +176,17 @@ impl Device {
                 buffer_device_address: true,
             })
             .expect("Failed to create GPU allocator");
+
+            let properties = instance.get_physical_device_properties(physical_device);
+
+            let frame_profiler = gpu_profiler::backend::ash::VulkanProfilerFrame::new(
+                &device,
+                crate::profiler_backend::ProfilerBackend::new(
+                    &device,
+                    &mut gpu_allocator,
+                    properties.limits.timestamp_period,
+                ),
+            );
 
             Device {
                 handle: device,
@@ -190,6 +202,7 @@ impl Device {
                 gpu_allocator: Arc::new(Mutex::new(gpu_allocator)),
                 raytracing_supported,
                 debug_utils,
+                frame_profiler,
             }
         }
     }

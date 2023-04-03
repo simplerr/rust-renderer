@@ -689,6 +689,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "gpu-profiler"
+version = "0.1.0"
+source = "git+https://github.com/simplerr/gpu-profiler.git#8c0d7b12d4479745268e265e54ccd2549c0dba09"
+dependencies = [
+ "ash",
+ "once_cell",
+ "puffin",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1357,6 +1367,7 @@ dependencies = [
  "egui-winit-ash-integration",
  "glam 0.20.2",
  "gpu-allocator",
+ "gpu-profiler",
  "puffin",
  "puffin_egui",
  "rspirv-reflect",
@@ -1754,7 +1765,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "static_assertions",
 ]
 
@@ -1774,6 +1785,7 @@ dependencies = [
  "glam 0.20.2",
  "gltf",
  "gpu-allocator",
+ "gpu-profiler",
  "image",
  "notify",
  "puffin",
