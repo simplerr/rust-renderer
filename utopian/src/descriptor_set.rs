@@ -152,10 +152,13 @@ impl DescriptorSet {
         };
     }
 
-    pub fn write_storage_image(&self, device: &Device, name: String, image: &Image) {
-        let binding = match self.binding_map.get(&name) {
-            Some(binding) => binding,
-            None => panic!("No descriptor binding found with name: \"{}\"", name),
+    pub fn write_storage_image(&self, device: &Device, name: DescriptorIdentifier, image: &Image) {
+        let binding = match name {
+            DescriptorIdentifier::Name(name) => match self.binding_map.get(&name) {
+                Some(binding) => binding.binding,
+                None => panic!("No descriptor binding found with name: \"{}\"", name),
+            },
+            DescriptorIdentifier::Index(index) => index,
         };
 
         let descriptor_info = vk::DescriptorImageInfo {
@@ -166,7 +169,7 @@ impl DescriptorSet {
 
         let descriptor_writes = vk::WriteDescriptorSet::builder()
             .dst_set(self.handle)
-            .dst_binding(binding.binding)
+            .dst_binding(binding)
             .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
             .image_info(&[descriptor_info])
             .build();

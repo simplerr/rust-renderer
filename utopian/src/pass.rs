@@ -13,7 +13,7 @@ pub struct RenderPass {
     pub pipeline_handle: PipelineId,
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
-    pub reads: Vec<TextureId>,
+    pub reads: Vec<TextureUniform>,
     pub writes: Vec<TextureWrite>,
     pub depth_attachment: Option<DepthAttachment>,
     pub presentation_pass: bool,
@@ -76,11 +76,19 @@ impl RenderPass {
             );
 
             for (idx, &read) in self.reads.iter().enumerate() {
-                descriptor_set_input_textures.write_combined_image(
-                    &device,
-                    DescriptorIdentifier::Index(idx as u32),
-                    &textures[read].texture,
-                );
+                if read.input_type == TextureUniformType::CombinedImageSampler {
+                    descriptor_set_input_textures.write_combined_image(
+                        &device,
+                        DescriptorIdentifier::Index(idx as u32),
+                        &textures[read.texture].texture,
+                    );
+                } else if read.input_type == TextureUniformType::StorageImage {
+                    descriptor_set_input_textures.write_storage_image(
+                        &device,
+                        DescriptorIdentifier::Index(idx as u32),
+                        &textures[read.texture].texture.image,
+                    );
+                }
             }
 
             self.read_textures_descriptor_set
@@ -147,6 +155,18 @@ impl RenderPass {
         extent: vk::Extent2D,
         pipelines: &Vec<Pipeline>,
     ) {
+        if pipelines[self.pipeline_handle].pipeline_type == PipelineType::Compute {
+            unsafe {
+                device.handle.cmd_bind_pipeline(
+                    command_buffer,
+                    vk::PipelineBindPoint::COMPUTE,
+                    pipelines[self.pipeline_handle].handle,
+                );
+            }
+
+            return;
+        }
+
         let color_attachments = color_attachments
             .iter()
             .map(|image| {

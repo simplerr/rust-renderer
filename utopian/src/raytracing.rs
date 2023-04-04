@@ -5,6 +5,7 @@ use std::io::Cursor;
 use std::mem;
 
 use crate::buffer::*;
+use crate::descriptor_set::DescriptorIdentifier;
 use crate::descriptor_set::*;
 use crate::device::*;
 use crate::image::*;
@@ -74,10 +75,14 @@ impl Raytracing {
             reflection.get_set_mappings(binding.set),
         );
 
-        descriptor_set.write_storage_image(device, "output_image".to_string(), &output_image);
         descriptor_set.write_storage_image(
             device,
-            "accumulation_image".to_string(),
+            DescriptorIdentifier::Name("output_image".to_string()),
+            &output_image,
+        );
+        descriptor_set.write_storage_image(
+            device,
+            DescriptorIdentifier::Name("accumulation_image".to_string()),
             &accumulation_image,
         );
 

@@ -4,6 +4,7 @@ use ash::vk;
 
 use crate::device::*;
 use crate::image::*;
+use crate::pipeline::*;
 use crate::Buffer;
 use crate::Pipeline;
 use crate::PipelineDesc;
@@ -50,6 +51,19 @@ pub struct TextureCopy {
     pub copy_desc: vk::ImageCopy,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum TextureUniformType {
+    CombinedImageSampler,
+    StorageImage,
+}
+
+#[derive(Copy, Clone)]
+pub struct TextureUniform {
+    pub texture: TextureId,
+    pub input_type: TextureUniformType,
+    pub access_type: vk_sync::AccessType,
+}
+
 pub struct Graph {
     pub passes: Vec<RenderPass>,
     pub resources: GraphResources,
@@ -72,7 +86,7 @@ pub struct UniformData {
 pub struct PassBuilder {
     pub name: String,
     pub pipeline_handle: PipelineId,
-    pub reads: Vec<TextureId>,
+    pub reads: Vec<TextureUniform>,
     pub writes: Vec<TextureWrite>,
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
@@ -108,7 +122,20 @@ impl GraphResources {
 
 impl PassBuilder {
     pub fn read(mut self, resource_id: TextureId) -> Self {
-        self.reads.push(resource_id);
+        self.reads.push(TextureUniform {
+            texture: resource_id,
+            input_type: TextureUniformType::CombinedImageSampler,
+            access_type: vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer,
+        });
+        self
+    }
+
+    pub fn image_write(mut self, resource_id: TextureId) -> Self {
+        self.reads.push(TextureUniform {
+            texture: resource_id,
+            input_type: TextureUniformType::StorageImage,
+            access_type: vk_sync::AccessType::AnyShaderWrite,
+        });
         self
     }
 
@@ -145,6 +172,19 @@ impl PassBuilder {
             + 'static,
     ) -> Self {
         self.render_func.replace(Box::new(render_func));
+        self
+    }
+
+    pub fn dispatch(mut self, group_count_x: u32, group_count_y: u32, group_count_z: u32) -> Self {
+        self.render_func
+            .replace(Box::new(move |device, command_buffer, _, _, _| unsafe {
+                device.handle.cmd_dispatch(
+                    command_buffer,
+                    group_count_x,
+                    group_count_y,
+                    group_count_z,
+                );
+            }));
         self
     }
 
@@ -390,6 +430,27 @@ impl Graph {
         }
     }
 
+    pub fn add_pass_from_desc(
+        &mut self,
+        name: &'static str,
+        desc_builder: PipelineDescBuilder,
+    ) -> PassBuilder {
+        let pipeline_handle = self.create_pipeline(desc_builder.build());
+
+        PassBuilder {
+            name: name.to_string(),
+            pipeline_handle,
+            reads: vec![],
+            writes: vec![],
+            render_func: None,
+            depth_attachment: None,
+            presentation_pass: false,
+            uniforms: HashMap::new(),
+            copy_command: None,
+            active: true,
+        }
+    }
+
     pub fn create_texture(
         &mut self,
         debug_name: &str,
@@ -463,7 +524,7 @@ impl Graph {
             // Todo: this is the place to support shader recompilation
             if self.resources.pipelines.len() <= i {
                 self.resources.pipelines.push(crate::Pipeline::new(
-                    &device.handle,
+                    device,
                     desc.clone(),
                     Some(renderer.bindless_descriptor_set_layout),
                 ));
@@ -481,8 +542,6 @@ impl Graph {
                 &self.resources.pipelines,
                 &self.resources.buffers,
             );
-
-            // Todo: free descriptor sets
 
             pass.update_uniform_buffer_memory(device, &mut self.resources.buffers);
         }
@@ -505,8 +564,10 @@ impl Graph {
         path: std::path::PathBuf,
     ) {
         for pipeline in &mut self.resources.pipelines {
-            if path.ends_with(pipeline.pipeline_desc.vertex_path)
-                || path.ends_with(pipeline.pipeline_desc.fragment_path)
+            let desc = &pipeline.pipeline_desc;
+            if desc.compute_path.map_or(false, |p| path.ends_with(&p))
+                || desc.vertex_path.map_or(false, |p| path.ends_with(&p))
+                || desc.fragment_path.map_or(false, |p| path.ends_with(&p))
             {
                 pipeline.recreate_pipeline(device, bindless_descriptor_set_layout);
             }
@@ -545,18 +606,30 @@ impl Graph {
                     .begin_scope(&device.handle, command_buffer, query_id)
             };
 
+            let pass_pipeline = &self.resources.pipelines[pass.pipeline_handle];
+
             // Transition pass resources
             // Todo: probably can combine reads and writes to one vector
             for read in &pass.reads {
+                // Todo: also add buffer barriers
+                // https://themaister.net/blog/2019/08/14/yet-another-blog-explaining-vulkan-synchronization/:
+                // "This is not very interesting, we’re just restricting memory availability and visibility to a specific buffer.
+                // No GPU I know of actually cares, I think it makes more sense to just use VkMemoryBarrier rather than
+                // bothering with buffer barriers.
+
                 let next_access = crate::synch::image_pipeline_barrier(
                     &device,
                     command_buffer,
-                    &self.resources.textures[*read].texture.image,
-                    self.resources.textures[*read].prev_access,
-                    vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer,
+                    &self.resources.textures[read.texture].texture.image,
+                    self.resources.textures[read.texture].prev_access,
+                    read.access_type,
                 );
 
-                self.resources.textures.get_mut(*read).unwrap().prev_access = next_access;
+                self.resources
+                    .textures
+                    .get_mut(read.texture)
+                    .unwrap()
+                    .prev_access = next_access;
             }
 
             let mut writes_for_synch = pass.writes.clone();
@@ -702,12 +775,17 @@ impl Graph {
             // Bind descriptor sets that are used by all passes.
             // This includes bindless resources, view data, input textures
             // and uniform buffers from each pass with constants.
-            // Todo: this could be moved outside the pass loop
             unsafe {
+                let bind_point = match pass_pipeline.pipeline_type {
+                    PipelineType::Graphics => vk::PipelineBindPoint::GRAPHICS,
+                    PipelineType::Compute => vk::PipelineBindPoint::COMPUTE,
+                    PipelineType::Raytracing => vk::PipelineBindPoint::RAY_TRACING_KHR,
+                };
+
                 device.handle.cmd_bind_descriptor_sets(
                     command_buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    self.resources.pipelines[pass.pipeline_handle].pipeline_layout,
+                    bind_point,
+                    pass_pipeline.pipeline_layout,
                     crate::DESCRIPTOR_SET_INDEX_BINDLESS,
                     &[renderer.bindless_descriptor_set],
                     &[],
@@ -715,8 +793,8 @@ impl Graph {
 
                 device.handle.cmd_bind_descriptor_sets(
                     command_buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    self.resources.pipelines[pass.pipeline_handle].pipeline_layout,
+                    bind_point,
+                    pass_pipeline.pipeline_layout,
                     crate::DESCRIPTOR_SET_INDEX_VIEW,
                     &[self.descriptor_set_camera.handle],
                     &[],
@@ -725,8 +803,8 @@ impl Graph {
                 if let Some(read_textures_descriptor_set) = &pass.read_textures_descriptor_set {
                     device.handle.cmd_bind_descriptor_sets(
                         command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.resources.pipelines[pass.pipeline_handle].pipeline_layout,
+                        bind_point,
+                        pass_pipeline.pipeline_layout,
                         crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES,
                         &[read_textures_descriptor_set.handle],
                         &[],
@@ -736,9 +814,9 @@ impl Graph {
                 if let Some(uniforms_descriptor_set) = &pass.uniforms_descriptor_set {
                     device.handle.cmd_bind_descriptor_sets(
                         command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        self.resources.pipelines[pass.pipeline_handle].pipeline_layout,
-                        self.resources.pipelines[pass.pipeline_handle]
+                        bind_point,
+                        pass_pipeline.pipeline_layout,
+                        pass_pipeline
                             .reflection
                             .get_binding(&pass.uniforms.values().next().unwrap().0)
                             .set,
@@ -753,7 +831,9 @@ impl Graph {
                 render_func(device, command_buffer, renderer, pass, &self.resources);
             }
 
-            unsafe { device.handle.cmd_end_rendering(command_buffer) };
+            if pass_pipeline.pipeline_type == PipelineType::Graphics {
+                unsafe { device.handle.cmd_end_rendering(command_buffer) };
+            }
 
             if let Some(copy_command) = &pass.copy_command {
                 puffin::profile_scope!("copy_command:", pass.name.as_str());

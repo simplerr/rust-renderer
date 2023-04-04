@@ -19,6 +19,7 @@ pub struct Binding {
     pub info: rspirv_reflect::DescriptorInfo,
 }
 
+#[derive(Default)]
 pub struct Reflection {
     pub descriptor_set_reflections: DescriptorSetMap,
     pub push_constant_reflections: Vec<rspirv_reflect::PushConstantInfo>,
@@ -132,6 +133,8 @@ pub fn compile_glsl_shader(path: &str) -> Result<shaderc::CompilationArtifact, s
         shaderc::ShaderKind::Miss
     } else if path.ends_with(".rchit") {
         shaderc::ShaderKind::ClosestHit
+    } else if path.ends_with(".comp") {
+        shaderc::ShaderKind::Compute
     } else {
         panic!("Unsupported shader extension");
     };

@@ -7,8 +7,10 @@ use crate::*;
 
 #[derive(Clone)]
 pub struct PipelineDesc {
-    pub vertex_path: &'static str,
-    pub fragment_path: &'static str,
+    pub vertex_path: Option<&'static str>,
+    pub fragment_path: Option<&'static str>,
+    pub compute_path: Option<&'static str>,
+    pub raygen_path: Option<&'static str>, // Todo
     pub vertex_input_binding_descriptions: Vec<vk::VertexInputBindingDescription>,
     pub vertex_input_attribute_descriptions: Vec<vk::VertexInputAttributeDescription>,
     pub color_attachment_formats: Vec<vk::Format>,
@@ -25,6 +27,14 @@ pub struct Pipeline {
     pub descriptor_set_layouts: Vec<vk::DescriptorSetLayout>,
     pub reflection: shader::Reflection,
     pub pipeline_desc: PipelineDesc,
+    pub pipeline_type: PipelineType,
+}
+
+#[derive(PartialEq, Clone, Copy)]
+pub enum PipelineType {
+    Graphics,
+    Compute,
+    Raytracing,
 }
 
 impl Hash for PipelineDesc {
@@ -38,41 +48,98 @@ impl Hash for PipelineDesc {
 
 impl Pipeline {
     pub fn new(
-        device: &ash::Device,
+        device: &Device,
         pipeline_desc: PipelineDesc,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Pipeline {
         puffin::profile_function!();
 
-        let shader_modules_result = Pipeline::create_shader_modules(
-            device,
-            pipeline_desc.vertex_path,
-            pipeline_desc.fragment_path,
-            bindless_descriptor_set_layout,
-        );
+        let pipeline_type = match (&pipeline_desc.compute_path, &pipeline_desc.raygen_path) {
+            (_, Some(_)) => PipelineType::Raytracing,
+            (Some(_), _) => PipelineType::Compute,
+            (None, None) => PipelineType::Graphics,
+        };
 
-        let (shader_stage_create_infos, reflection, pipeline_layout, descriptor_set_layouts) =
-            shader_modules_result.expect("Failed to create shader modules");
+        let mut pipeline = Pipeline {
+            handle: vk::Pipeline::null(),
+            pipeline_layout: vk::PipelineLayout::null(),
+            descriptor_set_layouts: vec![],
+            reflection: shader::Reflection::default(),
+            pipeline_desc: pipeline_desc.clone(),
+            pipeline_type,
+        };
 
-        let graphic_pipeline = Pipeline::create_pipeline(
-            device,
-            shader_stage_create_infos,
-            pipeline_desc.color_attachment_formats.as_slice(),
-            pipeline_desc.depth_stencil_attachment_format,
-            pipeline_layout,
-            &pipeline_desc,
-        );
+        Self::create_pipeline(&mut pipeline, device, bindless_descriptor_set_layout)
+            .expect("Error creating pipeline");
 
-        Pipeline {
-            handle: graphic_pipeline,
-            pipeline_layout,
-            descriptor_set_layouts,
-            reflection,
-            pipeline_desc,
+        pipeline
+    }
+
+    pub fn recreate_pipeline(
+        &mut self,
+        device: &Device,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
+    ) {
+        // Todo: cleanup old resources
+
+        if let Ok(_) = Self::create_pipeline(self, device, bindless_descriptor_set_layout) {
+            println!("Successfully recompiled shader");
         }
     }
 
-    fn create_shader_modules(
+    fn create_pipeline(
+        pipeline: &mut Pipeline,
+        device: &Device,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
+    ) -> Result<(), ()> {
+        let desc = &pipeline.pipeline_desc;
+        let (shader_stage_create_infos, reflection, pipeline_layout, descriptor_set_layouts) =
+            match pipeline.pipeline_type {
+                PipelineType::Graphics => Pipeline::create_graphics_shader_modules(
+                    &device.handle,
+                    desc.vertex_path.unwrap(),
+                    desc.fragment_path.unwrap(),
+                    bindless_descriptor_set_layout,
+                ),
+                PipelineType::Compute => Pipeline::create_compute_shader_modules(
+                    &device.handle,
+                    desc.compute_path.unwrap(),
+                    bindless_descriptor_set_layout,
+                ),
+                PipelineType::Raytracing => unimplemented!(),
+            }
+            .map_err(|error| {
+                println!("Failed to compile shader: {:#?}", error);
+            })?;
+
+        let new_handle = match pipeline.pipeline_type {
+            PipelineType::Graphics => Pipeline::create_graphics_pipeline(
+                &device.handle,
+                shader_stage_create_infos,
+                desc.color_attachment_formats.as_slice(),
+                desc.depth_stencil_attachment_format,
+                pipeline_layout,
+                &pipeline.pipeline_desc,
+            ),
+            PipelineType::Compute => Pipeline::create_compute_pipeline(
+                &device.handle,
+                shader_stage_create_infos,
+                pipeline_layout,
+            ),
+            PipelineType::Raytracing => {
+                unimplemented!()
+            }
+        };
+
+        pipeline.handle = new_handle;
+        pipeline.pipeline_layout = pipeline_layout;
+        pipeline.descriptor_set_layouts = descriptor_set_layouts;
+        pipeline.reflection = reflection;
+
+        Ok(())
+    }
+
+    fn create_graphics_shader_modules(
         device: &ash::Device,
         vertex_shader_path: &str,
         fragment_shader_path: &str,
@@ -130,7 +197,7 @@ impl Pipeline {
         ))
     }
 
-    fn create_pipeline(
+    fn create_graphics_pipeline(
         device: &ash::Device,
         shader_stage_create_infos: Vec<vk::PipelineShaderStageCreateInfo>,
         color_attachment_formats: &[vk::Format],
@@ -236,47 +303,67 @@ impl Pipeline {
         graphics_pipelines[0]
     }
 
-    pub fn recreate_pipeline(
-        &mut self,
-        device: &Device,
+    fn create_compute_shader_modules(
+        device: &ash::Device,
+        compute_shader_path: &str,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
-    ) {
-        // Todo: cleanup old resources
+    ) -> Result<
+        (
+            Vec<vk::PipelineShaderStageCreateInfo>,
+            shader::Reflection,
+            vk::PipelineLayout,
+            Vec<vk::DescriptorSetLayout>,
+        ),
+        shaderc::Error,
+    > {
+        let compute_spv_file = shader::compile_glsl_shader(compute_shader_path)?;
+        let compute_spv_file = compute_spv_file.as_binary_u8();
 
-        let shader_modules_result = Pipeline::create_shader_modules(
-            &device.handle,
-            self.pipeline_desc.vertex_path,
-            self.pipeline_desc.fragment_path,
+        let reflection = shader::Reflection::new(&[compute_spv_file]);
+
+        let (pipeline_layout, descriptor_set_layouts, _) = shader::create_layouts_from_reflection(
+            device,
+            &reflection,
             bindless_descriptor_set_layout,
         );
 
-        match shader_modules_result {
-            Ok((
-                shader_stage_create_infos,
-                _reflection,
-                pipeline_layout,
-                _descriptor_set_layouts,
-            )) => {
-                let graphic_pipeline = Pipeline::create_pipeline(
-                    &device.handle,
-                    shader_stage_create_infos,
-                    self.pipeline_desc.color_attachment_formats.as_slice(),
-                    self.pipeline_desc.depth_stencil_attachment_format,
-                    pipeline_layout,
-                    &self.pipeline_desc,
-                );
+        let compute_spv_file = Cursor::new(compute_spv_file);
 
-                println!(
-                    "{} and {} was successfully recompiled",
-                    self.pipeline_desc.vertex_path, self.pipeline_desc.fragment_path
-                );
+        let compute_shader_module = shader::create_shader_module(compute_spv_file, device);
 
-                self.handle = graphic_pipeline
-            }
-            Err(error) => {
-                println!("Failed to recreate rasterization pipeline: {:#?}", error);
-            }
-        }
+        let shader_entry_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
+        let shader_stage_create_infos = vec![vk::PipelineShaderStageCreateInfo {
+            module: compute_shader_module,
+            p_name: shader_entry_name.as_ptr(),
+            stage: vk::ShaderStageFlags::COMPUTE,
+            ..Default::default()
+        }];
+
+        Ok((
+            shader_stage_create_infos,
+            reflection,
+            pipeline_layout,
+            descriptor_set_layouts,
+        ))
+    }
+
+    fn create_compute_pipeline(
+        device: &ash::Device,
+        shader_stage_create_infos: Vec<vk::PipelineShaderStageCreateInfo>,
+        pipeline_layout: vk::PipelineLayout,
+    ) -> vk::Pipeline {
+        let create_info = vk::ComputePipelineCreateInfo::builder()
+            .stage(shader_stage_create_infos[0])
+            .layout(pipeline_layout)
+            .build();
+
+        let compute_pipelines = unsafe {
+            device
+                .create_compute_pipelines(vk::PipelineCache::null(), &[create_info], None)
+                .expect("Unable to create compute pipeline")
+        };
+
+        compute_pipelines[0]
     }
 }
 
@@ -290,8 +377,10 @@ impl PipelineDescBuilder {
     pub fn new() -> Self {
         Self {
             desc: PipelineDesc {
-                vertex_path: "",
-                fragment_path: "",
+                vertex_path: None,
+                fragment_path: None,
+                compute_path: None,
+                raygen_path: None,
                 vertex_input_binding_descriptions: Vec::new(),
                 vertex_input_attribute_descriptions: Vec::new(),
                 color_attachment_formats: Vec::new(),
@@ -301,12 +390,17 @@ impl PipelineDescBuilder {
     }
 
     pub fn vertex_path(mut self, path: &'static str) -> Self {
-        self.desc.vertex_path = path;
+        self.desc.vertex_path = Some(path);
         self
     }
 
     pub fn fragment_path(mut self, path: &'static str) -> Self {
-        self.desc.fragment_path = path;
+        self.desc.fragment_path = Some(path);
+        self
+    }
+
+    pub fn compute_path(mut self, path: &'static str) -> Self {
+        self.desc.compute_path = Some(path);
         self
     }
 

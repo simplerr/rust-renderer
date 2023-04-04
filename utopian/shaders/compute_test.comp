@@ -1,0 +1,27 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+#extension GL_GOOGLE_include_directive : enable
+
+#include "include/bindless.glsl"
+#include "include/view.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout (set = 2, binding = 0) uniform sampler2D in_forward_texture;
+layout (rgba8, set = 2, binding = 1) uniform image2D imgOutput;
+
+void main() {
+    ivec2 imageSize = imageSize(imgOutput);
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+
+    if (gid.x >= imageSize.x || gid.y >= imageSize.y) {
+        return;
+    }
+
+    vec3 forwardColor = texture(in_forward_texture, vec2(gid / 512.0)).rgb;
+
+    vec4 whiteColor = vec4(1.0, 0.5, 0.5, 1.0);
+    vec4 color = imageLoad(imgOutput, gid);
+    imageStore(imgOutput, gid, vec4(forwardColor, 1.0) * vec4(1.2));
+}

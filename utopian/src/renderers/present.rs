@@ -1,3 +1,5 @@
+use crate::PipelineDesc;
+
 pub fn setup_present_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
@@ -7,17 +9,32 @@ pub fn setup_present_pass(
 ) {
     puffin::profile_function!();
 
-    let pipeline_handle = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/common/fullscreen.vert")
-            .fragment_path("utopian/shaders/present/present.frag")
-            .build(),
-    );
+    let workgroup_size_x = 16;
+    let workgroup_size_y = 16;
+    let image_size_x = 512;
+    let image_size_y = 512;
+    let num_workgroups_x = (image_size_x + workgroup_size_x - 1) / workgroup_size_x;
+    let num_workgroups_y = (image_size_y + workgroup_size_y - 1) / workgroup_size_y;
 
     let fxaa_threshold = 0.45;
 
     graph
-        .add_pass(String::from("present_pass"), pipeline_handle)
+        .add_pass_from_desc(
+            "compute_pass",
+            PipelineDesc::builder().compute_path("utopian/shaders/compute_test.comp"),
+        )
+        .read(forward_output)
+        .image_write(deferred_output)
+        .dispatch(num_workgroups_x, num_workgroups_y, 1)
+        .build(&device, graph);
+
+    graph
+        .add_pass_from_desc(
+            "present_pass",
+            PipelineDesc::builder()
+                .vertex_path("utopian/shaders/common/fullscreen.vert")
+                .fragment_path("utopian/shaders/present/present.frag"),
+        )
         .read(forward_output)
         .read(deferred_output)
         .read(shadow_map)
