@@ -12,6 +12,7 @@ Developed to learn Rust and to have a framework for experimenting with modern re
 + Bindless GPU resources
 + Experimental high level render graph
 + Vulkan using [ash](https://github.com/MaikKlein/ash)
++ SSAO, FXAA, IBL, shadow mapping
 + Shader reflection
 + Live shader recompilation
 
@@ -27,6 +28,8 @@ Build and run the project with `cargo run --release`
 
 ## Controls
 
-- `SPACE` - toggle between path tracing and rasterization
+- `V` - toggle between path tracing and rasterization
 - `W/A/S/D` - move the camera
 - `MOUSE + RMB` - rotate the camera
+- `Q` - toggle profiling window
+- `SPACE` - pause profiler
