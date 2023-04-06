@@ -22,8 +22,13 @@ pub struct GraphTexture {
     pub prev_access: vk_sync::AccessType,
 }
 
+pub struct GraphBuffer {
+    pub buffer: Buffer,
+    pub prev_access: vk_sync::AccessType,
+}
+
 pub struct GraphResources {
-    pub buffers: Vec<Buffer>,
+    pub buffers: Vec<GraphBuffer>,
     pub textures: Vec<GraphTexture>,
     pub pipelines: Vec<Pipeline>,
 }
@@ -64,6 +69,18 @@ pub struct TextureUniform {
     pub access_type: vk_sync::AccessType,
 }
 
+#[derive(Copy, Clone)]
+pub struct BufferUniform {
+    pub buffer: BufferId,
+    pub access_type: vk_sync::AccessType,
+}
+
+#[derive(Copy, Clone)]
+pub enum Uniform {
+    Texture(TextureUniform),
+    Buffer(BufferUniform),
+}
+
 pub struct Graph {
     pub passes: Vec<RenderPass>,
     pub resources: GraphResources,
@@ -86,7 +103,7 @@ pub struct UniformData {
 pub struct PassBuilder {
     pub name: String,
     pub pipeline_handle: PipelineId,
-    pub reads: Vec<TextureUniform>,
+    pub reads: Vec<Uniform>,
     pub writes: Vec<TextureWrite>,
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
@@ -107,7 +124,7 @@ impl GraphResources {
         }
     }
 
-    pub fn buffer<'a>(&'a self, id: BufferId) -> &'a Buffer {
+    pub fn buffer<'a>(&'a self, id: BufferId) -> &'a GraphBuffer {
         &self.buffers[id]
     }
 
@@ -122,20 +139,36 @@ impl GraphResources {
 
 impl PassBuilder {
     pub fn read(mut self, resource_id: TextureId) -> Self {
-        self.reads.push(TextureUniform {
+        self.reads.push(Uniform::Texture(TextureUniform {
             texture: resource_id,
             input_type: TextureUniformType::CombinedImageSampler,
             access_type: vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer,
-        });
+        }));
         self
     }
 
     pub fn image_write(mut self, resource_id: TextureId) -> Self {
-        self.reads.push(TextureUniform {
+        self.reads.push(Uniform::Texture(TextureUniform {
             texture: resource_id,
             input_type: TextureUniformType::StorageImage,
             access_type: vk_sync::AccessType::AnyShaderWrite,
-        });
+        }));
+        self
+    }
+
+    pub fn write_buffer(mut self, resource_id: BufferId) -> Self {
+        self.reads.push(Uniform::Buffer(BufferUniform {
+            buffer: resource_id,
+            access_type: vk_sync::AccessType::AnyShaderWrite,
+        }));
+        self
+    }
+
+    pub fn read_buffer(mut self, resource_id: BufferId) -> Self {
+        self.reads.push(Uniform::Buffer(BufferUniform {
+            buffer: resource_id,
+            access_type: vk_sync::AccessType::AnyShaderReadOther,
+        }));
         self
     }
 
@@ -323,6 +356,8 @@ impl PassBuilder {
                 &self.uniforms.keys().next().unwrap(),
                 device,
                 self.uniforms.values().next().unwrap().1.size as u64,
+                vk::BufferUsageFlags::UNIFORM_BUFFER,
+                gpu_allocator::MemoryLocation::CpuToGpu,
             ));
         }
 
@@ -483,25 +518,24 @@ impl Graph {
         debug_name: &str,
         device: &crate::Device,
         size: u64,
+        usage: vk::BufferUsageFlags,
+        memory_location: gpu_allocator::MemoryLocation,
     ) -> BufferId {
-        // Todo: Cannot rely on debug_name being unique
+        puffin::profile_function!();
 
         self.resources
             .buffers
             .iter()
-            .position(|iter| iter.debug_name == debug_name)
+            .position(|iter| iter.buffer.debug_name == debug_name)
             .unwrap_or_else(|| {
-                let mut buffer = Buffer::new::<u8>(
-                    device,
-                    None,
-                    size,
-                    vk::BufferUsageFlags::UNIFORM_BUFFER,
-                    gpu_allocator::MemoryLocation::CpuToGpu,
-                );
+                let mut buffer = Buffer::new::<u8>(device, None, size, usage, memory_location);
 
                 buffer.set_debug_name(device, debug_name);
 
-                self.resources.buffers.push(buffer);
+                self.resources.buffers.push(GraphBuffer {
+                    buffer,
+                    prev_access: vk_sync::AccessType::Nothing,
+                });
 
                 self.resources.buffers.len() - 1
             })
@@ -536,6 +570,7 @@ impl Graph {
                 device,
                 &self.resources.pipelines,
                 &self.resources.textures,
+                &self.resources.buffers,
             );
             pass.try_create_uniform_buffer_descriptor_set(
                 device,
@@ -617,19 +652,38 @@ impl Graph {
                 // No GPU I know of actually cares, I think it makes more sense to just use VkMemoryBarrier rather than
                 // bothering with buffer barriers.
 
-                let next_access = crate::synch::image_pipeline_barrier(
-                    &device,
-                    command_buffer,
-                    &self.resources.textures[read.texture].texture.image,
-                    self.resources.textures[read.texture].prev_access,
-                    read.access_type,
-                );
+                match read {
+                    Uniform::Texture(read) => {
+                        let next_access = crate::synch::image_pipeline_barrier(
+                            &device,
+                            command_buffer,
+                            &self.resources.textures[read.texture].texture.image,
+                            self.resources.textures[read.texture].prev_access,
+                            read.access_type,
+                        );
 
-                self.resources
-                    .textures
-                    .get_mut(read.texture)
-                    .unwrap()
-                    .prev_access = next_access;
+                        self.resources
+                            .textures
+                            .get_mut(read.texture)
+                            .unwrap()
+                            .prev_access = next_access;
+                    }
+
+                    Uniform::Buffer(read) => {
+                        let next_access = crate::synch::global_pipeline_barrier(
+                            device,
+                            command_buffer,
+                            self.resources.buffers[read.buffer].prev_access,
+                            read.access_type,
+                        );
+
+                        self.resources
+                            .buffers
+                            .get_mut(read.buffer)
+                            .unwrap()
+                            .prev_access = next_access;
+                    }
+                }
             }
 
             let mut writes_for_synch = pass.writes.clone();

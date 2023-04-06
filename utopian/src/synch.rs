@@ -3,6 +3,26 @@ use ash::vk;
 use crate::Device;
 use crate::Image;
 
+pub fn global_pipeline_barrier(
+    device: &Device,
+    command_buffer: vk::CommandBuffer,
+    prev_access: vk_sync::AccessType,
+    next_access: vk_sync::AccessType,
+) -> vk_sync::AccessType {
+    vk_sync::cmd::pipeline_barrier(
+        &device.handle,
+        command_buffer,
+        Some(vk_sync::GlobalBarrier {
+            previous_accesses: &[prev_access],
+            next_accesses: &[next_access],
+        }),
+        &[],
+        &[],
+    );
+
+    next_access
+}
+
 pub fn image_pipeline_barrier(
     device: &Device,
     command_buffer: vk::CommandBuffer,

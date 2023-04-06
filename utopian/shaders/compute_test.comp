@@ -11,6 +11,11 @@ layout(local_size_x = 16, local_size_y = 16) in;
 layout (set = 2, binding = 0) uniform sampler2D in_forward_texture;
 layout (rgba8, set = 2, binding = 1) uniform image2D imgOutput;
 
+layout (std430, set = 2, binding = 2) buffer TestSSBO
+{
+   float test[512];
+} testSSBO;
+
 void main() {
     ivec2 imageSize = imageSize(imgOutput);
     ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
@@ -23,5 +28,11 @@ void main() {
 
     vec4 whiteColor = vec4(1.0, 0.5, 0.5, 1.0);
     vec4 color = imageLoad(imgOutput, gid);
-    imageStore(imgOutput, gid, vec4(forwardColor, 1.0) * vec4(1.2));
+
+    if (gid.y < 256) {
+        imageStore(imgOutput, gid, vec4(vec3(testSSBO.test[gid.x]), 1.0) * vec4(1.2));
+    }
+    else {
+        imageStore(imgOutput, gid, vec4(forwardColor, 1.0) * vec4(1.2));
+    }
 }

@@ -108,13 +108,18 @@ impl Renderer {
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
-        DescriptorSet::write_storage_buffer(
+        DescriptorSet::write_raw_storage_buffer(
             device,
             bindless_descriptor_set,
             3,
             &gpu_materials_buffer,
         );
-        DescriptorSet::write_storage_buffer(device, bindless_descriptor_set, 4, &gpu_meshes_buffer);
+        DescriptorSet::write_raw_storage_buffer(
+            device,
+            bindless_descriptor_set,
+            4,
+            &gpu_meshes_buffer,
+        );
 
         Renderer {
             bindless_descriptor_set_layout,

@@ -124,6 +124,40 @@ impl DescriptorSet {
         };
     }
 
+    pub fn write_storage_buffer(
+        &self,
+        device: &Device,
+        name: DescriptorIdentifier,
+        buffer: &Buffer,
+    ) {
+        let binding = match name {
+            DescriptorIdentifier::Name(name) => match self.binding_map.get(&name) {
+                Some(binding) => binding.binding,
+                None => panic!("No descriptor binding found with name: \"{}\"", name),
+            },
+            DescriptorIdentifier::Index(index) => index,
+        };
+
+        let buffer_info = vk::DescriptorBufferInfo::builder()
+            .offset(0)
+            .range(buffer.size)
+            .buffer(buffer.buffer)
+            .build();
+
+        let descriptor_writes = vk::WriteDescriptorSet::builder()
+            .dst_set(self.handle)
+            .dst_binding(binding)
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER) // todo
+            .buffer_info(&[buffer_info])
+            .build();
+
+        unsafe {
+            device
+                .handle
+                .update_descriptor_sets(&[descriptor_writes], &[])
+        };
+    }
+
     pub fn write_combined_image(
         &self,
         device: &Device,
@@ -212,11 +246,11 @@ impl DescriptorSet {
     }
 
     // Note: this is unlike the other functions above an associate function
-    // specificly used in Renderer for writing the mesh and material buffers.
+    // specifically used in Renderer for writing the mesh and material buffers.
     // Either this should be a metho and the bindless descriptor set shall be
     // an object of this type or all function above should be associate functions
     // as well. TBD.
-    pub fn write_storage_buffer(
+    pub fn write_raw_storage_buffer(
         device: &Device,
         descriptor_set: vk::DescriptorSet,
         binding: u32,

@@ -13,7 +13,7 @@ pub struct RenderPass {
     pub pipeline_handle: PipelineId,
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
-    pub reads: Vec<TextureUniform>,
+    pub reads: Vec<Uniform>,
     pub writes: Vec<TextureWrite>,
     pub depth_attachment: Option<DepthAttachment>,
     pub presentation_pass: bool,
@@ -61,6 +61,7 @@ impl RenderPass {
         device: &Device,
         pipelines: &Vec<Pipeline>,
         textures: &Vec<GraphTexture>,
+        buffers: &Vec<GraphBuffer>,
     ) {
         puffin::profile_function!();
 
@@ -76,18 +77,29 @@ impl RenderPass {
             );
 
             for (idx, &read) in self.reads.iter().enumerate() {
-                if read.input_type == TextureUniformType::CombinedImageSampler {
-                    descriptor_set_input_textures.write_combined_image(
-                        &device,
-                        DescriptorIdentifier::Index(idx as u32),
-                        &textures[read.texture].texture,
-                    );
-                } else if read.input_type == TextureUniformType::StorageImage {
-                    descriptor_set_input_textures.write_storage_image(
-                        &device,
-                        DescriptorIdentifier::Index(idx as u32),
-                        &textures[read.texture].texture.image,
-                    );
+                match read {
+                    Uniform::Texture(read) => {
+                        if read.input_type == TextureUniformType::CombinedImageSampler {
+                            descriptor_set_input_textures.write_combined_image(
+                                &device,
+                                DescriptorIdentifier::Index(idx as u32),
+                                &textures[read.texture].texture,
+                            );
+                        } else if read.input_type == TextureUniformType::StorageImage {
+                            descriptor_set_input_textures.write_storage_image(
+                                &device,
+                                DescriptorIdentifier::Index(idx as u32),
+                                &textures[read.texture].texture.image,
+                            );
+                        }
+                    }
+                    Uniform::Buffer(read) => {
+                        descriptor_set_input_textures.write_storage_buffer(
+                            &device,
+                            DescriptorIdentifier::Index(idx as u32),
+                            &buffers[read.buffer].buffer,
+                        );
+                    }
                 }
             }
 
@@ -100,7 +112,7 @@ impl RenderPass {
         &mut self,
         device: &Device,
         pipelines: &Vec<Pipeline>,
-        buffers: &Vec<crate::Buffer>,
+        buffers: &Vec<GraphBuffer>,
     ) {
         puffin::profile_function!();
 
@@ -126,7 +138,7 @@ impl RenderPass {
                 descriptor_set.write_uniform_buffer(
                     device,
                     uniform_name.to_string(),
-                    &buffers[self.uniform_buffer.unwrap()],
+                    &buffers[self.uniform_buffer.unwrap()].buffer,
                 );
             }
 
@@ -137,12 +149,14 @@ impl RenderPass {
     pub fn update_uniform_buffer_memory(
         &mut self,
         device: &Device,
-        buffers: &mut Vec<crate::Buffer>,
+        buffers: &mut Vec<GraphBuffer>,
     ) {
         puffin::profile_function!();
 
         if let Some(buffer_id) = self.uniform_buffer {
-            buffers[buffer_id].update_memory(device, &self.uniforms.values().next().unwrap().1.data)
+            buffers[buffer_id]
+                .buffer
+                .update_memory(device, &self.uniforms.values().next().unwrap().1.data)
         }
     }
 
