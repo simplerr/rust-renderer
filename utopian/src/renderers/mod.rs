@@ -7,6 +7,7 @@ pub mod deferred;
 pub mod forward;
 pub mod gbuffer;
 pub mod ibl;
+pub mod marching_cubes;
 pub mod present;
 pub mod shadow;
 pub mod ssao;
@@ -140,6 +141,13 @@ pub fn build_render_graph(
         brdf_lut,
         (cascade_matrices, cascade_depths),
         deferred_output,
+    );
+
+    crate::renderers::marching_cubes::setup_marching_cubes_pass(
+        device,
+        graph,
+        deferred_output,
+        true,
     );
 
     crate::renderers::atmosphere::setup_atmosphere_pass(
