@@ -113,6 +113,7 @@ pub struct PassBuilder {
     pub uniforms: HashMap<String, (String, UniformData)>,
     pub copy_command: Option<TextureCopy>,
     pub active: bool,
+    pub extra_barriers: Option<Vec<(BufferId, vk_sync::AccessType)>>,
 }
 
 impl GraphResources {
@@ -196,6 +197,13 @@ impl PassBuilder {
             view: ViewType::Full(),
             load_op: vk::AttachmentLoadOp::LOAD,
         });
+        self
+    }
+
+    /// Allows for adding extra buffer barriers for resources that the other APIs don't cover
+    pub fn extra_barriers(mut self, buffers: &[(BufferId, vk_sync::AccessType)]) -> Self {
+        // Note: to_vec() causes memory allocations
+        self.extra_barriers = Some(buffers.to_vec());
         self
     }
 
@@ -309,6 +317,7 @@ impl PassBuilder {
             self.render_func,
             self.copy_command,
             self.active,
+            self.extra_barriers,
         );
 
         for read in &self.reads {
@@ -462,6 +471,7 @@ impl Graph {
             uniforms: HashMap::new(),
             copy_command: None,
             active: true,
+            extra_barriers: None,
         }
     }
 
@@ -483,6 +493,7 @@ impl Graph {
             uniforms: HashMap::new(),
             copy_command: None,
             active: true,
+            extra_barriers: None,
         }
     }
 
@@ -682,6 +693,22 @@ impl Graph {
                             .get_mut(read.buffer)
                             .unwrap()
                             .prev_access = next_access;
+                    }
+                }
+            }
+
+            if let Some(extra_barriers) = &pass.extra_barriers {
+                for (buffer_id, access_type) in extra_barriers {
+                    let next_access = crate::synch::global_pipeline_barrier(
+                        device,
+                        command_buffer,
+                        self.resources.buffers[*buffer_id].prev_access,
+                        *access_type,
+                    );
+
+                    // Update the buffer's previous access type with the next access type
+                    if let Some(buffer) = self.resources.buffers.get_mut(*buffer_id) {
+                        buffer.prev_access = next_access;
                     }
                 }
             }

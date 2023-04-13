@@ -1,0 +1,26 @@
+#version 450
+#extension GL_GOOGLE_include_directive : enable
+
+#include "include/bindless.glsl"
+#include "include/view.glsl"
+
+struct DrawCommand
+{
+  uint vertexCount;
+  uint instanceCount;
+  uint firstVertex;
+  uint firstInstance;
+};
+
+layout(std430, set = 2, binding = 0) buffer DrawCommandSSBO
+{
+   DrawCommand drawCommand;
+} drawCommandSSBO;
+
+void main(void)
+{
+   drawCommandSSBO.drawCommand.vertexCount = 0;
+   drawCommandSSBO.drawCommand.instanceCount = 1;
+   drawCommandSSBO.drawCommand.firstVertex = 0;
+   drawCommandSSBO.drawCommand.firstInstance = 0;
+}

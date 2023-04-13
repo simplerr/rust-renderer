@@ -146,7 +146,10 @@ pub fn build_render_graph(
     crate::renderers::marching_cubes::setup_marching_cubes_pass(
         device,
         graph,
+        &base,
         deferred_output,
+        shadow_map,
+        (cascade_matrices, cascade_depths),
         true,
     );
 

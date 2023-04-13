@@ -30,7 +30,7 @@ void main() {
     Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
     Vertex vertex = verticesSSBO[mesh.vertex_buffer].vertices[gl_VertexIndex];
 
-#define BINDLESS
+//#define BINDLESS
 #ifdef BINDLESS
     vec3 bitangentL = cross(vertex.normal.xyz, vertex.tangent.xyz);
     vec3 T = normalize(mat3(pushConsts.world) * vertex.tangent.xyz);

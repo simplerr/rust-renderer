@@ -147,8 +147,10 @@ impl Renderer {
             Texture::load(device, "utopian/data/textures/defaults/flat_normal_map.png");
         let default_occlusion_map =
             Texture::load(device, "utopian/data/textures/defaults/white_texture.png");
-        let default_metallic_roughness_map =
-            Texture::load(device, "utopian/data/textures/defaults/white_texture.png");
+        let default_metallic_roughness_map = Texture::load(
+            device,
+            "utopian/data/textures/defaults/default_metallic_roughness.png",
+        );
 
         self.default_diffuse_map_index = self.add_bindless_texture(device, &default_diffuse_map);
         self.default_normal_map_index = self.add_bindless_texture(device, &default_normal_map);

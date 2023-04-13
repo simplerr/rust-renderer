@@ -24,6 +24,7 @@ pub struct RenderPass {
     pub uniforms_descriptor_set: Option<crate::DescriptorSet>,
     pub copy_command: Option<TextureCopy>,
     pub active: bool,
+    pub extra_barriers: Option<Vec<(BufferId, vk_sync::AccessType)>>,
 }
 
 impl RenderPass {
@@ -38,6 +39,7 @@ impl RenderPass {
         >,
         copy_command: Option<TextureCopy>,
         active: bool,
+        extra_barriers: Option<Vec<(BufferId, vk_sync::AccessType)>>,
     ) -> RenderPass {
         RenderPass {
             pipeline_handle,
@@ -53,6 +55,7 @@ impl RenderPass {
             uniforms_descriptor_set: None,
             copy_command,
             active,
+            extra_barriers,
         }
     }
 
