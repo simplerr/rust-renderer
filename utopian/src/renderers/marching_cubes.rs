@@ -104,21 +104,14 @@ pub fn setup_marching_cubes_pass(
             move |device, command_buffer, _renderer, pass, resources| unsafe {
                 let pipeline = resources.pipeline(pass.pipeline_handle);
 
-                let push_data = (
-                    glam::Mat4::IDENTITY,
-                    glam::Vec4::new(0.0, 0.0, 0.0, 1.0),
-                    0, // Mesh index not used
-                    [0; 3],
-                );
-
-                device.handle.cmd_push_constants(
+                device.cmd_push_constants(
                     command_buffer,
                     pipeline.pipeline_layout,
-                    vk::ShaderStageFlags::ALL,
-                    0,
-                    std::slice::from_raw_parts(
-                        &push_data as *const _ as *const u8,
-                        std::mem::size_of_val(&push_data),
+                    (
+                        glam::Mat4::IDENTITY,
+                        glam::Vec4::new(0.0, 0.0, 0.0, 1.0),
+                        0, // Mesh index not used
+                        [0; 3],
                     ),
                 );
 

@@ -156,16 +156,10 @@ pub fn setup_cubemap_pass(
 
                     let roughness = mip as f32 / (num_mips - 1) as f32;
 
-                    let pipeline = resources.pipeline(pass.pipeline_handle);
-                    device.handle.cmd_push_constants(
+                    device.cmd_push_constants(
                         cb,
-                        pipeline.pipeline_layout,
-                        vk::ShaderStageFlags::ALL,
-                        0,
-                        std::slice::from_raw_parts(
-                            &roughness as *const _ as *const u8,
-                            std::mem::size_of_val(&roughness),
-                        ),
+                        resources.pipeline(pass.pipeline_handle).pipeline_layout,
+                        roughness,
                     );
 
                     device.handle.cmd_draw(cb, 3, 1, 0, 0);

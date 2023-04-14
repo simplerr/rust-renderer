@@ -307,4 +307,24 @@ impl Device {
             })
             .map(|(index, _memory_type)| index as _)
     }
+
+    pub fn cmd_push_constants<T: Copy>(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        pipeline_layout: vk::PipelineLayout,
+        data: T,
+    ) {
+        unsafe {
+            self.handle.cmd_push_constants(
+                command_buffer,
+                pipeline_layout,
+                vk::ShaderStageFlags::ALL,
+                0,
+                std::slice::from_raw_parts(
+                    &data as *const _ as *const u8,
+                    std::mem::size_of_val(&data),
+                ),
+            );
+        }
+    }
 }

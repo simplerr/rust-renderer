@@ -335,32 +335,17 @@ impl Renderer {
         command_buffer: vk::CommandBuffer,
         pipeline_layout: vk::PipelineLayout,
     ) {
-        #[allow(dead_code)]
-        struct PushConstants {
-            world: glam::Mat4,
-            color: glam::Vec4,
-            mesh_index: u32,
-            pad: [u32; 3],
-        }
-
         unsafe {
             for instance in &self.instances {
                 for (i, mesh) in instance.model.meshes.iter().enumerate() {
-                    let push_data = PushConstants {
-                        world: instance.transform * instance.model.transforms[i],
-                        color: glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
-                        mesh_index: mesh.gpu_mesh,
-                        pad: [0; 3],
-                    };
-
-                    device.handle.cmd_push_constants(
+                    device.cmd_push_constants(
                         command_buffer,
                         pipeline_layout,
-                        vk::ShaderStageFlags::ALL,
-                        0,
-                        std::slice::from_raw_parts(
-                            &push_data as *const _ as *const u8,
-                            std::mem::size_of_val(&push_data),
+                        (
+                            instance.transform * instance.model.transforms[i],
+                            glam::Vec4::new(1.0, 0.5, 0.2, 1.0),
+                            mesh.gpu_mesh,
+                            [0; 3],
                         ),
                     );
 
