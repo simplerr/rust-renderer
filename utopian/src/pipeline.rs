@@ -10,7 +10,9 @@ pub struct PipelineDesc {
     pub vertex_path: Option<&'static str>,
     pub fragment_path: Option<&'static str>,
     pub compute_path: Option<&'static str>,
-    pub raygen_path: Option<&'static str>, // Todo
+    pub raygen_path: Option<&'static str>,
+    pub miss_path: Option<&'static str>,
+    pub hit_path: Option<&'static str>,
     pub vertex_input_binding_descriptions: Vec<vk::VertexInputBindingDescription>,
     pub vertex_input_attribute_descriptions: Vec<vk::VertexInputAttributeDescription>,
     pub color_attachment_formats: Vec<vk::Format>,
@@ -79,12 +81,14 @@ impl Pipeline {
         &mut self,
         device: &Device,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
-    ) {
+    ) -> bool {
         // Todo: cleanup old resources
 
         if let Ok(_) = Self::create_pipeline(self, device, bindless_descriptor_set_layout) {
             println!("Successfully recompiled shader");
+            return true;
         }
+        false
     }
 
     fn create_pipeline(
@@ -106,7 +110,13 @@ impl Pipeline {
                     desc.compute_path.unwrap(),
                     bindless_descriptor_set_layout,
                 ),
-                PipelineType::Raytracing => unimplemented!(),
+                PipelineType::Raytracing => Pipeline::create_raytracing_shader_modules(
+                    &device.handle,
+                    desc.raygen_path.unwrap(),
+                    desc.miss_path.unwrap(),
+                    desc.hit_path.unwrap(),
+                    bindless_descriptor_set_layout,
+                ),
             }
             .map_err(|error| {
                 println!("Failed to compile shader: {:#?}", error);
@@ -126,9 +136,11 @@ impl Pipeline {
                 shader_stage_create_infos,
                 pipeline_layout,
             ),
-            PipelineType::Raytracing => {
-                unimplemented!()
-            }
+            PipelineType::Raytracing => Pipeline::create_raytracing_pipeline(
+                &device,
+                shader_stage_create_infos,
+                pipeline_layout,
+            ),
         };
 
         pipeline.handle = new_handle;
@@ -365,6 +377,127 @@ impl Pipeline {
 
         compute_pipelines[0]
     }
+
+    fn create_raytracing_shader_modules(
+        device: &ash::Device,
+        raygen_shader_path: &str,
+        miss_shader_path: &str,
+        closest_hit_shader_path: &str,
+        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
+    ) -> Result<
+        (
+            Vec<vk::PipelineShaderStageCreateInfo>,
+            shader::Reflection,
+            vk::PipelineLayout,
+            Vec<vk::DescriptorSetLayout>,
+        ),
+        shaderc::Error,
+    > {
+        let raygen_spv_file = shader::compile_glsl_shader(raygen_shader_path)?;
+        let miss_spv_file = shader::compile_glsl_shader(miss_shader_path)?;
+        let closest_hit_spv_file = shader::compile_glsl_shader(closest_hit_shader_path)?;
+
+        let raygen_spv_file = raygen_spv_file.as_binary_u8();
+        let miss_spv_file = miss_spv_file.as_binary_u8();
+        let closest_hit_spv_file = closest_hit_spv_file.as_binary_u8();
+
+        let reflection =
+            shader::Reflection::new(&[raygen_spv_file, miss_spv_file, closest_hit_spv_file]);
+        let (pipeline_layout, descriptor_set_layouts, _) = shader::create_layouts_from_reflection(
+            &device,
+            &reflection,
+            bindless_descriptor_set_layout,
+        );
+
+        let raygen_spv_file = Cursor::new(raygen_spv_file);
+        let miss_spv_file = Cursor::new(miss_spv_file);
+        let closest_hit_spv_file = Cursor::new(closest_hit_spv_file);
+
+        let raygen_shader_module = crate::shader::create_shader_module(raygen_spv_file, &device);
+        let miss_shader_module = crate::shader::create_shader_module(miss_spv_file, &device);
+        let closest_hit_shader_module =
+            crate::shader::create_shader_module(closest_hit_spv_file, &device);
+
+        let shader_entry_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
+        let shader_stage_create_infos = vec![
+            vk::PipelineShaderStageCreateInfo {
+                module: raygen_shader_module,
+                p_name: shader_entry_name.as_ptr(),
+                stage: vk::ShaderStageFlags::RAYGEN_KHR,
+                ..Default::default()
+            },
+            vk::PipelineShaderStageCreateInfo {
+                module: miss_shader_module,
+                p_name: shader_entry_name.as_ptr(),
+                stage: vk::ShaderStageFlags::MISS_KHR,
+                ..Default::default()
+            },
+            vk::PipelineShaderStageCreateInfo {
+                module: closest_hit_shader_module,
+                p_name: shader_entry_name.as_ptr(),
+                stage: vk::ShaderStageFlags::CLOSEST_HIT_KHR,
+                ..Default::default()
+            },
+        ];
+
+        Ok((
+            shader_stage_create_infos,
+            reflection,
+            pipeline_layout,
+            descriptor_set_layouts,
+        ))
+    }
+
+    fn create_raytracing_pipeline(
+        device: &Device,
+        shader_stage_create_infos: Vec<vk::PipelineShaderStageCreateInfo>,
+        pipeline_layout: vk::PipelineLayout,
+    ) -> vk::Pipeline {
+        let shader_group_create_infos = [
+            ash::vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                .ty(ash::vk::RayTracingShaderGroupTypeKHR::GENERAL)
+                .general_shader(0) // Todo: not hardcode like this
+                .closest_hit_shader(ash::vk::SHADER_UNUSED_KHR)
+                .any_hit_shader(ash::vk::SHADER_UNUSED_KHR)
+                .intersection_shader(ash::vk::SHADER_UNUSED_KHR)
+                .build(),
+            ash::vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                .ty(ash::vk::RayTracingShaderGroupTypeKHR::GENERAL)
+                .general_shader(1) // Todo: not hardcode like this
+                .closest_hit_shader(ash::vk::SHADER_UNUSED_KHR)
+                .any_hit_shader(ash::vk::SHADER_UNUSED_KHR)
+                .intersection_shader(ash::vk::SHADER_UNUSED_KHR)
+                .build(),
+            ash::vk::RayTracingShaderGroupCreateInfoKHR::builder()
+                .ty(ash::vk::RayTracingShaderGroupTypeKHR::TRIANGLES_HIT_GROUP)
+                .general_shader(ash::vk::SHADER_UNUSED_KHR) // Todo: not hardcode like this
+                .closest_hit_shader(2)
+                .any_hit_shader(ash::vk::SHADER_UNUSED_KHR)
+                .intersection_shader(ash::vk::SHADER_UNUSED_KHR)
+                .build(),
+        ];
+
+        let pipeline_create_info = vk::RayTracingPipelineCreateInfoKHR::builder()
+            .max_pipeline_ray_recursion_depth(1)
+            .layout(pipeline_layout)
+            .stages(&shader_stage_create_infos)
+            .groups(&shader_group_create_infos)
+            .build();
+
+        let pipeline = unsafe {
+            device
+                .raytracing_pipeline_ext
+                .create_ray_tracing_pipelines(
+                    vk::DeferredOperationKHR::null(),
+                    vk::PipelineCache::null(),
+                    &[pipeline_create_info],
+                    None,
+                )
+                .expect("Failed to create raytracing pipeline")[0]
+        };
+
+        pipeline
+    }
 }
 
 impl PipelineDesc {
@@ -381,6 +514,8 @@ impl PipelineDescBuilder {
                 fragment_path: None,
                 compute_path: None,
                 raygen_path: None,
+                miss_path: None,
+                hit_path: None,
                 vertex_input_binding_descriptions: Vec::new(),
                 vertex_input_attribute_descriptions: Vec::new(),
                 color_attachment_formats: Vec::new(),
@@ -401,6 +536,21 @@ impl PipelineDescBuilder {
 
     pub fn compute_path(mut self, path: &'static str) -> Self {
         self.desc.compute_path = Some(path);
+        self
+    }
+
+    pub fn raygen_path(mut self, path: &'static str) -> Self {
+        self.desc.raygen_path = Some(path);
+        self
+    }
+
+    pub fn miss_path(mut self, path: &'static str) -> Self {
+        self.desc.miss_path = Some(path);
+        self
+    }
+
+    pub fn hit_path(mut self, path: &'static str) -> Self {
+        self.desc.hit_path = Some(path);
         self
     }
 

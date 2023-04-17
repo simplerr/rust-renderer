@@ -13,24 +13,16 @@ use crate::primitive::*;
 use crate::renderer::*;
 use crate::shader::*;
 
-pub struct PipelineDesc {
-    raygen_path: &'static str,
-    miss_path: &'static str,
-    hit_path: &'static str,
-}
-
 pub struct Raytracing {
     top_level_acceleration: vk::AccelerationStructureKHR,
     bottom_level_accelerations: Vec<vk::AccelerationStructureKHR>,
     output_image: Image,
     _accumulation_image: Image,
-    pipeline: vk::Pipeline,
-    pipeline_layout: vk::PipelineLayout,
+    pipeline: crate::Pipeline,
     raygen_sbt_buffer: Buffer,
     miss_sbt_buffer: Buffer,
     hit_sbt_buffer: Buffer,
     descriptor_set: DescriptorSet,
-    pipeline_desc: PipelineDesc,
     screen_size: vk::Extent2D,
 }
 
@@ -48,31 +40,25 @@ impl Raytracing {
         let accumulation_image =
             Raytracing::create_storage_image(device, screen_size, vk::Format::R32G32B32A32_SFLOAT);
 
-        let pipeline_desc = PipelineDesc {
-            raygen_path: "utopian/shaders/raytracing_basic/basic.rgen",
-            miss_path: "utopian/shaders/raytracing_basic/basic.rmiss",
-            hit_path: "utopian/shaders/raytracing_basic/basic.rchit",
-        };
-
-        let (pipeline, reflection, pipeline_layout, descriptor_set_layouts) =
-            Raytracing::create_pipeline(
-                device,
-                pipeline_desc.raygen_path,
-                pipeline_desc.miss_path,
-                pipeline_desc.hit_path,
-                bindless_descriptor_set_layout,
-            )
-            .expect("Failed to create raytracing pipeline");
+        let pipeline = crate::Pipeline::new(
+            device,
+            crate::PipelineDesc::builder()
+                .raygen_path("utopian/shaders/raytracing_basic/basic.rgen")
+                .miss_path("utopian/shaders/raytracing_basic/basic.rmiss")
+                .hit_path("utopian/shaders/raytracing_basic/basic.rchit")
+                .build(),
+            bindless_descriptor_set_layout,
+        );
 
         let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
-            Raytracing::create_shader_binding_table(device, pipeline);
+            Raytracing::create_shader_binding_table(device, pipeline.handle);
 
-        let binding = reflection.get_binding("topLevelAS");
+        let binding = pipeline.reflection.get_binding("topLevelAS");
 
         let descriptor_set = DescriptorSet::new(
             device,
-            descriptor_set_layouts[binding.set as usize],
-            reflection.get_set_mappings(binding.set),
+            pipeline.descriptor_set_layouts[binding.set as usize],
+            pipeline.reflection.get_set_mappings(binding.set),
         );
 
         descriptor_set.write_storage_image(
@@ -92,12 +78,10 @@ impl Raytracing {
             output_image,
             _accumulation_image: accumulation_image,
             pipeline,
-            pipeline_layout,
             raygen_sbt_buffer,
             miss_sbt_buffer,
             hit_sbt_buffer,
             descriptor_set,
-            pipeline_desc,
             screen_size,
         }
     }
@@ -408,119 +392,6 @@ impl Raytracing {
         storage_image
     }
 
-    pub fn create_pipeline(
-        device: &Device,
-        raygen_shader_path: &str,
-        miss_shader_path: &str,
-        closest_hit_shader_path: &str,
-        bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
-    ) -> Result<
-        (
-            vk::Pipeline,
-            Reflection,
-            vk::PipelineLayout,
-            Vec<vk::DescriptorSetLayout>,
-        ),
-        shaderc::Error,
-    > {
-        let raygen_spv_file = compile_glsl_shader(raygen_shader_path)?;
-        let miss_spv_file = compile_glsl_shader(miss_shader_path)?;
-        let closest_hit_spv_file = compile_glsl_shader(closest_hit_shader_path)?;
-
-        let raygen_spv_file = raygen_spv_file.as_binary_u8();
-        let miss_spv_file = miss_spv_file.as_binary_u8();
-        let closest_hit_spv_file = closest_hit_spv_file.as_binary_u8();
-
-        let reflection = Reflection::new(&[raygen_spv_file, miss_spv_file, closest_hit_spv_file]);
-        let (pipeline_layout, descriptor_set_layouts, _) = create_layouts_from_reflection(
-            &device.handle,
-            &reflection,
-            bindless_descriptor_set_layout,
-        );
-
-        let raygen_spv_file = Cursor::new(raygen_spv_file);
-        let miss_spv_file = Cursor::new(miss_spv_file);
-        let closest_hit_spv_file = Cursor::new(closest_hit_spv_file);
-
-        let raygen_shader_module =
-            crate::shader::create_shader_module(raygen_spv_file, &device.handle);
-        let miss_shader_module = crate::shader::create_shader_module(miss_spv_file, &device.handle);
-        let closest_hit_shader_module =
-            crate::shader::create_shader_module(closest_hit_spv_file, &device.handle);
-
-        let shader_entry_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
-        let shader_stage_create_infos = vec![
-            vk::PipelineShaderStageCreateInfo {
-                module: raygen_shader_module,
-                p_name: shader_entry_name.as_ptr(),
-                stage: vk::ShaderStageFlags::RAYGEN_KHR,
-                ..Default::default()
-            },
-            vk::PipelineShaderStageCreateInfo {
-                module: miss_shader_module,
-                p_name: shader_entry_name.as_ptr(),
-                stage: vk::ShaderStageFlags::MISS_KHR,
-                ..Default::default()
-            },
-            vk::PipelineShaderStageCreateInfo {
-                module: closest_hit_shader_module,
-                p_name: shader_entry_name.as_ptr(),
-                stage: vk::ShaderStageFlags::CLOSEST_HIT_KHR,
-                ..Default::default()
-            },
-        ];
-
-        let shader_group_create_infos = [
-            ash::vk::RayTracingShaderGroupCreateInfoKHR::builder()
-                .ty(ash::vk::RayTracingShaderGroupTypeKHR::GENERAL)
-                .general_shader(0) // Todo: not hardcode like this
-                .closest_hit_shader(ash::vk::SHADER_UNUSED_KHR)
-                .any_hit_shader(ash::vk::SHADER_UNUSED_KHR)
-                .intersection_shader(ash::vk::SHADER_UNUSED_KHR)
-                .build(),
-            ash::vk::RayTracingShaderGroupCreateInfoKHR::builder()
-                .ty(ash::vk::RayTracingShaderGroupTypeKHR::GENERAL)
-                .general_shader(1) // Todo: not hardcode like this
-                .closest_hit_shader(ash::vk::SHADER_UNUSED_KHR)
-                .any_hit_shader(ash::vk::SHADER_UNUSED_KHR)
-                .intersection_shader(ash::vk::SHADER_UNUSED_KHR)
-                .build(),
-            ash::vk::RayTracingShaderGroupCreateInfoKHR::builder()
-                .ty(ash::vk::RayTracingShaderGroupTypeKHR::TRIANGLES_HIT_GROUP)
-                .general_shader(ash::vk::SHADER_UNUSED_KHR) // Todo: not hardcode like this
-                .closest_hit_shader(2)
-                .any_hit_shader(ash::vk::SHADER_UNUSED_KHR)
-                .intersection_shader(ash::vk::SHADER_UNUSED_KHR)
-                .build(),
-        ];
-
-        let pipeline_create_info = vk::RayTracingPipelineCreateInfoKHR::builder()
-            .max_pipeline_ray_recursion_depth(1)
-            .layout(pipeline_layout)
-            .stages(&shader_stage_create_infos)
-            .groups(&shader_group_create_infos)
-            .build();
-
-        let pipeline = unsafe {
-            device
-                .raytracing_pipeline_ext
-                .create_ray_tracing_pipelines(
-                    vk::DeferredOperationKHR::null(),
-                    vk::PipelineCache::null(),
-                    &[pipeline_create_info],
-                    None,
-                )
-                .expect("Failed to create raytracing pipeline")[0]
-        };
-
-        Ok((
-            pipeline,
-            reflection,
-            pipeline_layout,
-            descriptor_set_layouts,
-        ))
-    }
-
     pub fn create_shader_binding_table(
         device: &Device,
         pipeline: vk::Pipeline,
@@ -607,14 +478,14 @@ impl Raytracing {
             device.handle.cmd_bind_pipeline(
                 cb,
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
-                self.pipeline,
+                self.pipeline.handle,
             );
 
             // Todo: the bindless and view descriptor sets should be bound by the render graph graph
             device.handle.cmd_bind_descriptor_sets(
                 cb,
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
-                self.pipeline_layout,
+                self.pipeline.pipeline_layout,
                 DESCRIPTOR_SET_INDEX_BINDLESS,
                 &[bindless_descriptor_set],
                 &[],
@@ -623,7 +494,7 @@ impl Raytracing {
             device.handle.cmd_bind_descriptor_sets(
                 cb,
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
-                self.pipeline_layout,
+                self.pipeline.pipeline_layout,
                 crate::DESCRIPTOR_SET_INDEX_VIEW,
                 &[view_descriptor_set],
                 &[],
@@ -632,7 +503,7 @@ impl Raytracing {
             device.handle.cmd_bind_descriptor_sets(
                 cb,
                 vk::PipelineBindPoint::RAY_TRACING_KHR,
-                self.pipeline_layout,
+                self.pipeline.pipeline_layout,
                 self.descriptor_set.get_set_index(),
                 &[self.descriptor_set.handle],
                 &[],
@@ -666,31 +537,16 @@ impl Raytracing {
         device: &Device,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) {
-        // Todo: cleanup old resources
+        if self
+            .pipeline
+            .recreate_pipeline(device, bindless_descriptor_set_layout)
+        {
+            let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
+                Raytracing::create_shader_binding_table(device, self.pipeline.handle);
 
-        let result = Raytracing::create_pipeline(
-            device,
-            self.pipeline_desc.raygen_path,
-            self.pipeline_desc.miss_path,
-            self.pipeline_desc.hit_path,
-            bindless_descriptor_set_layout,
-        );
-
-        match result {
-            Ok((pipeline, _, _, _)) => {
-                let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
-                    Raytracing::create_shader_binding_table(device, pipeline);
-
-                self.pipeline = pipeline;
-                self.raygen_sbt_buffer = raygen_sbt_buffer;
-                self.miss_sbt_buffer = miss_sbt_buffer;
-                self.hit_sbt_buffer = hit_sbt_buffer;
-
-                println!("Raytracing shaders was successfully recompiled");
-            }
-            Err(error) => {
-                println!("Failed to recreate raytracing pipeline: {:#?}", error);
-            }
+            self.raygen_sbt_buffer = raygen_sbt_buffer;
+            self.miss_sbt_buffer = miss_sbt_buffer;
+            self.hit_sbt_buffer = hit_sbt_buffer;
         }
     }
 }
