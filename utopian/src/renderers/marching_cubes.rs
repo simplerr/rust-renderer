@@ -10,7 +10,7 @@ pub fn setup_marching_cubes_pass(
     deferred_output: crate::TextureId,
     shadow_map: crate::TextureId,
     cascade_data: ([glam::Mat4; 4], [f32; 4]),
-    enabled: bool,
+    _enabled: bool,
 ) {
     puffin::profile_function!();
 

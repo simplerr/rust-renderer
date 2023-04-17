@@ -12,6 +12,7 @@ layout (std140, set = 1, binding = 0) uniform UBO_view
     uint num_bounces;
     uint viewport_width;
     uint viewport_height;
+    float time;
 
     // render settings
     uint shadows_enabled;

@@ -1,6 +1,7 @@
 use std::time::Instant;
 pub struct FpsTimer {
     fps_period_start_time: Instant,
+    application_start_time: Instant,
     fps: u32,
     elapsed_frames: u32,
 }
@@ -9,6 +10,7 @@ impl FpsTimer {
     pub fn new() -> Self {
         FpsTimer {
             fps_period_start_time: Instant::now(),
+            application_start_time: Instant::now(),
             fps: 0,
             elapsed_frames: 0,
         }
@@ -24,5 +26,9 @@ impl FpsTimer {
         }
 
         self.fps
+    }
+
+    pub fn elapsed_seconds_from_start(&self) -> f32 {
+        self.application_start_time.elapsed().as_secs_f32()
     }
 }

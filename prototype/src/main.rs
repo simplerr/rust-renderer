@@ -50,6 +50,7 @@ impl Application {
             num_bounces: 5,
             viewport_width: width,
             viewport_height: height,
+            time: 0.0,
             sun_dir: Vec3::new(0.0, 0.9, 0.15).normalize(),
             shadows_enabled: 0,
             ssao_enabled: 0,
@@ -346,6 +347,7 @@ impl Application {
             self.view_data.inverse_view = self.camera.get_view().inverse();
             self.view_data.inverse_projection = self.camera.get_projection().inverse();
             self.view_data.eye_pos = self.camera.get_position();
+            self.view_data.time = self.fps_timer.elapsed_seconds_from_start();
 
             if self.raytracing_enabled {
                 self.view_data.total_samples += self.view_data.samples_per_frame;

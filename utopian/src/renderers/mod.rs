@@ -159,8 +159,6 @@ pub fn build_render_graph(
         &base,
         deferred_output,
         environment_map,
-        //irradiance_map,
-        //specular_map,
         camera,
         true,
     );

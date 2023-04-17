@@ -84,7 +84,7 @@ float addShapes(vec3 pos, float density)
 {
    float finalDensity = max(-sdTorus(pos - toOrigin(vec3(10, 20, 10)), vec2(5, 3)), density);
    finalDensity = max(-sdBox(pos - toOrigin(vec3(10)), vec3(5)), finalDensity);
-   finalDensity = max(-sdSphere(pos - toOrigin(vec3(10, 26, 10)), 3), finalDensity);
+   finalDensity = max(-sdSphere(pos - toOrigin(vec3(10, 26, 10)), 8.0 * abs(sin(view.time * 0.3))), finalDensity);
 
    return finalDensity;
 }

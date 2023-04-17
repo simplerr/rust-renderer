@@ -443,7 +443,7 @@ impl Image {
         self.desc.format
     }
 
-    pub(crate) fn num_mips(&self) -> u32 {
+    pub(crate) fn _num_mips(&self) -> u32 {
         self.desc.mip_levels
     }
 

@@ -33,6 +33,7 @@ pub fn setup_atmosphere_pass(
         .render(
             move |device, command_buffer, _renderer, _pass, _resources| unsafe {
                 // Todo: This is a hack to get around the fact that we can't properly disable a pass
+                // Todo: Using the first model instanced added to the scene
                 if enabled {
                     device.handle.cmd_bind_vertex_buffers(
                         command_buffer,
