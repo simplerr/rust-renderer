@@ -1,7 +1,5 @@
 use ash::vk;
 use glam::Mat3;
-use std::ffi::CStr;
-use std::io::Cursor;
 use std::mem;
 
 use crate::buffer::*;
@@ -11,7 +9,6 @@ use crate::device::*;
 use crate::image::*;
 use crate::primitive::*;
 use crate::renderer::*;
-use crate::shader::*;
 
 pub struct Raytracing {
     top_level_acceleration: vk::AccelerationStructureKHR,
@@ -19,9 +16,6 @@ pub struct Raytracing {
     output_image: Image,
     _accumulation_image: Image,
     pipeline: crate::Pipeline,
-    raygen_sbt_buffer: Buffer,
-    miss_sbt_buffer: Buffer,
-    hit_sbt_buffer: Buffer,
     descriptor_set: DescriptorSet,
     screen_size: vk::Extent2D,
 }
@@ -50,9 +44,6 @@ impl Raytracing {
             bindless_descriptor_set_layout,
         );
 
-        let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
-            Raytracing::create_shader_binding_table(device, pipeline.handle);
-
         let binding = pipeline.reflection.get_binding("topLevelAS");
 
         let descriptor_set = DescriptorSet::new(
@@ -78,9 +69,6 @@ impl Raytracing {
             output_image,
             _accumulation_image: accumulation_image,
             pipeline,
-            raygen_sbt_buffer,
-            miss_sbt_buffer,
-            hit_sbt_buffer,
             descriptor_set,
             screen_size,
         }
@@ -392,56 +380,6 @@ impl Raytracing {
         storage_image
     }
 
-    pub fn create_shader_binding_table(
-        device: &Device,
-        pipeline: vk::Pipeline,
-    ) -> (Buffer, Buffer, Buffer) {
-        let handle_size = device.rt_pipeline_properties.shader_group_handle_size as usize;
-        let group_count = 3; // alignment? note that the size corresponds to shader_group_create_infos
-        let sbt_size = group_count * handle_size;
-
-        let shader_handle_storage = unsafe {
-            device
-                .raytracing_pipeline_ext
-                .get_ray_tracing_shader_group_handles(
-                    pipeline,
-                    0,
-                    group_count as u32,
-                    sbt_size as usize,
-                )
-                .expect("Failed to get raytracing shader group handles")
-        };
-
-        let raygen_sbt_buffer = Buffer::new(
-            device,
-            Some(&shader_handle_storage[0..handle_size]),
-            handle_size as u64,
-            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
-                | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
-            gpu_allocator::MemoryLocation::GpuOnly,
-        );
-
-        let miss_sbt_buffer = Buffer::new(
-            device,
-            Some(&shader_handle_storage[handle_size..handle_size * 2]),
-            handle_size as u64,
-            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
-                | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
-            gpu_allocator::MemoryLocation::GpuOnly,
-        );
-
-        let hit_sbt_buffer = Buffer::new(
-            device,
-            Some(&shader_handle_storage[handle_size * 2..handle_size * 3]),
-            handle_size as u64,
-            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
-                | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
-            gpu_allocator::MemoryLocation::GpuOnly,
-        );
-
-        (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer)
-    }
-
     pub fn record_commands(
         &self,
         device: &Device,
@@ -450,30 +388,6 @@ impl Raytracing {
         view_descriptor_set: vk::DescriptorSet,
         present_image: &Image,
     ) {
-        let raygen_shader_binding_table = vk::StridedDeviceAddressRegionKHR {
-            device_address: self.raygen_sbt_buffer.get_device_address(device),
-            stride: device.rt_pipeline_properties.shader_group_handle_size as u64,
-            size: device.rt_pipeline_properties.shader_group_handle_size as u64,
-        };
-
-        let miss_shader_binding_table = vk::StridedDeviceAddressRegionKHR {
-            device_address: self.miss_sbt_buffer.get_device_address(device),
-            stride: device.rt_pipeline_properties.shader_group_handle_size as u64,
-            size: device.rt_pipeline_properties.shader_group_handle_size as u64,
-        };
-
-        let hit_shader_binding_table = vk::StridedDeviceAddressRegionKHR {
-            device_address: self.hit_sbt_buffer.get_device_address(device),
-            stride: device.rt_pipeline_properties.shader_group_handle_size as u64,
-            size: device.rt_pipeline_properties.shader_group_handle_size as u64,
-        };
-
-        let callable_shader_binding_table = vk::StridedDeviceAddressRegionKHR {
-            device_address: Default::default(),
-            stride: 0,
-            size: 0,
-        };
-
         unsafe {
             device.handle.cmd_bind_pipeline(
                 cb,
@@ -509,16 +423,20 @@ impl Raytracing {
                 &[],
             );
 
-            device.raytracing_pipeline_ext.cmd_trace_rays(
-                cb,
-                &raygen_shader_binding_table,
-                &miss_shader_binding_table,
-                &hit_shader_binding_table,
-                &callable_shader_binding_table,
-                self.screen_size.width,
-                self.screen_size.height,
-                1,
-            );
+            if let Some(raytracing_sbt) = &self.pipeline.raytracing_sbt {
+                device.raytracing_pipeline_ext.cmd_trace_rays(
+                    cb,
+                    &raytracing_sbt.raygen_sbt,
+                    &raytracing_sbt.miss_sbt,
+                    &raytracing_sbt.hit_sbt,
+                    &raytracing_sbt.callable_sbt,
+                    self.screen_size.width,
+                    self.screen_size.height,
+                    1,
+                );
+            } else {
+                panic!("No raytracing SBT found");
+            }
 
             present_image.transition_layout(device, cb, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
             self.output_image
@@ -537,16 +455,7 @@ impl Raytracing {
         device: &Device,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) {
-        if self
-            .pipeline
-            .recreate_pipeline(device, bindless_descriptor_set_layout)
-        {
-            let (raygen_sbt_buffer, miss_sbt_buffer, hit_sbt_buffer) =
-                Raytracing::create_shader_binding_table(device, self.pipeline.handle);
-
-            self.raygen_sbt_buffer = raygen_sbt_buffer;
-            self.miss_sbt_buffer = miss_sbt_buffer;
-            self.hit_sbt_buffer = hit_sbt_buffer;
-        }
+        self.pipeline
+            .recreate_pipeline(device, bindless_descriptor_set_layout);
     }
 }

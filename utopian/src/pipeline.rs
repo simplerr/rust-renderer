@@ -30,6 +30,7 @@ pub struct Pipeline {
     pub reflection: shader::Reflection,
     pub pipeline_desc: PipelineDesc,
     pub pipeline_type: PipelineType,
+    pub raytracing_sbt: Option<RayTracingSbt>,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -37,6 +38,17 @@ pub enum PipelineType {
     Graphics,
     Compute,
     Raytracing,
+}
+
+#[allow(dead_code)]
+pub struct RayTracingSbt {
+    raygen_sbt_buffer: Buffer,
+    miss_sbt_buffer: Buffer,
+    hit_sbt_buffer: Buffer,
+    pub raygen_sbt: vk::StridedDeviceAddressRegionKHR,
+    pub miss_sbt: vk::StridedDeviceAddressRegionKHR,
+    pub hit_sbt: vk::StridedDeviceAddressRegionKHR,
+    pub callable_sbt: vk::StridedDeviceAddressRegionKHR,
 }
 
 impl Hash for PipelineDesc {
@@ -69,6 +81,7 @@ impl Pipeline {
             reflection: shader::Reflection::default(),
             pipeline_desc: pipeline_desc.clone(),
             pipeline_type,
+            raytracing_sbt: None,
         };
 
         Self::create_pipeline(&mut pipeline, device, bindless_descriptor_set_layout)
@@ -142,6 +155,11 @@ impl Pipeline {
                 pipeline_layout,
             ),
         };
+
+        if pipeline.pipeline_type == PipelineType::Raytracing {
+            let raytracing_sbt = Pipeline::create_raytracing_sbt(&device, new_handle);
+            pipeline.raytracing_sbt = Some(raytracing_sbt);
+        }
 
         pipeline.handle = new_handle;
         pipeline.pipeline_layout = pipeline_layout;
@@ -497,6 +515,77 @@ impl Pipeline {
         };
 
         pipeline
+    }
+
+    fn create_raytracing_sbt(device: &Device, pipeline: vk::Pipeline) -> RayTracingSbt {
+        let handle_size = device.rt_pipeline_properties.shader_group_handle_size as usize;
+        let group_count = 3; // alignment? note that the size corresponds to shader_group_create_infos
+        let sbt_size = group_count * handle_size;
+
+        let shader_handle_storage = unsafe {
+            device
+                .raytracing_pipeline_ext
+                .get_ray_tracing_shader_group_handles(
+                    pipeline,
+                    0,
+                    group_count as u32,
+                    sbt_size as usize,
+                )
+                .expect("Failed to get raytracing shader group handles")
+        };
+
+        let raygen_sbt_buffer = Buffer::new(
+            device,
+            Some(&shader_handle_storage[0..handle_size]),
+            handle_size as u64,
+            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+                | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
+            gpu_allocator::MemoryLocation::GpuOnly,
+        );
+
+        let miss_sbt_buffer = Buffer::new(
+            device,
+            Some(&shader_handle_storage[handle_size..handle_size * 2]),
+            handle_size as u64,
+            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+                | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
+            gpu_allocator::MemoryLocation::GpuOnly,
+        );
+
+        let hit_sbt_buffer = Buffer::new(
+            device,
+            Some(&shader_handle_storage[handle_size * 2..handle_size * 3]),
+            handle_size as u64,
+            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+                | vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR,
+            gpu_allocator::MemoryLocation::GpuOnly,
+        );
+
+        RayTracingSbt {
+            raygen_sbt: vk::StridedDeviceAddressRegionKHR {
+                device_address: raygen_sbt_buffer.get_device_address(device),
+                stride: device.rt_pipeline_properties.shader_group_handle_size as u64,
+                size: device.rt_pipeline_properties.shader_group_handle_size as u64,
+            },
+            miss_sbt: vk::StridedDeviceAddressRegionKHR {
+                device_address: miss_sbt_buffer.get_device_address(device),
+                stride: device.rt_pipeline_properties.shader_group_handle_size as u64,
+                size: device.rt_pipeline_properties.shader_group_handle_size as u64,
+            },
+            hit_sbt: vk::StridedDeviceAddressRegionKHR {
+                device_address: hit_sbt_buffer.get_device_address(device),
+                stride: device.rt_pipeline_properties.shader_group_handle_size as u64,
+                size: device.rt_pipeline_properties.shader_group_handle_size as u64,
+            },
+            callable_sbt: vk::StridedDeviceAddressRegionKHR {
+                device_address: Default::default(),
+                stride: 0,
+                size: 0,
+            },
+            raygen_sbt_buffer,
+            miss_sbt_buffer,
+            hit_sbt_buffer,
+        }
     }
 }
 
