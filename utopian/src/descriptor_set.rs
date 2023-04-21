@@ -218,12 +218,15 @@ impl DescriptorSet {
     pub fn write_acceleration_structure(
         &self,
         device: &Device,
-        name: String,
+        name: DescriptorIdentifier,
         acceleration_structure: vk::AccelerationStructureKHR,
     ) {
-        let binding = match self.binding_map.get(&name) {
-            Some(binding) => binding,
-            None => panic!("No descriptor binding found with name: \"{}\"", name),
+        let binding = match name {
+            DescriptorIdentifier::Name(name) => match self.binding_map.get(&name) {
+                Some(binding) => binding.binding,
+                None => panic!("No descriptor binding found with name: \"{}\"", name),
+            },
+            DescriptorIdentifier::Index(index) => index,
         };
 
         let mut descriptor_info = vk::WriteDescriptorSetAccelerationStructureKHR::builder()
@@ -232,7 +235,7 @@ impl DescriptorSet {
 
         let mut descriptor_writes = vk::WriteDescriptorSet::builder()
             .dst_set(self.handle)
-            .dst_binding(binding.binding)
+            .dst_binding(binding)
             .descriptor_type(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR)
             .push_next(&mut descriptor_info)
             .build();

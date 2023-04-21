@@ -17,6 +17,7 @@ pub struct ModelInstance {
 }
 
 pub struct Renderer {
+    pub raytracing: Option<Raytracing>,
     pub bindless_descriptor_set_layout: vk::DescriptorSetLayout,
     pub bindless_descriptor_set: vk::DescriptorSet,
     pub instances: Vec<ModelInstance>,
@@ -88,7 +89,7 @@ struct GpuMesh {
 }
 
 impl Renderer {
-    pub fn new(device: &Device) -> Renderer {
+    pub fn new(device: &Device, width: u32, height: u32) -> Renderer {
         let bindless_descriptor_set_layout = create_bindless_descriptor_set_layout(device);
         let bindless_descriptor_set =
             create_bindless_descriptor_set(device, bindless_descriptor_set_layout);
@@ -122,7 +123,17 @@ impl Renderer {
             &gpu_meshes_buffer,
         );
 
+        let raytracing = match device.raytracing_supported {
+            true => Some(Raytracing::new(
+                &device,
+                vk::Extent2D { width, height },
+                Some(bindless_descriptor_set_layout),
+            )),
+            false => None,
+        };
+
         Renderer {
+            raytracing,
             bindless_descriptor_set_layout,
             bindless_descriptor_set,
             instances: vec![],

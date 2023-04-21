@@ -33,7 +33,7 @@ pub struct Pipeline {
     pub raytracing_sbt: Option<RayTracingSbt>,
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum PipelineType {
     Graphics,
     Compute,

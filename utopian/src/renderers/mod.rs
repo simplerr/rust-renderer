@@ -22,38 +22,31 @@ pub fn build_render_graph(
 ) {
     puffin::profile_function!();
 
-    //let mut graph = crate::Graph::new(&device, camera_uniform_buffer);
-
-    let extent = [
-        base.surface_resolution.width,
-        base.surface_resolution.height,
-    ];
+    let width = base.surface_resolution.width;
+    let height = base.surface_resolution.height;
     let rgba8_format = vk::Format::R8G8B8A8_UNORM;
     let rgba32_fmt = vk::Format::R32G32B32A32_SFLOAT;
-
-    // Todo: cache textures
 
     // G-buffer textures
     let gbuffer_position = graph.create_texture(
         "gbuffer_position",
         device,
-        ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
+        ImageDesc::new_2d(width, height, rgba32_fmt),
     );
-
     let gbuffer_normal = graph.create_texture(
         "gbuffer_normal",
         device,
-        ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
+        ImageDesc::new_2d(width, height, rgba32_fmt),
     );
     let gbuffer_albedo = graph.create_texture(
         "gbuffer_albedo",
         device,
-        ImageDesc::new_2d(extent[0], extent[1], rgba8_format),
+        ImageDesc::new_2d(width, height, rgba8_format),
     );
     let gbuffer_pbr = graph.create_texture(
         "gbuffer_pbr",
         device,
-        ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
+        ImageDesc::new_2d(width, height, rgba32_fmt),
     );
 
     // Shadow map
@@ -73,18 +66,18 @@ pub fn build_render_graph(
     let forward_output = graph.create_texture(
         "forward_output",
         device,
-        ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
+        ImageDesc::new_2d(width, height, rgba32_fmt),
     );
     let deferred_output = graph.create_texture(
         "deferred_output",
         device,
-        ImageDesc::new_2d(extent[0], extent[1], rgba32_fmt),
+        ImageDesc::new_2d(width, height, rgba32_fmt),
     );
 
     let ssao_output = graph.create_texture(
         "ssao_output",
         device,
-        ImageDesc::new_2d(extent[0], extent[1], vk::Format::R16_UNORM),
+        ImageDesc::new_2d(width, height, vk::Format::R16_UNORM),
     );
 
     let (cascade_matrices, cascade_depths) = crate::renderers::shadow::setup_shadow_pass(
@@ -182,4 +175,57 @@ pub fn build_render_graph(
     // forward_renderer.render(device, graph, base, renderer, forward_output);
 
     //graph
+}
+
+pub fn build_path_tracing_render_graph(
+    graph: &mut crate::Graph,
+    device: &crate::Device,
+    base: &crate::VulkanBase,
+) {
+    puffin::profile_function!();
+
+    let width = base.surface_resolution.width;
+    let height = base.surface_resolution.height;
+
+    let output_image = graph.create_texture(
+        "pt_output_image",
+        device,
+        ImageDesc::new_2d(width, height, vk::Format::B8G8R8A8_UNORM),
+    );
+
+    let accumulation_image = graph.create_texture(
+        "pt_accumulation_image",
+        device,
+        ImageDesc::new_2d(width, height, vk::Format::R32G32B32A32_SFLOAT),
+    );
+
+    graph
+        .add_pass_from_desc(
+            "reference_pt_pass",
+            crate::PipelineDesc::builder()
+                .raygen_path("utopian/shaders/raytracing_basic/basic.rgen")
+                .miss_path("utopian/shaders/raytracing_basic/basic.rmiss")
+                .hit_path("utopian/shaders/raytracing_basic/basic.rchit"),
+        )
+        .tlas(0)
+        .image_write(output_image)
+        .image_write(accumulation_image)
+        .trace_rays(width, height, 1)
+        .build(&device, graph);
+
+    graph
+        .add_pass_from_desc(
+            "reference_pt_present_pass",
+            crate::PipelineDesc::builder()
+                .vertex_path("utopian/shaders/common/fullscreen.vert")
+                .fragment_path("utopian/shaders/blit/blit.frag"),
+        )
+        .read(output_image)
+        .presentation_pass(true)
+        .render(
+            move |device, command_buffer, _renderer, _pass, _resources| unsafe {
+                device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
+            },
+        )
+        .build(&device, graph);
 }

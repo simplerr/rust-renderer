@@ -65,6 +65,7 @@ impl RenderPass {
         pipelines: &Vec<Pipeline>,
         textures: &Vec<GraphTexture>,
         buffers: &Vec<GraphBuffer>,
+        tlas: vk::AccelerationStructureKHR,
     ) {
         puffin::profile_function!();
 
@@ -101,6 +102,16 @@ impl RenderPass {
                             &device,
                             DescriptorIdentifier::Index(idx as u32),
                             &buffers[read.buffer].buffer,
+                        );
+                    }
+                    // The acceleration structure is specially treated for now since it is
+                    // an external resource not owned by the graph
+                    Uniform::Tlas(_) => {
+                        assert!(tlas != vk::AccelerationStructureKHR::null());
+                        descriptor_set_input_textures.write_acceleration_structure(
+                            &device,
+                            DescriptorIdentifier::Index(idx as u32),
+                            tlas,
                         );
                     }
                 }
@@ -172,11 +183,17 @@ impl RenderPass {
         extent: vk::Extent2D,
         pipelines: &Vec<Pipeline>,
     ) {
-        if pipelines[self.pipeline_handle].pipeline_type == PipelineType::Compute {
+        let bind_point = match pipelines[self.pipeline_handle].pipeline_type {
+            PipelineType::Graphics => vk::PipelineBindPoint::GRAPHICS,
+            PipelineType::Compute => vk::PipelineBindPoint::COMPUTE,
+            PipelineType::Raytracing => vk::PipelineBindPoint::RAY_TRACING_KHR,
+        };
+
+        if bind_point != vk::PipelineBindPoint::GRAPHICS {
             unsafe {
                 device.handle.cmd_bind_pipeline(
                     command_buffer,
-                    vk::PipelineBindPoint::COMPUTE,
+                    bind_point,
                     pipelines[self.pipeline_handle].handle,
                 );
             }

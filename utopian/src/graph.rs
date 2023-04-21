@@ -16,6 +16,7 @@ use crate::Texture;
 pub type TextureId = usize;
 pub type BufferId = usize;
 pub type PipelineId = usize;
+pub type TlasId = usize;
 
 pub struct GraphTexture {
     pub texture: Texture,
@@ -79,6 +80,7 @@ pub struct BufferUniform {
 pub enum Uniform {
     Texture(TextureUniform),
     Buffer(BufferUniform),
+    Tlas(TlasId),
 }
 
 pub struct Graph {
@@ -200,9 +202,16 @@ impl PassBuilder {
         self
     }
 
+    pub fn tlas(mut self, resource_id: TlasId) -> Self {
+        // The acceleration structure is specially treated for now since it is
+        // an external resource not owned by the graph. The passed resource_id
+        // is unused.
+        self.reads.push(Uniform::Tlas(resource_id));
+        self
+    }
+
     /// Allows for adding extra buffer barriers for resources that the other APIs don't cover
     pub fn extra_barriers(mut self, buffers: &[(BufferId, vk_sync::AccessType)]) -> Self {
-        // Note: to_vec() causes memory allocations
         self.extra_barriers = Some(buffers.to_vec());
         self
     }
@@ -226,6 +235,29 @@ impl PassBuilder {
                     group_count_z,
                 );
             }));
+        self
+    }
+
+    pub fn trace_rays(mut self, width: u32, height: u32, depth: u32) -> Self {
+        self.render_func.replace(Box::new(
+            move |device, command_buffer, _, pass, resources| unsafe {
+                let pipeline = resources.pipeline(pass.pipeline_handle);
+                if let Some(raytracing_sbt) = &pipeline.raytracing_sbt {
+                    device.raytracing_pipeline_ext.cmd_trace_rays(
+                        command_buffer,
+                        &raytracing_sbt.raygen_sbt,
+                        &raytracing_sbt.miss_sbt,
+                        &raytracing_sbt.hit_sbt,
+                        &raytracing_sbt.callable_sbt,
+                        width,
+                        height,
+                        depth,
+                    );
+                } else {
+                    panic!("No raytracing SBT found");
+                }
+            },
+        ));
         self
     }
 
@@ -582,6 +614,11 @@ impl Graph {
                 &self.resources.pipelines,
                 &self.resources.textures,
                 &self.resources.buffers,
+                if let Some(raytracing) = &renderer.raytracing {
+                    raytracing.top_level_acceleration
+                } else {
+                    vk::AccelerationStructureKHR::null()
+                },
             );
             pass.try_create_uniform_buffer_descriptor_set(
                 device,
@@ -693,6 +730,8 @@ impl Graph {
                             .get_mut(read.buffer)
                             .unwrap()
                             .prev_access = next_access;
+                    }
+                    Uniform::Tlas(_) => { // No resource transition for now (static)
                     }
                 }
             }

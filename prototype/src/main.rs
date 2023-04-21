@@ -9,7 +9,6 @@ struct Application {
     camera_ubo: utopian::Buffer,
     camera: utopian::Camera,
     renderer: utopian::Renderer,
-    raytracing: Option<utopian::Raytracing>,
     ui: prototype::ui::Ui,
     fps_timer: utopian::FpsTimer,
     raytracing_enabled: bool,
@@ -26,7 +25,7 @@ impl Application {
         let (width, height) = (2000, 1100);
         let base = utopian::VulkanBase::new(width, height);
 
-        let renderer = utopian::Renderer::new(&base.device);
+        let renderer = utopian::Renderer::new(&base.device, width, height);
 
         let camera = utopian::Camera::new(
             Vec3::new(0.0, 2.0, 0.0),
@@ -82,14 +81,6 @@ impl Application {
         let shader_watcher = utopian::DirectoryWatcher::new("utopian/shaders/");
 
         let raytracing_supported = base.device.raytracing_supported;
-        let raytracing = match raytracing_supported {
-            true => Some(utopian::Raytracing::new(
-                &base.device,
-                base.surface_resolution,
-                Some(renderer.bindless_descriptor_set_layout),
-            )),
-            false => None,
-        };
 
         let graph = utopian::Graph::new(&base.device, &camera_uniform_buffer);
 
@@ -100,7 +91,6 @@ impl Application {
             camera_ubo: camera_uniform_buffer,
             camera,
             renderer,
-            raytracing,
             ui,
             fps_timer: utopian::FpsTimer::new(),
             raytracing_enabled: raytracing_supported,
@@ -156,7 +146,7 @@ impl Application {
 
         prototype::scenes::create_scene(&mut self.renderer, &mut self.camera, &self.base.device);
 
-        if let Some(raytracing) = &mut self.raytracing {
+        if let Some(raytracing) = &mut self.renderer.raytracing {
             raytracing.initialize(&self.base.device, &self.renderer.instances);
         }
     }
@@ -297,6 +287,7 @@ impl Application {
             if input.key_pressed(winit::event::VirtualKeyCode::V) {
                 self.raytracing_enabled =
                     !self.raytracing_enabled && self.base.device.raytracing_supported;
+                self.view_data.total_samples = 0;
             }
 
             if let Some(path) = self.shader_watcher.check_if_modification() {
@@ -322,7 +313,7 @@ impl Application {
                     if ["rchit", "rgen", "rmiss"].contains(&ext.to_str().unwrap())
                         || recompile_rt_shaders
                     {
-                        if let Some(raytracing) = &mut self.raytracing {
+                        if let Some(raytracing) = &mut self.renderer.raytracing {
                             raytracing.recreate_pipeline(
                                 &self.base.device,
                                 Some(self.renderer.bindless_descriptor_set_layout),
@@ -363,8 +354,8 @@ impl Application {
                         std::slice::from_raw_parts(&self.view_data, 1),
                     );
 
-                    if self.raytracing_enabled {
-                        if let Some(raytracing) = &self.raytracing {
+                    if false && self.raytracing_enabled {
+                        if let Some(raytracing) = &self.renderer.raytracing {
                             raytracing.record_commands(
                                 device,
                                 command_buffer,
@@ -380,15 +371,22 @@ impl Application {
                         // Remove passes from previous frame
                         self.graph.clear(&self.base.device);
 
-                        // Build the render graph
-                        utopian::renderers::build_render_graph(
-                            &mut self.graph,
-                            &self.base.device,
-                            &self.base,
-                            &self.renderer,
-                            &self.view_data,
-                            &self.camera,
-                        );
+                        if self.raytracing_enabled {
+                            utopian::renderers::build_path_tracing_render_graph(
+                                &mut self.graph,
+                                &self.base.device,
+                                &self.base,
+                            );
+                        } else {
+                            utopian::renderers::build_render_graph(
+                                &mut self.graph,
+                                &self.base.device,
+                                &self.base,
+                                &self.renderer,
+                                &self.view_data,
+                                &self.camera,
+                            );
+                        }
 
                         self.graph.prepare(device, &self.renderer);
 

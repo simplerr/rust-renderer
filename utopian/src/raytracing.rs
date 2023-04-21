@@ -11,7 +11,7 @@ use crate::primitive::*;
 use crate::renderer::*;
 
 pub struct Raytracing {
-    top_level_acceleration: vk::AccelerationStructureKHR,
+    pub top_level_acceleration: vk::AccelerationStructureKHR,
     bottom_level_accelerations: Vec<vk::AccelerationStructureKHR>,
     output_image: Image,
     _accumulation_image: Image,
@@ -89,8 +89,11 @@ impl Raytracing {
             instances,
         );
 
-        self.descriptor_set
-            .write_acceleration_structure(device, "topLevelAS".to_string(), tlas);
+        self.descriptor_set.write_acceleration_structure(
+            device,
+            DescriptorIdentifier::Name("topLevelAS".to_string()),
+            tlas,
+        );
 
         self.top_level_acceleration = tlas;
     }
