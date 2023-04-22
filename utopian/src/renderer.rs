@@ -60,6 +60,7 @@ pub struct ViewUniformData {
     pub fxaa_enabled: u32,
     pub cubemap_enabled: u32,
     pub ibl_enabled: u32,
+    pub marching_cubes_enabled: u32,
 }
 
 #[derive(Clone, Copy, Debug)]

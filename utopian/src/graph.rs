@@ -440,7 +440,6 @@ impl Graph {
         }
 
         self.passes.clear();
-        self.pipeline_descs.clear();
     }
 
     pub fn create_camera_descriptor_set(
@@ -585,20 +584,23 @@ impl Graph {
     }
 
     pub fn create_pipeline(&mut self, pipeline_desc: PipelineDesc) -> PipelineId {
-        // Todo: need to check if it already exists
-        self.pipeline_descs.push(pipeline_desc);
-
-        self.pipeline_descs.len() - 1
+        if let Some(existing_pipeline_id) = self
+            .pipeline_descs
+            .iter()
+            .position(|desc| *desc == pipeline_desc)
+        {
+            existing_pipeline_id
+        } else {
+            self.pipeline_descs.push(pipeline_desc);
+            self.pipeline_descs.len() - 1
+        }
     }
 
     pub fn prepare(&mut self, device: &crate::Device, renderer: &crate::Renderer) {
         puffin::profile_function!();
-        // Load resources
 
-        // Compile shaders using multithreading
+        // Todo: shall be possible to create the pipelines using multiple threads
         for (i, desc) in self.pipeline_descs.iter().enumerate() {
-            // Todo: perhaps use Hash instead
-            // Todo: this is the place to support shader recompilation
             if self.resources.pipelines.len() <= i {
                 self.resources.pipelines.push(crate::Pipeline::new(
                     device,

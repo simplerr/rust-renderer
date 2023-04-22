@@ -136,15 +136,17 @@ pub fn build_render_graph(
         deferred_output,
     );
 
-    crate::renderers::marching_cubes::setup_marching_cubes_pass(
-        device,
-        graph,
-        &base,
-        deferred_output,
-        shadow_map,
-        (cascade_matrices, cascade_depths),
-        true,
-    );
+    if view_data.marching_cubes_enabled == 1 {
+        crate::renderers::marching_cubes::setup_marching_cubes_pass(
+            device,
+            graph,
+            &base,
+            deferred_output,
+            shadow_map,
+            (cascade_matrices, cascade_depths),
+            true,
+        );
+    }
 
     crate::renderers::atmosphere::setup_atmosphere_pass(
         &device,

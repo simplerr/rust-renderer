@@ -56,6 +56,7 @@ impl Application {
             fxaa_enabled: 1,
             cubemap_enabled: 1,
             ibl_enabled: 1,
+            marching_cubes_enabled: 0,
         };
 
         let slice = unsafe { std::slice::from_raw_parts(&view_data, 1) };
@@ -226,7 +227,8 @@ impl Application {
                         ui.add(U32Checkbox::new(&mut view_data.ssao_enabled, "SSAO:"));
                         ui.add(U32Checkbox::new(&mut view_data.fxaa_enabled, "FXAA:"));
                         ui.add(U32Checkbox::new(&mut view_data.cubemap_enabled, "Cubemap:"));
-                        ui.add(U32Checkbox::new(&mut view_data.ibl_enabled, "IBL"));
+                        ui.add(U32Checkbox::new(&mut view_data.ibl_enabled, "IBL:"));
+                        ui.add(U32Checkbox::new(&mut view_data.marching_cubes_enabled, "Marching cubes:"));
 
                         if ui.button("Generate environment map").clicked() {
                             *need_environment_map_update = true;
@@ -386,6 +388,9 @@ impl Application {
                                 &self.view_data,
                                 &self.camera,
                             );
+
+                            // Todo: should be possible to trigger this when needed
+                            self.renderer.need_environment_map_update = false;
                         }
 
                         self.graph.prepare(device, &self.renderer);
@@ -396,9 +401,6 @@ impl Application {
                             &self.renderer,
                             &[self.base.present_images[present_index as usize].clone()],
                         );
-
-                        // Todo: should be possible to trigger this when needed
-                        self.renderer.need_environment_map_update = false;
 
                         gpu_profiler::profiler().end_frame();
                         if self.profiling_enabled {

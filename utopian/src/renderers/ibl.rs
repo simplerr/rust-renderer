@@ -88,6 +88,11 @@ pub fn setup_cubemap_pass(
         Mat4::look_at_rh(Vec3::ZERO, -Vec3::Z, -Vec3::Y),
     ];
 
+    // Do not add any passes to the graph if we don't need to update the environment map
+    if !renderer.need_environment_map_update {
+        return (environment_map, irradiance_map, specular_map, brdf_lut);
+    }
+
     for mip in 0..num_mips {
         let size = (mip0_size as f32 * 0.5f32.powf(mip as f32)) as u32;
 

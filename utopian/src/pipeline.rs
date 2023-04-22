@@ -60,6 +60,17 @@ impl Hash for PipelineDesc {
     }
 }
 
+impl PartialEq for PipelineDesc {
+    fn eq(&self, other: &Self) -> bool {
+        self.vertex_path == other.vertex_path
+            && self.fragment_path == other.fragment_path
+            && self.compute_path == other.compute_path
+            && self.raygen_path == other.raygen_path
+            && self.miss_path == other.miss_path
+            && self.hit_path == other.hit_path
+    }
+}
+
 impl Pipeline {
     pub fn new(
         device: &Device,
