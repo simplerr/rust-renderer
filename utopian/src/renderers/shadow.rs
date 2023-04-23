@@ -11,24 +11,15 @@ pub fn setup_shadow_pass(
 ) -> ([glam::Mat4; 4], [f32; 4]) {
     puffin::profile_function!();
 
-    let pipeline_handle = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/shadow/shadow.vert")
-            .fragment_path("utopian/shaders/shadow/shadow.frag")
-            .default_primitive_vertex_bindings()
-            .default_primitive_vertex_attributes()
-            .build(),
-    );
-
-    // Todo:
-    // Currently there is no good way to fully disable a pass so all this
-    // code will allways run for now.
-
     const SHADOW_MAP_CASCADE_COUNT: u32 = 4;
 
     // Outputs
     let mut out_cascade_matrices = [glam::Mat4::IDENTITY; SHADOW_MAP_CASCADE_COUNT as usize];
     let mut out_split_depths = [0.0; SHADOW_MAP_CASCADE_COUNT as usize];
+
+    if !enabled {
+        return (out_cascade_matrices, out_split_depths);
+    }
 
     let mut cascade_splits = [0.0; SHADOW_MAP_CASCADE_COUNT as usize];
 
@@ -118,7 +109,14 @@ pub fn setup_shadow_pass(
         last_split_dist = split_dist;
 
         graph
-            .add_pass(format!("shadow_pass_{i}"), pipeline_handle)
+            .add_pass_from_desc(
+                format!("shadow_pass_{i}").as_str(),
+                crate::PipelineDesc::builder()
+                    .vertex_path("utopian/shaders/shadow/shadow.vert")
+                    .fragment_path("utopian/shaders/shadow/shadow.frag")
+                    .default_primitive_vertex_bindings()
+                    .default_primitive_vertex_attributes(),
+            )
             .uniforms("cascade_view_projection", &view_projection_matrix)
             .depth_attachment_layer(shadow_map, i as u32)
             .render(move |device, command_buffer, renderer, pass, resources| {

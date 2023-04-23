@@ -8,20 +8,15 @@ pub fn setup_ssao_pass(
 ) {
     puffin::profile_function!();
 
-    let pipeline_handle = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/common/fullscreen.vert")
-            .fragment_path("utopian/shaders/ssao/ssao.frag")
-            .build(),
-    );
-
-    let radius = 0.1;
-    let bias = 0.0;
-
-    let radius_bias = glam::Vec4::new(radius, bias, 0.0, 0.0);
+    let radius_bias = glam::Vec4::new(0.1, 0.0, 0.0, 0.0);
 
     graph
-        .add_pass(String::from("ssao_pass"), pipeline_handle)
+        .add_pass_from_desc(
+            "ssao_pass",
+            crate::PipelineDesc::builder()
+                .vertex_path("utopian/shaders/common/fullscreen.vert")
+                .fragment_path("utopian/shaders/ssao/ssao.frag"),
+        )
         .read(gbuffer_position)
         .read(gbuffer_normal)
         .write(ssao_output)

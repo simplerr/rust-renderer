@@ -50,34 +50,6 @@ pub fn setup_cubemap_pass(
         ImageDesc::new_2d(512, 512, vk::Format::R16G16_SFLOAT),
     );
 
-    let cubemap_pipeline = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/common/fullscreen.vert")
-            .fragment_path("utopian/shaders/ibl/cubemap.frag")
-            .build(),
-    );
-
-    let irradiance_filter_pipeline = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/common/fullscreen.vert")
-            .fragment_path("utopian/shaders/ibl/irradiance_filter.frag")
-            .build(),
-    );
-
-    let specular_filter_pipeline = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/ibl/fullscreen_with_pushconst.vert")
-            .fragment_path("utopian/shaders/ibl/specular_filter.frag")
-            .build(),
-    );
-
-    let brdf_lut_pipeline = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/common/fullscreen.vert")
-            .fragment_path("utopian/shaders/ibl/brdf_lut.frag")
-            .build(),
-    );
-
     let projection = Mat4::perspective_rh(90.0_f32.to_radians(), 1.0, 0.01, 20000.0);
     let view_matrices = [
         Mat4::look_at_rh(Vec3::ZERO, Vec3::X, -Vec3::Y),
@@ -98,9 +70,11 @@ pub fn setup_cubemap_pass(
 
         for layer in 0..6 {
             graph
-                .add_pass(
-                    format!("cubemap_pass_layer_{layer}_mip_{mip}"),
-                    cubemap_pipeline,
+                .add_pass_from_desc(
+                    format!("cubemap_pass_layer_{layer}_mip_{mip}").as_str(),
+                    crate::PipelineDesc::builder()
+                        .vertex_path("utopian/shaders/common/fullscreen.vert")
+                        .fragment_path("utopian/shaders/ibl/cubemap.frag"),
                 )
                 .active(renderer.need_environment_map_update)
                 .write(offscreen)
@@ -125,9 +99,11 @@ pub fn setup_cubemap_pass(
     // Irradiance filter pass (mip 0 only)
     for layer in 0..6 {
         graph
-            .add_pass(
-                format!("irradiance_filter_pass_layer_{layer}"),
-                irradiance_filter_pipeline,
+            .add_pass_from_desc(
+                format!("irradiance_filter_pass_layer_{layer}").as_str(),
+                crate::PipelineDesc::builder()
+                    .vertex_path("utopian/shaders/common/fullscreen.vert")
+                    .fragment_path("utopian/shaders/ibl/irradiance_filter.frag"),
             )
             .active(renderer.need_environment_map_update)
             .read(environment_map)
@@ -147,9 +123,11 @@ pub fn setup_cubemap_pass(
 
         for layer in 0..6 {
             graph
-                .add_pass(
-                    format!("specular_filter_pass_layer_{layer}_mip_{mip}"),
-                    specular_filter_pipeline,
+                .add_pass_from_desc(
+                    format!("specular_filter_pass_layer_{layer}_mip_{mip}").as_str(),
+                    crate::PipelineDesc::builder()
+                        .vertex_path("utopian/shaders/ibl/fullscreen_with_pushconst.vert")
+                        .fragment_path("utopian/shaders/ibl/specular_filter.frag"),
                 )
                 .active(renderer.need_environment_map_update)
                 .read(environment_map)
@@ -182,7 +160,12 @@ pub fn setup_cubemap_pass(
     }
 
     graph
-        .add_pass(String::from("brdf_lut_pass"), brdf_lut_pipeline)
+        .add_pass_from_desc(
+            "brdf_lut_pass",
+            crate::PipelineDesc::builder()
+                .vertex_path("utopian/shaders/common/fullscreen.vert")
+                .fragment_path("utopian/shaders/ibl/brdf_lut.frag"),
+        )
         .active(renderer.need_environment_map_update)
         .write(brdf_lut)
         .render(move |device, command_buffer, _, _, _| unsafe {

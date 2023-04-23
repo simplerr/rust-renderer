@@ -12,20 +12,18 @@ pub fn setup_atmosphere_pass(
 ) {
     puffin::profile_function!();
 
-    let pipeline_handle = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/atmosphere/atmosphere.vert")
-            .fragment_path("utopian/shaders/atmosphere/atmosphere.frag")
-            .default_primitive_vertex_bindings()
-            .default_primitive_vertex_attributes()
-            .build(),
-    );
-
     let projection = camera.get_projection();
     let world = Mat4::from_scale(Vec3::splat(1000.0));
 
     graph
-        .add_pass(String::from("atmosphere_pass"), pipeline_handle)
+        .add_pass_from_desc(
+            "atmosphere_pass",
+            crate::PipelineDesc::builder()
+                .vertex_path("utopian/shaders/atmosphere/atmosphere.vert")
+                .fragment_path("utopian/shaders/atmosphere/atmosphere.frag")
+                .default_primitive_vertex_bindings()
+                .default_primitive_vertex_attributes(),
+        )
         .load_write(atmosphere_output)
         .read(environment_map)
         .uniforms("ubo_constants", &(projection, world))

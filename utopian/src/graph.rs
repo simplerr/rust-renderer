@@ -535,24 +535,12 @@ impl Graph {
 
     pub fn add_pass_from_desc(
         &mut self,
-        name: &'static str,
+        name: &str,
         desc_builder: PipelineDescBuilder,
     ) -> PassBuilder {
         let pipeline_handle = self.create_pipeline(desc_builder.build());
 
-        PassBuilder {
-            name: name.to_string(),
-            pipeline_handle,
-            reads: vec![],
-            writes: vec![],
-            render_func: None,
-            depth_attachment: None,
-            presentation_pass: false,
-            uniforms: HashMap::new(),
-            copy_command: None,
-            active: true,
-            extra_barriers: None,
-        }
+        self.add_pass(name.to_string(), pipeline_handle)
     }
 
     /// Creates a texture and returns its handle.

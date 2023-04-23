@@ -23,15 +23,13 @@ pub fn setup_deferred_pass(
 ) {
     puffin::profile_function!();
 
-    let pipeline_handle = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/common/fullscreen.vert")
-            .fragment_path("utopian/shaders/deferred/deferred.frag")
-            .build(),
-    );
-
     graph
-        .add_pass(String::from("deferred_pass"), pipeline_handle)
+        .add_pass_from_desc(
+            "deferred_pass",
+            crate::PipelineDesc::builder()
+                .vertex_path("utopian/shaders/common/fullscreen.vert")
+                .fragment_path("utopian/shaders/deferred/deferred.frag"),
+        )
         .read(gbuffer_position)
         .read(gbuffer_normal)
         .read(gbuffer_albedo)

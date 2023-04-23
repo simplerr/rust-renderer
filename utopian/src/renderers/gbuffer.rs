@@ -19,15 +19,6 @@ pub fn setup_gbuffer_pass(
 ) {
     puffin::profile_function!();
 
-    let pipeline_handle = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/gbuffer/gbuffer.vert")
-            .fragment_path("utopian/shaders/gbuffer/gbuffer.frag")
-            .default_primitive_vertex_bindings()
-            .default_primitive_vertex_attributes()
-            .build(),
-    );
-
     // let depth_image = crate::Image::new(
     //     device,
     //     graph.resources[gbuffer_position].texture.image.width,
@@ -38,7 +29,14 @@ pub fn setup_gbuffer_pass(
     // );
 
     graph
-        .add_pass(String::from("gbuffer_pass"), pipeline_handle)
+        .add_pass_from_desc(
+            "gbuffer_pass",
+            crate::PipelineDesc::builder()
+                .vertex_path("utopian/shaders/gbuffer/gbuffer.vert")
+                .fragment_path("utopian/shaders/gbuffer/gbuffer.frag")
+                .default_primitive_vertex_bindings()
+                .default_primitive_vertex_attributes(),
+        )
         .write(gbuffer_position)
         .write(gbuffer_normal)
         .write(gbuffer_albedo)

@@ -18,17 +18,15 @@ pub fn setup_forward_pass(
 ) {
     puffin::profile_function!();
 
-    let pipeline_handle = graph.create_pipeline(
-        crate::PipelineDesc::builder()
-            .vertex_path("utopian/shaders/forward/forward.vert")
-            .fragment_path("utopian/shaders/forward/forward.frag")
-            .default_primitive_vertex_bindings()
-            .default_primitive_vertex_attributes()
-            .build(),
-    );
-
     graph
-        .add_pass(String::from("forward_pass"), pipeline_handle)
+        .add_pass_from_desc(
+            "forward_pass",
+            crate::PipelineDesc::builder()
+                .vertex_path("utopian/shaders/forward/forward.vert")
+                .fragment_path("utopian/shaders/forward/forward.frag")
+                .default_primitive_vertex_bindings()
+                .default_primitive_vertex_attributes(),
+        )
         .read(shadow_map)
         .write(forward_output)
         .uniforms("shadowmapParams", &(cascade_data))
