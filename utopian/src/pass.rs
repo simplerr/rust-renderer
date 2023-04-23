@@ -13,8 +13,8 @@ pub struct RenderPass {
     pub pipeline_handle: PipelineId,
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
-    pub reads: Vec<Uniform>,
-    pub writes: Vec<TextureWrite>,
+    pub reads: Vec<Resource>,
+    pub writes: Vec<Attachment>,
     pub depth_attachment: Option<DepthAttachment>,
     pub presentation_pass: bool,
     pub read_textures_descriptor_set: Option<crate::DescriptorSet>,
@@ -82,14 +82,14 @@ impl RenderPass {
 
             for (idx, &read) in self.reads.iter().enumerate() {
                 match read {
-                    Uniform::Texture(read) => {
-                        if read.input_type == TextureUniformType::CombinedImageSampler {
+                    Resource::Texture(read) => {
+                        if read.input_type == TextureResourceType::CombinedImageSampler {
                             descriptor_set_input_textures.write_combined_image(
                                 &device,
                                 DescriptorIdentifier::Index(idx as u32),
                                 &textures[read.texture].texture,
                             );
-                        } else if read.input_type == TextureUniformType::StorageImage {
+                        } else if read.input_type == TextureResourceType::StorageImage {
                             descriptor_set_input_textures.write_storage_image(
                                 &device,
                                 DescriptorIdentifier::Index(idx as u32),
@@ -97,7 +97,7 @@ impl RenderPass {
                             );
                         }
                     }
-                    Uniform::Buffer(read) => {
+                    Resource::Buffer(read) => {
                         descriptor_set_input_textures.write_storage_buffer(
                             &device,
                             DescriptorIdentifier::Index(idx as u32),
@@ -106,7 +106,7 @@ impl RenderPass {
                     }
                     // The acceleration structure is specially treated for now since it is
                     // an external resource not owned by the graph
-                    Uniform::Tlas(_) => {
+                    Resource::Tlas(_) => {
                         assert!(tlas != vk::AccelerationStructureKHR::null());
                         descriptor_set_input_textures.write_acceleration_structure(
                             &device,

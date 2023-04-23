@@ -228,7 +228,10 @@ impl Application {
                         ui.add(U32Checkbox::new(&mut view_data.fxaa_enabled, "FXAA:"));
                         ui.add(U32Checkbox::new(&mut view_data.cubemap_enabled, "Cubemap:"));
                         ui.add(U32Checkbox::new(&mut view_data.ibl_enabled, "IBL:"));
-                        ui.add(U32Checkbox::new(&mut view_data.marching_cubes_enabled, "Marching cubes:"));
+                        ui.add(U32Checkbox::new(
+                            &mut view_data.marching_cubes_enabled,
+                            "Marching cubes:",
+                        ));
 
                         if ui.button("Generate environment map").clicked() {
                             *need_environment_map_update = true;

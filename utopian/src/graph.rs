@@ -13,28 +13,38 @@ use crate::Renderer;
 use crate::Texture;
 
 /// Virtual resource handles.
+///
+/// Plain indexes into the graph's resource arrays.
 pub type TextureId = usize;
 pub type BufferId = usize;
 pub type PipelineId = usize;
 pub type TlasId = usize;
 
+/// Texture owned by the graph.
 pub struct GraphTexture {
     pub texture: Texture,
     pub prev_access: vk_sync::AccessType,
 }
 
+/// Buffer owned by the graph.
 pub struct GraphBuffer {
     pub buffer: Buffer,
     pub prev_access: vk_sync::AccessType,
 }
 
+/// Resources owned by the graph.
+///
+/// This is what enables the resource caching.
+/// Note: the resources are never cleared.
 pub struct GraphResources {
     pub buffers: Vec<GraphBuffer>,
     pub textures: Vec<GraphTexture>,
     pub pipelines: Vec<Pipeline>,
 }
+
+/// Either an external or graph owned depth attachment.
 pub enum DepthAttachment {
-    GraphTexture(TextureWrite),
+    GraphHandle(Attachment),
     External(Image, vk::AttachmentLoadOp),
 }
 
@@ -45,44 +55,46 @@ pub enum ViewType {
 }
 
 #[derive(Copy, Clone)]
-pub struct TextureWrite {
+pub struct Attachment {
     pub texture: TextureId,
     pub view: ViewType,
     pub load_op: vk::AttachmentLoadOp,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum TextureResourceType {
+    CombinedImageSampler,
+    StorageImage,
+}
+
+#[derive(Copy, Clone)]
+pub struct TextureResource {
+    pub texture: TextureId,
+    pub input_type: TextureResourceType,
+    pub access_type: vk_sync::AccessType,
+}
+
+#[derive(Copy, Clone)]
+pub struct BufferResource {
+    pub buffer: BufferId,
+    pub access_type: vk_sync::AccessType,
+}
+
+#[derive(Copy, Clone)]
+pub enum Resource {
+    Texture(TextureResource),
+    Buffer(BufferResource),
+    Tlas(TlasId),
+}
+
+/// Used in the `PassBuilder::copy_image` method.
 pub struct TextureCopy {
     pub src: TextureId,
     pub dst: TextureId,
     pub copy_desc: vk::ImageCopy,
 }
 
-#[derive(Copy, Clone, PartialEq)]
-pub enum TextureUniformType {
-    CombinedImageSampler,
-    StorageImage,
-}
-
-#[derive(Copy, Clone)]
-pub struct TextureUniform {
-    pub texture: TextureId,
-    pub input_type: TextureUniformType,
-    pub access_type: vk_sync::AccessType,
-}
-
-#[derive(Copy, Clone)]
-pub struct BufferUniform {
-    pub buffer: BufferId,
-    pub access_type: vk_sync::AccessType,
-}
-
-#[derive(Copy, Clone)]
-pub enum Uniform {
-    Texture(TextureUniform),
-    Buffer(BufferUniform),
-    Tlas(TlasId),
-}
-
+/// The frame graph that holds all the passes and resources.
 pub struct Graph {
     pub passes: Vec<RenderPass>,
     pub resources: GraphResources,
@@ -105,8 +117,8 @@ pub struct UniformData {
 pub struct PassBuilder {
     pub name: String,
     pub pipeline_handle: PipelineId,
-    pub reads: Vec<Uniform>,
-    pub writes: Vec<TextureWrite>,
+    pub reads: Vec<Resource>,
+    pub writes: Vec<Attachment>,
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
     pub depth_attachment: Option<DepthAttachment>,
@@ -118,49 +130,27 @@ pub struct PassBuilder {
     pub extra_barriers: Option<Vec<(BufferId, vk_sync::AccessType)>>,
 }
 
-impl GraphResources {
-    fn new() -> GraphResources {
-        GraphResources {
-            buffers: vec![],
-            textures: vec![],
-            pipelines: vec![],
-        }
-    }
-
-    pub fn buffer<'a>(&'a self, id: BufferId) -> &'a GraphBuffer {
-        &self.buffers[id]
-    }
-
-    pub fn texture<'a>(&'a self, id: TextureId) -> &'a GraphTexture {
-        &self.textures[id]
-    }
-
-    pub fn pipeline<'a>(&'a self, id: PipelineId) -> &'a Pipeline {
-        &self.pipelines[id]
-    }
-}
-
 impl PassBuilder {
     pub fn read(mut self, resource_id: TextureId) -> Self {
-        self.reads.push(Uniform::Texture(TextureUniform {
+        self.reads.push(Resource::Texture(TextureResource {
             texture: resource_id,
-            input_type: TextureUniformType::CombinedImageSampler,
+            input_type: TextureResourceType::CombinedImageSampler,
             access_type: vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer,
         }));
         self
     }
 
     pub fn image_write(mut self, resource_id: TextureId) -> Self {
-        self.reads.push(Uniform::Texture(TextureUniform {
+        self.reads.push(Resource::Texture(TextureResource {
             texture: resource_id,
-            input_type: TextureUniformType::StorageImage,
+            input_type: TextureResourceType::StorageImage,
             access_type: vk_sync::AccessType::AnyShaderWrite,
         }));
         self
     }
 
     pub fn write_buffer(mut self, resource_id: BufferId) -> Self {
-        self.reads.push(Uniform::Buffer(BufferUniform {
+        self.reads.push(Resource::Buffer(BufferResource {
             buffer: resource_id,
             access_type: vk_sync::AccessType::AnyShaderWrite,
         }));
@@ -168,7 +158,7 @@ impl PassBuilder {
     }
 
     pub fn read_buffer(mut self, resource_id: BufferId) -> Self {
-        self.reads.push(Uniform::Buffer(BufferUniform {
+        self.reads.push(Resource::Buffer(BufferResource {
             buffer: resource_id,
             access_type: vk_sync::AccessType::AnyShaderReadOther,
         }));
@@ -176,7 +166,7 @@ impl PassBuilder {
     }
 
     pub fn write(mut self, resource_id: TextureId) -> Self {
-        self.writes.push(TextureWrite {
+        self.writes.push(Attachment {
             texture: resource_id,
             view: ViewType::Full(),
             load_op: vk::AttachmentLoadOp::CLEAR,
@@ -185,7 +175,7 @@ impl PassBuilder {
     }
 
     pub fn write_layer(mut self, resource_id: TextureId, layer: u32) -> Self {
-        self.writes.push(TextureWrite {
+        self.writes.push(Attachment {
             texture: resource_id,
             view: ViewType::Layer(layer),
             load_op: vk::AttachmentLoadOp::CLEAR,
@@ -194,7 +184,7 @@ impl PassBuilder {
     }
 
     pub fn load_write(mut self, resource_id: TextureId) -> Self {
-        self.writes.push(TextureWrite {
+        self.writes.push(Attachment {
             texture: resource_id,
             view: ViewType::Full(),
             load_op: vk::AttachmentLoadOp::LOAD,
@@ -206,16 +196,17 @@ impl PassBuilder {
         // The acceleration structure is specially treated for now since it is
         // an external resource not owned by the graph. The passed resource_id
         // is unused.
-        self.reads.push(Uniform::Tlas(resource_id));
+        self.reads.push(Resource::Tlas(resource_id));
         self
     }
 
-    /// Allows for adding extra buffer barriers for resources that the other APIs don't cover
+    /// Allows for adding extra buffer barriers for resources that the other APIs don't cover.
     pub fn extra_barriers(mut self, buffers: &[(BufferId, vk_sync::AccessType)]) -> Self {
         self.extra_barriers = Some(buffers.to_vec());
         self
     }
 
+    /// Records custom rendering commands to the command buffer.
     pub fn render(
         mut self,
         render_func: impl Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)
@@ -225,6 +216,7 @@ impl PassBuilder {
         self
     }
 
+    /// Convenience function for dispatching compute shaders.
     pub fn dispatch(mut self, group_count_x: u32, group_count_y: u32, group_count_z: u32) -> Self {
         self.render_func
             .replace(Box::new(move |device, command_buffer, _, _, _| unsafe {
@@ -238,6 +230,7 @@ impl PassBuilder {
         self
     }
 
+    /// Convenience function for tracing rays.
     pub fn trace_rays(mut self, width: u32, height: u32, depth: u32) -> Self {
         self.render_func.replace(Box::new(
             move |device, command_buffer, _, pass, resources| unsafe {
@@ -261,13 +254,25 @@ impl PassBuilder {
         self
     }
 
+    /// Creates a copy commmand that executes after the `Pass::render_func` has finished.
+    pub fn copy_image(mut self, src: TextureId, dst: TextureId, copy_desc: vk::ImageCopy) -> Self {
+        self.copy_command.replace(TextureCopy {
+            src,
+            dst,
+            copy_desc,
+        });
+        self
+    }
+
+    /// Specify this pass to use the current frames `VulkanBase::present_images` as color attachment
     pub fn presentation_pass(mut self, is_presentation_pass: bool) -> Self {
         self.presentation_pass = is_presentation_pass;
         self
     }
 
+    /// Use image as depth attachment.
     pub fn depth_attachment(mut self, depth_attachment: TextureId) -> Self {
-        self.depth_attachment = Some(DepthAttachment::GraphTexture(TextureWrite {
+        self.depth_attachment = Some(DepthAttachment::GraphHandle(Attachment {
             texture: depth_attachment,
             view: ViewType::Full(),
             load_op: vk::AttachmentLoadOp::CLEAR, // Todo
@@ -275,8 +280,9 @@ impl PassBuilder {
         self
     }
 
+    /// Use a specific layer of an image as depth attachment.
     pub fn depth_attachment_layer(mut self, depth_attachment: TextureId, layer: u32) -> Self {
-        self.depth_attachment = Some(DepthAttachment::GraphTexture(TextureWrite {
+        self.depth_attachment = Some(DepthAttachment::GraphHandle(Attachment {
             texture: depth_attachment,
             view: ViewType::Layer(layer),
             load_op: vk::AttachmentLoadOp::CLEAR, // Todo
@@ -284,6 +290,7 @@ impl PassBuilder {
         self
     }
 
+    /// Use an external depth attachment that is not owned by the graph.
     pub fn external_depth_attachment(
         mut self,
         depth_attachment: Image,
@@ -293,6 +300,7 @@ impl PassBuilder {
         self
     }
 
+    /// Constant uniform data that is passed to the shader.
     pub fn uniforms<T: Copy + std::fmt::Debug>(mut self, name: &str, data: &T) -> Self {
         puffin::profile_function!();
 
@@ -323,20 +331,17 @@ impl PassBuilder {
         self
     }
 
-    pub fn copy_image(mut self, src: TextureId, dst: TextureId, copy_desc: vk::ImageCopy) -> Self {
-        self.copy_command.replace(TextureCopy {
-            src,
-            dst,
-            copy_desc,
-        });
-        self
-    }
-
+    /// Todo: remove this?
     pub fn active(mut self, active: bool) -> Self {
         self.active = active;
         self
     }
 
+    /// Creates a new pass and adds it to the graph.
+    ///
+    /// Also updates the color attachment formats of the pipeline since
+    /// they at this stage are known.
+    /// Note: allocates and create the constant uniform buffer if not cached.
     pub fn build(self, device: &Device, graph: &mut Graph) {
         puffin::profile_function!();
 
@@ -376,7 +381,7 @@ impl PassBuilder {
 
         if let Some(depth) = &pass.depth_attachment {
             match depth {
-                DepthAttachment::GraphTexture(write) => {
+                DepthAttachment::GraphHandle(write) => {
                     graph.pipeline_descs[pass.pipeline_handle].depth_stencil_attachment_format =
                         graph
                             .resources
@@ -403,6 +408,28 @@ impl PassBuilder {
         }
 
         graph.passes.push(pass);
+    }
+}
+
+impl GraphResources {
+    fn new() -> GraphResources {
+        GraphResources {
+            buffers: vec![],
+            textures: vec![],
+            pipelines: vec![],
+        }
+    }
+
+    pub fn buffer<'a>(&'a self, id: BufferId) -> &'a GraphBuffer {
+        &self.buffers[id]
+    }
+
+    pub fn texture<'a>(&'a self, id: TextureId) -> &'a GraphTexture {
+        &self.textures[id]
+    }
+
+    pub fn pipeline<'a>(&'a self, id: PipelineId) -> &'a Pipeline {
+        &self.pipelines[id]
     }
 }
 
@@ -528,6 +555,10 @@ impl Graph {
         }
     }
 
+    /// Creates a texture and returns its handle.
+    ///
+    /// If a texture with the same name already exists, it will be returned instead.
+    /// Compared to `graph::create_pipeline`, this function does not defer the creation of the texture.
     pub fn create_texture(
         &mut self,
         debug_name: &str,
@@ -555,6 +586,10 @@ impl Graph {
             })
     }
 
+    /// Creates a buffer and returns its handle.
+    ///
+    /// If a buffer with the same name already exists, it will be returned instead.
+    /// Compared to `graph::create_pipeline`, this function does not defer the creation of the buffer.
     pub fn create_buffer(
         &mut self,
         debug_name: &str,
@@ -583,6 +618,9 @@ impl Graph {
             })
     }
 
+    /// Creates a pipeline and returns its handle.
+    ///
+    /// The pipeline creation is deferred until the `graph::prepare` function is called.
     pub fn create_pipeline(&mut self, pipeline_desc: PipelineDesc) -> PipelineId {
         if let Some(existing_pipeline_id) = self
             .pipeline_descs
@@ -703,7 +741,7 @@ impl Graph {
                 // bothering with buffer barriers.
 
                 match read {
-                    Uniform::Texture(read) => {
+                    Resource::Texture(read) => {
                         let next_access = crate::synch::image_pipeline_barrier(
                             &device,
                             command_buffer,
@@ -719,7 +757,7 @@ impl Graph {
                             .prev_access = next_access;
                     }
 
-                    Uniform::Buffer(read) => {
+                    Resource::Buffer(read) => {
                         let next_access = crate::synch::global_pipeline_barrier(
                             device,
                             command_buffer,
@@ -733,7 +771,7 @@ impl Graph {
                             .unwrap()
                             .prev_access = next_access;
                     }
-                    Uniform::Tlas(_) => { // No resource transition for now (static)
+                    Resource::Tlas(_) => { // No resource transition for now (static)
                     }
                 }
             }
@@ -757,7 +795,7 @@ impl Graph {
             let mut writes_for_synch = pass.writes.clone();
             // If the depth attachment is owned by the graph make sure it gets a barrier as well
             if pass.depth_attachment.is_some() {
-                if let DepthAttachment::GraphTexture(depth_attachment) =
+                if let DepthAttachment::GraphHandle(depth_attachment) =
                     pass.depth_attachment.as_ref().unwrap()
                 {
                     writes_for_synch.push(*depth_attachment);
@@ -827,7 +865,7 @@ impl Graph {
             } else {
                 if pass.depth_attachment.is_some() {
                     match pass.depth_attachment.as_ref().unwrap() {
-                        DepthAttachment::GraphTexture(depth_attachment) => vk::Extent2D {
+                        DepthAttachment::GraphHandle(depth_attachment) => vk::Extent2D {
                             width: self.resources.textures[depth_attachment.texture]
                                 .texture
                                 .image
@@ -868,7 +906,7 @@ impl Graph {
                 // Todo: ugly just to get the different types of depth attachments
                 if pass.depth_attachment.is_some() {
                     match pass.depth_attachment.as_ref().unwrap() {
-                        DepthAttachment::GraphTexture(depth_attachment) => Some((
+                        DepthAttachment::GraphHandle(depth_attachment) => Some((
                             self.resources.textures[depth_attachment.texture]
                                 .texture
                                 .image
