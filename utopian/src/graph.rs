@@ -126,7 +126,6 @@ pub struct PassBuilder {
     // The key is the uniform name with the pass name as prefix
     pub uniforms: HashMap<String, (String, UniformData)>,
     pub copy_command: Option<TextureCopy>,
-    pub active: bool,
     pub extra_barriers: Option<Vec<(BufferId, vk_sync::AccessType)>>,
 }
 
@@ -331,12 +330,6 @@ impl PassBuilder {
         self
     }
 
-    /// Todo: remove this?
-    pub fn active(mut self, active: bool) -> Self {
-        self.active = active;
-        self
-    }
-
     /// Creates a new pass and adds it to the graph.
     ///
     /// Also updates the color attachment formats of the pipeline since
@@ -353,7 +346,6 @@ impl PassBuilder {
             self.uniforms.clone(), // Note: is this clone OK?
             self.render_func,
             self.copy_command,
-            self.active,
             self.extra_barriers,
         );
 
@@ -528,7 +520,6 @@ impl Graph {
             presentation_pass: false,
             uniforms: HashMap::new(),
             copy_command: None,
-            active: true,
             extra_barriers: None,
         }
     }
@@ -636,7 +627,7 @@ impl Graph {
             }
         }
 
-        for pass in self.passes.iter_mut().filter(|p| p.active) {
+        for pass in &mut self.passes {
             pass.try_create_read_texture_descriptor_set(
                 device,
                 &self.resources.pipelines,
@@ -698,7 +689,7 @@ impl Graph {
             .frame_profiler
             .begin_frame(&device.handle, command_buffer);
 
-        for pass in self.passes.iter_mut().filter(|p| p.active) {
+        for pass in &mut self.passes {
             let name = std::ffi::CString::new(pass.name.as_str()).unwrap();
             let debug_label = vk::DebugUtilsLabelEXT::builder()
                 .label_name(&name)

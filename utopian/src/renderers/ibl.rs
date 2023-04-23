@@ -76,7 +76,6 @@ pub fn setup_cubemap_pass(
                         .vertex_path("utopian/shaders/common/fullscreen.vert")
                         .fragment_path("utopian/shaders/ibl/cubemap.frag"),
                 )
-                .active(renderer.need_environment_map_update)
                 .write(offscreen)
                 .uniforms("params", &(view_matrices[layer as usize], projection))
                 .render(move |device, cb, _renderer, _pass, _resources| unsafe {
@@ -105,7 +104,6 @@ pub fn setup_cubemap_pass(
                     .vertex_path("utopian/shaders/common/fullscreen.vert")
                     .fragment_path("utopian/shaders/ibl/irradiance_filter.frag"),
             )
-            .active(renderer.need_environment_map_update)
             .read(environment_map)
             .write_layer(irradiance_map, layer)
             .uniforms("params", &(view_matrices[layer as usize], projection))
@@ -129,7 +127,6 @@ pub fn setup_cubemap_pass(
                         .vertex_path("utopian/shaders/ibl/fullscreen_with_pushconst.vert")
                         .fragment_path("utopian/shaders/ibl/specular_filter.frag"),
                 )
-                .active(renderer.need_environment_map_update)
                 .read(environment_map)
                 .write(offscreen)
                 .uniforms("params", &(view_matrices[layer as usize], projection))
@@ -166,7 +163,6 @@ pub fn setup_cubemap_pass(
                 .vertex_path("utopian/shaders/common/fullscreen.vert")
                 .fragment_path("utopian/shaders/ibl/brdf_lut.frag"),
         )
-        .active(renderer.need_environment_map_update)
         .write(brdf_lut)
         .render(move |device, command_buffer, _, _, _| unsafe {
             device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
