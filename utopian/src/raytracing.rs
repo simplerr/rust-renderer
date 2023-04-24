@@ -10,8 +10,20 @@ use crate::image::*;
 use crate::primitive::*;
 use crate::renderer::*;
 
+// The buffer sizes exactly fits the instance transform for all objects
+// added to the scene when `Raytracing::initialize` is called.
+// Todo: support adding/removing objects to the scene
+pub struct Tlas {
+    pub handle: vk::AccelerationStructureKHR,
+    instances_buffer: Buffer,
+    scratch_buffer: Buffer,
+    // `Buffer::update_memory` creates a temporary staging buffer which is expensive
+    // so we have a persistent staging buffer here for now
+    staging_instances_buffer: Buffer,
+}
+
 pub struct Raytracing {
-    pub top_level_acceleration: vk::AccelerationStructureKHR,
+    pub top_level_acceleration: Option<Tlas>,
     bottom_level_accelerations: Vec<vk::AccelerationStructureKHR>,
     output_image: Image,
     _accumulation_image: Image,
@@ -64,8 +76,8 @@ impl Raytracing {
         );
 
         Raytracing {
+            top_level_acceleration: None,
             bottom_level_accelerations: vec![],
-            top_level_acceleration: vk::AccelerationStructureKHR::null(),
             output_image,
             _accumulation_image: accumulation_image,
             pipeline,
@@ -92,10 +104,10 @@ impl Raytracing {
         self.descriptor_set.write_acceleration_structure(
             device,
             DescriptorIdentifier::Name("topLevelAS".to_string()),
-            tlas,
+            tlas.handle,
         );
 
-        self.top_level_acceleration = tlas;
+        self.top_level_acceleration = Some(tlas);
     }
 
     pub fn create_bottom_level_acceleration_structure(
@@ -204,13 +216,14 @@ impl Raytracing {
         acceleration_structure
     }
 
-    pub fn create_top_level_acceleration_structure(
+    pub fn fill_instance_array(
         device: &Device,
         blas: &[vk::AccelerationStructureKHR],
         instances: &[ModelInstance],
-    ) -> vk::AccelerationStructureKHR {
+    ) -> Vec<vk::AccelerationStructureInstanceKHR> {
         let mut acceleration_instances: Vec<vk::AccelerationStructureInstanceKHR> = vec![];
         let mut blas_idx = 0;
+
         for instance in instances {
             for (i, mesh) in instance.model.meshes.iter().enumerate() {
                 let world_matrix = instance.transform * instance.model.transforms[i];
@@ -260,14 +273,30 @@ impl Raytracing {
             }
         }
 
+        acceleration_instances
+    }
+
+    pub fn create_top_level_acceleration_structure(
+        device: &Device,
+        blas: &[vk::AccelerationStructureKHR],
+        instances: &[ModelInstance],
+    ) -> Tlas {
+        let acceleration_instances = Self::fill_instance_array(device, blas, instances);
+
         let instances_buffer = Buffer::new(
             device,
             Some(acceleration_instances.as_slice()),
-            //Some(acceleration_instances.as_ptr() as *const u8),
             std::mem::size_of_val(&*acceleration_instances) as u64,
             vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
                 | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
             gpu_allocator::MemoryLocation::GpuOnly,
+        );
+
+        let staging_instances_buffer = Buffer::create_buffer(
+            device,
+            std::mem::size_of_val(&*acceleration_instances) as u64,
+            vk::BufferUsageFlags::TRANSFER_SRC,
+            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let geometry = vk::AccelerationStructureGeometryKHR::builder()
@@ -360,9 +389,73 @@ impl Raytracing {
             });
         }
 
-        acceleration_structure
+        Tlas {
+            handle: acceleration_structure,
+            instances_buffer,
+            scratch_buffer,
+            staging_instances_buffer,
+        }
+    }
 
-        // Todo: cleanup scratch buffer and instances buffer
+    pub fn rebuild_tlas(
+        &mut self,
+        device: &Device,
+        command_buffer: vk::CommandBuffer,
+        instances: &[ModelInstance],
+    ) {
+        puffin::profile_function!();
+
+        let acceleration_instances =
+            Self::fill_instance_array(device, &self.bottom_level_accelerations, instances);
+
+        let tlas = self.top_level_acceleration.as_mut().unwrap();
+
+        tlas.staging_instances_buffer
+            .update_memory(device, acceleration_instances.as_slice());
+
+        tlas.staging_instances_buffer.copy_to_buffer(
+            device,
+            command_buffer,
+            &tlas.instances_buffer,
+        );
+
+        let geometry = vk::AccelerationStructureGeometryKHR::builder()
+            .flags(vk::GeometryFlagsKHR::OPAQUE)
+            .geometry_type(vk::GeometryTypeKHR::INSTANCES)
+            .geometry(vk::AccelerationStructureGeometryDataKHR {
+                instances: vk::AccelerationStructureGeometryInstancesDataKHR::builder()
+                    .array_of_pointers(false)
+                    .data(vk::DeviceOrHostAddressConstKHR {
+                        device_address: tlas.instances_buffer.get_device_address(device),
+                    })
+                    .build(),
+            })
+            .build();
+
+        let build_geometry_info = vk::AccelerationStructureBuildGeometryInfoKHR::builder()
+            .ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL)
+            .flags(ash::vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE)
+            .geometries(std::slice::from_ref(&geometry))
+            .mode(vk::BuildAccelerationStructureModeKHR::BUILD)
+            .dst_acceleration_structure(tlas.handle)
+            .scratch_data(vk::DeviceOrHostAddressKHR {
+                device_address: tlas.scratch_buffer.get_device_address(device),
+            })
+            .build();
+
+        let build_range_info = vec![ash::vk::AccelerationStructureBuildRangeInfoKHR::builder()
+            .primitive_count(acceleration_instances.len() as u32)
+            .build()];
+
+        unsafe {
+            device
+                .acceleration_structure_ext
+                .cmd_build_acceleration_structures(
+                    command_buffer,
+                    std::slice::from_ref(&build_geometry_info),
+                    std::slice::from_ref(&build_range_info.as_slice()),
+                );
+        }
     }
 
     pub fn create_storage_image(

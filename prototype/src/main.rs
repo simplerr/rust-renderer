@@ -252,6 +252,7 @@ impl Application {
 
                     if let Some(response) = gizmo.interact(ui) {
                         *selected_transform = Mat4::from_cols_array_2d(&response.transform.into());
+                        view_data.total_samples = 0; // Reset raytracing when moving objects
                     }
                 });
             });
@@ -401,7 +402,7 @@ impl Application {
                         self.graph.render(
                             device,
                             command_buffer,
-                            &self.renderer,
+                            &mut self.renderer,
                             &[self.base.present_images[present_index as usize].clone()],
                         );
 

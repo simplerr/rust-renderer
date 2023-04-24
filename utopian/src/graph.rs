@@ -634,7 +634,7 @@ impl Graph {
                 &self.resources.textures,
                 &self.resources.buffers,
                 if let Some(raytracing) = &renderer.raytracing {
-                    raytracing.top_level_acceleration
+                    raytracing.top_level_acceleration.as_ref().unwrap().handle
                 } else {
                     vk::AccelerationStructureKHR::null()
                 },
@@ -680,7 +680,7 @@ impl Graph {
         &mut self,
         device: &Device,
         command_buffer: vk::CommandBuffer,
-        renderer: &Renderer,
+        renderer: &mut Renderer,
         present_image: &[Image], // Todo: pass single value
     ) {
         puffin::profile_function!();
@@ -689,24 +689,31 @@ impl Graph {
             .frame_profiler
             .begin_frame(&device.handle, command_buffer);
 
-        for pass in &mut self.passes {
-            let name = std::ffi::CString::new(pass.name.as_str()).unwrap();
-            let debug_label = vk::DebugUtilsLabelEXT::builder()
-                .label_name(&name)
-                //.color([1.0, 0.0, 0.0, 1.0])
-                .build();
-            unsafe {
-                device
-                    .debug_utils
-                    .cmd_begin_debug_utils_label(command_buffer, &debug_label)
-            };
+        if let Some(raytracing) = &mut renderer.raytracing {
+            let rebuild_tlas_scope =
+                device.begin_gpu_scope(command_buffer, &String::from("rebuild_tlas_pass"));
 
-            let vk_scope = {
-                let query_id = gpu_profiler::profiler().create_scope(&pass.name);
-                device
-                    .frame_profiler
-                    .begin_scope(&device.handle, command_buffer, query_id)
-            };
+            crate::synch::global_pipeline_barrier(
+                device,
+                command_buffer,
+                vk_sync::AccessType::AnyShaderReadOther,
+                vk_sync::AccessType::AccelerationStructureBuildWrite,
+            );
+
+            raytracing.rebuild_tlas(device, command_buffer, &renderer.instances);
+
+            crate::synch::global_pipeline_barrier(
+                device,
+                command_buffer,
+                vk_sync::AccessType::AccelerationStructureBuildWrite,
+                vk_sync::AccessType::AnyShaderReadOther,
+            );
+
+            device.end_gpu_scope(command_buffer, rebuild_tlas_scope);
+        }
+
+        for pass in &mut self.passes {
+            let active_gpu_scope = device.begin_gpu_scope(command_buffer, &pass.name);
 
             let pass_pipeline = &self.resources.pipelines[pass.pipeline_handle];
 
@@ -1020,13 +1027,7 @@ impl Graph {
                 };
             }
 
-            device
-                .frame_profiler
-                .end_scope(&device.handle, command_buffer, vk_scope);
-
-            unsafe {
-                device.debug_utils.cmd_end_debug_utils_label(command_buffer);
-            }
+            device.end_gpu_scope(command_buffer, active_gpu_scope);
         }
 
         device

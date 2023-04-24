@@ -327,4 +327,39 @@ impl Device {
             );
         }
     }
+
+    pub fn begin_gpu_scope(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        name: &String,
+    ) -> gpu_profiler::backend::ash::VulkanActiveScope {
+        let name_c_str = std::ffi::CString::new(name.as_str()).unwrap();
+        let debug_label = vk::DebugUtilsLabelEXT::builder()
+            .label_name(&name_c_str)
+            //.color([1.0, 0.0, 0.0, 1.0])
+            .build();
+        unsafe {
+            self.debug_utils
+                .cmd_begin_debug_utils_label(command_buffer, &debug_label)
+        };
+
+        let active_scope = {
+            let query_id = gpu_profiler::profiler().create_scope(name);
+            self.frame_profiler
+                .begin_scope(&self.handle, command_buffer, query_id)
+        };
+
+        active_scope
+    }
+
+    pub fn end_gpu_scope(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        active_scope: gpu_profiler::backend::ash::VulkanActiveScope,
+    ) {
+        self.frame_profiler
+            .end_scope(&self.handle, command_buffer, active_scope);
+
+        unsafe { self.debug_utils.cmd_end_debug_utils_label(command_buffer) };
+    }
 }

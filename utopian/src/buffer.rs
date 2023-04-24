@@ -103,6 +103,7 @@ impl Buffer {
                 let dest = self.allocation.mapped_slice_mut().unwrap();
                 copy_data_to_destination(dest, data_u8);
             } else {
+                // This is expensive and should not be done in a hot loop
                 let mut staging_buffer = Buffer::create_buffer(
                     device,
                     self.size,
@@ -136,6 +137,20 @@ impl Buffer {
                     .unwrap();
                 device.handle.destroy_buffer(staging_buffer.buffer, None);
             }
+        }
+    }
+
+    pub fn copy_to_buffer(&self, device: &Device, cb: vk::CommandBuffer, dst: &Buffer) {
+        let buffer_copy_regions = vk::BufferCopy::builder()
+            .size(self.size)
+            .src_offset(0)
+            .dst_offset(0)
+            .build();
+
+        unsafe {
+            device
+                .handle
+                .cmd_copy_buffer(cb, self.buffer, dst.buffer, &[buffer_copy_regions]);
         }
     }
 
