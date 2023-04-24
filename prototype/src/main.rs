@@ -276,7 +276,7 @@ impl Application {
                 &mut self.camera.get_forward(),
                 self.fps_timer.calculate(),
                 &mut self.view_data,
-                &mut self.renderer.instances[0].transform,
+                &mut self.renderer.instances[1].transform,
                 &mut self.renderer.need_environment_map_update,
             );
 

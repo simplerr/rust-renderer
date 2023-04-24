@@ -17,7 +17,7 @@ pub struct RenderPass {
     pub writes: Vec<Attachment>,
     pub depth_attachment: Option<DepthAttachment>,
     pub presentation_pass: bool,
-    pub read_textures_descriptor_set: Option<crate::DescriptorSet>,
+    pub read_resources_descriptor_set: Option<crate::DescriptorSet>,
     pub name: String,
     pub uniforms: HashMap<String, (String, UniformData)>,
     pub uniform_buffer: Option<BufferId>,
@@ -46,7 +46,7 @@ impl RenderPass {
             writes: vec![],
             depth_attachment,
             presentation_pass,
-            read_textures_descriptor_set: None,
+            read_resources_descriptor_set: None,
             name,
             uniforms,
             uniform_buffer: None,
@@ -56,7 +56,7 @@ impl RenderPass {
         }
     }
 
-    pub fn try_create_read_texture_descriptor_set(
+    pub fn try_create_read_resources_descriptor_set(
         &mut self,
         device: &Device,
         pipelines: &Vec<Pipeline>,
@@ -67,8 +67,8 @@ impl RenderPass {
         puffin::profile_function!();
 
         // If there are input textures then create the descriptor set used to read them
-        if self.reads.len() > 0 && self.read_textures_descriptor_set.is_none() {
-            let descriptor_set_input_textures = crate::DescriptorSet::new(
+        if self.reads.len() > 0 && self.read_resources_descriptor_set.is_none() {
+            let descriptor_set_read_resources = crate::DescriptorSet::new(
                 &device,
                 pipelines[self.pipeline_handle].descriptor_set_layouts
                     [crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES as usize],
@@ -81,13 +81,13 @@ impl RenderPass {
                 match read {
                     Resource::Texture(read) => {
                         if read.input_type == TextureResourceType::CombinedImageSampler {
-                            descriptor_set_input_textures.write_combined_image(
+                            descriptor_set_read_resources.write_combined_image(
                                 &device,
                                 DescriptorIdentifier::Index(idx as u32),
                                 &textures[read.texture].texture,
                             );
                         } else if read.input_type == TextureResourceType::StorageImage {
-                            descriptor_set_input_textures.write_storage_image(
+                            descriptor_set_read_resources.write_storage_image(
                                 &device,
                                 DescriptorIdentifier::Index(idx as u32),
                                 &textures[read.texture].texture.image,
@@ -95,7 +95,7 @@ impl RenderPass {
                         }
                     }
                     Resource::Buffer(read) => {
-                        descriptor_set_input_textures.write_storage_buffer(
+                        descriptor_set_read_resources.write_storage_buffer(
                             &device,
                             DescriptorIdentifier::Index(idx as u32),
                             &buffers[read.buffer].buffer,
@@ -105,7 +105,7 @@ impl RenderPass {
                     // an external resource not owned by the graph
                     Resource::Tlas(_) => {
                         assert!(tlas != vk::AccelerationStructureKHR::null());
-                        descriptor_set_input_textures.write_acceleration_structure(
+                        descriptor_set_read_resources.write_acceleration_structure(
                             &device,
                             DescriptorIdentifier::Index(idx as u32),
                             tlas,
@@ -114,8 +114,8 @@ impl RenderPass {
                 }
             }
 
-            self.read_textures_descriptor_set
-                .replace(descriptor_set_input_textures);
+            self.read_resources_descriptor_set
+                .replace(descriptor_set_read_resources);
         }
     }
 

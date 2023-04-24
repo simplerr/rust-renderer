@@ -449,7 +449,7 @@ impl Graph {
                         .destroy_descriptor_pool(descriptor_set.pool, None)
                 };
             }
-            if let Some(descriptor_set) = &pass.read_textures_descriptor_set {
+            if let Some(descriptor_set) = &pass.read_resources_descriptor_set {
                 unsafe {
                     device
                         .handle
@@ -628,7 +628,7 @@ impl Graph {
         }
 
         for pass in &mut self.passes {
-            pass.try_create_read_texture_descriptor_set(
+            pass.try_create_read_resources_descriptor_set(
                 device,
                 &self.resources.pipelines,
                 &self.resources.textures,
@@ -939,7 +939,7 @@ impl Graph {
                     &[],
                 );
 
-                if let Some(read_textures_descriptor_set) = &pass.read_textures_descriptor_set {
+                if let Some(read_textures_descriptor_set) = &pass.read_resources_descriptor_set {
                     device.handle.cmd_bind_descriptor_sets(
                         command_buffer,
                         bind_point,
