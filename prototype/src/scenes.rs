@@ -11,10 +11,10 @@ pub fn create_scene(
         glam::Mat4::from_translation(glam::Vec3::new(f32::MAX, f32::MAX, f32::MAX)),
     );
 
-    //create_cornell_box_scene(renderer, camera, device);
+    // create_cornell_box_scene(renderer, camera, device);
     create_metal_rough_spheres(renderer, camera, device);
-    create_sponza_scene(renderer, camera, device);
-    //create_cube_scene(renderer, camera, device);
+    // create_sponza_scene(renderer, camera, device);
+    // create_cube_scene(renderer, camera, device);
 }
 
 pub fn create_metal_rough_spheres(

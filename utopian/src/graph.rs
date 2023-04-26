@@ -100,6 +100,7 @@ pub struct Graph {
     pub resources: GraphResources,
     pub descriptor_set_camera: crate::DescriptorSet,
     pub pipeline_descs: Vec<PipelineDesc>,
+    pub profiling_enabled: bool,
 }
 
 pub const MAX_UNIFORMS_SIZE: usize = 2048;
@@ -435,6 +436,7 @@ impl Graph {
                 camera_uniform_buffer,
             ),
             pipeline_descs: vec![],
+            profiling_enabled: false,
         }
     }
 
@@ -682,38 +684,42 @@ impl Graph {
         command_buffer: vk::CommandBuffer,
         renderer: &mut Renderer,
         present_image: &[Image], // Todo: pass single value
+        rebuild_tlas: bool,
     ) {
         puffin::profile_function!();
 
-        device
-            .frame_profiler
-            .begin_frame(&device.handle, command_buffer);
+        self.begin_gpu_profiler_frame(device, command_buffer);
 
         if let Some(raytracing) = &mut renderer.raytracing {
-            let rebuild_tlas_scope =
-                device.begin_gpu_scope(command_buffer, &String::from("rebuild_tlas_pass"));
+            if rebuild_tlas {
+                let rebuild_tlas_scope = self.begin_gpu_scope(
+                    device,
+                    command_buffer,
+                    &String::from("rebuild_tlas_pass"),
+                );
 
-            crate::synch::global_pipeline_barrier(
-                device,
-                command_buffer,
-                vk_sync::AccessType::AnyShaderReadOther,
-                vk_sync::AccessType::AccelerationStructureBuildWrite,
-            );
+                crate::synch::global_pipeline_barrier(
+                    device,
+                    command_buffer,
+                    vk_sync::AccessType::AnyShaderReadOther,
+                    vk_sync::AccessType::AccelerationStructureBuildWrite,
+                );
 
-            raytracing.rebuild_tlas(device, command_buffer, &renderer.instances);
+                raytracing.rebuild_tlas(device, command_buffer, &renderer.instances);
 
-            crate::synch::global_pipeline_barrier(
-                device,
-                command_buffer,
-                vk_sync::AccessType::AccelerationStructureBuildWrite,
-                vk_sync::AccessType::AnyShaderReadOther,
-            );
+                crate::synch::global_pipeline_barrier(
+                    device,
+                    command_buffer,
+                    vk_sync::AccessType::AccelerationStructureBuildWrite,
+                    vk_sync::AccessType::AnyShaderReadOther,
+                );
 
-            device.end_gpu_scope(command_buffer, rebuild_tlas_scope);
+                self.end_gpu_scope(device, command_buffer, rebuild_tlas_scope);
+            }
         }
 
-        for pass in &mut self.passes {
-            let active_gpu_scope = device.begin_gpu_scope(command_buffer, &pass.name);
+        for pass in &self.passes {
+            let active_gpu_scope = self.begin_gpu_scope(device, command_buffer, &pass.name);
 
             let pass_pipeline = &self.resources.pipelines[pass.pipeline_handle];
 
@@ -1027,11 +1033,71 @@ impl Graph {
                 };
             }
 
-            device.end_gpu_scope(command_buffer, active_gpu_scope);
+            self.end_gpu_scope(device, command_buffer, active_gpu_scope);
         }
 
-        device
-            .frame_profiler
-            .end_frame(&device.handle, command_buffer);
+        self.end_gpu_profiler_frame(device, command_buffer);
+    }
+
+    pub fn begin_gpu_profiler_frame(&self, device: &Device, command_buffer: vk::CommandBuffer) {
+        if self.profiling_enabled {
+            device
+                .frame_profiler
+                .begin_frame(&device.handle, command_buffer);
+        }
+    }
+
+    pub fn end_gpu_profiler_frame(&self, device: &Device, command_buffer: vk::CommandBuffer) {
+        if self.profiling_enabled {
+            device
+                .frame_profiler
+                .end_frame(&device.handle, command_buffer);
+        }
+    }
+
+    pub fn begin_gpu_scope(
+        &self,
+        device: &Device,
+        command_buffer: vk::CommandBuffer,
+        name: &String,
+    ) -> Option<gpu_profiler::backend::ash::VulkanActiveScope> {
+        if !self.profiling_enabled {
+            return None;
+        }
+
+        let name_c_str = std::ffi::CString::new(name.as_str()).unwrap();
+        let debug_label = vk::DebugUtilsLabelEXT::builder()
+            .label_name(&name_c_str)
+            //.color([1.0, 0.0, 0.0, 1.0])
+            .build();
+        unsafe {
+            device
+                .debug_utils
+                .cmd_begin_debug_utils_label(command_buffer, &debug_label)
+        };
+
+        let active_scope = {
+            let query_id = gpu_profiler::profiler().create_scope(name);
+            device
+                .frame_profiler
+                .begin_scope(&device.handle, command_buffer, query_id)
+        };
+
+        Some(active_scope)
+    }
+
+    pub fn end_gpu_scope(
+        &self,
+        device: &Device,
+        command_buffer: vk::CommandBuffer,
+        active_scope: Option<gpu_profiler::backend::ash::VulkanActiveScope>,
+    ) {
+        if self.profiling_enabled {
+            device
+                .frame_profiler
+                .end_scope(&device.handle, command_buffer, active_scope.unwrap());
+
+            unsafe { device.debug_utils.cmd_end_debug_utils_label(command_buffer) };
+        }
     }
 }

@@ -12,7 +12,6 @@ struct Application {
     ui: prototype::ui::Ui,
     fps_timer: utopian::FpsTimer,
     raytracing_enabled: bool,
-    profiling_enabled: bool,
     shader_watcher: utopian::DirectoryWatcher,
 }
 
@@ -57,6 +56,7 @@ impl Application {
             cubemap_enabled: 1,
             ibl_enabled: 1,
             marching_cubes_enabled: 0,
+            rebuild_tlas: 1,
         };
 
         let slice = unsafe { std::slice::from_raw_parts(&view_data, 1) };
@@ -95,7 +95,6 @@ impl Application {
             ui,
             fps_timer: utopian::FpsTimer::new(),
             raytracing_enabled: raytracing_supported,
-            profiling_enabled: false,
             shader_watcher,
         }
     }
@@ -165,7 +164,7 @@ impl Application {
             .resizable(true)
             .vscroll(true)
             .show(egui_context, |ui| {
-                ui.label(format!("FPS: {}", fps));
+                ui.label(format!("FPS: {} ({} ms)", fps, 1000.0 / fps as f32));
                 ui.label("Camera position");
                 ui.horizontal(|ui| {
                     ui.label("x:");
@@ -228,6 +227,10 @@ impl Application {
                         ui.add(U32Checkbox::new(&mut view_data.fxaa_enabled, "FXAA:"));
                         ui.add(U32Checkbox::new(&mut view_data.cubemap_enabled, "Cubemap:"));
                         ui.add(U32Checkbox::new(&mut view_data.ibl_enabled, "IBL:"));
+                        ui.add(U32Checkbox::new(
+                            &mut view_data.rebuild_tlas,
+                            "Rebuild TLAS:",
+                        ));
                         ui.add(U32Checkbox::new(
                             &mut view_data.marching_cubes_enabled,
                             "Marching cubes:",
@@ -330,8 +333,8 @@ impl Application {
             }
 
             if input.key_pressed(winit::event::VirtualKeyCode::Q) {
-                self.profiling_enabled = !self.profiling_enabled;
-                puffin::set_scopes_on(self.profiling_enabled);
+                self.graph.profiling_enabled = !self.graph.profiling_enabled;
+                puffin::set_scopes_on(self.graph.profiling_enabled);
             }
 
             if self.camera.update(input) {
@@ -346,9 +349,9 @@ impl Application {
             self.view_data.eye_pos = self.camera.get_position();
             self.view_data.time = self.fps_timer.elapsed_seconds_from_start();
 
-            if self.raytracing_enabled {
-                self.view_data.total_samples += self.view_data.samples_per_frame;
-            }
+            //if self.raytracing_enabled {
+            self.view_data.total_samples += self.view_data.samples_per_frame;
+            //}
 
             Application::record_commands(
                 &self.base.device,
@@ -360,7 +363,7 @@ impl Application {
                         std::slice::from_raw_parts(&self.view_data, 1),
                     );
 
-                    if false && self.raytracing_enabled {
+                    if false || self.raytracing_enabled {
                         if let Some(raytracing) = &self.renderer.raytracing {
                             raytracing.record_commands(
                                 device,
@@ -377,7 +380,7 @@ impl Application {
                         // Remove passes from previous frame
                         self.graph.clear(&self.base.device);
 
-                        if self.raytracing_enabled {
+                        if true || self.raytracing_enabled {
                             utopian::renderers::build_path_tracing_render_graph(
                                 &mut self.graph,
                                 &self.base.device,
@@ -404,17 +407,18 @@ impl Application {
                             command_buffer,
                             &mut self.renderer,
                             &[self.base.present_images[present_index as usize].clone()],
+                            self.view_data.rebuild_tlas == 1,
                         );
 
                         gpu_profiler::profiler().end_frame();
-                        if self.profiling_enabled {
+                        if self.graph.profiling_enabled {
                             if let Some(report) = gpu_profiler::profiler().last_report() {
                                 report.send_to_puffin(gpu_frame_start_ns);
                             };
                         }
                     }
 
-                    if self.profiling_enabled {
+                    if self.graph.profiling_enabled {
                         puffin_egui::profiler_window(&self.ui.egui_integration.context());
                     }
 

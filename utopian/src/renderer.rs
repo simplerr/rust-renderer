@@ -61,6 +61,7 @@ pub struct ViewUniformData {
     pub cubemap_enabled: u32,
     pub ibl_enabled: u32,
     pub marching_cubes_enabled: u32,
+    pub rebuild_tlas: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
