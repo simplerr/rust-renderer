@@ -349,9 +349,9 @@ impl Application {
             self.view_data.eye_pos = self.camera.get_position();
             self.view_data.time = self.fps_timer.elapsed_seconds_from_start();
 
-            //if self.raytracing_enabled {
-            self.view_data.total_samples += self.view_data.samples_per_frame;
-            //}
+            if self.raytracing_enabled {
+                self.view_data.total_samples += self.view_data.samples_per_frame;
+            }
 
             Application::record_commands(
                 &self.base.device,
@@ -363,62 +363,51 @@ impl Application {
                         std::slice::from_raw_parts(&self.view_data, 1),
                     );
 
-                    if false || self.raytracing_enabled {
-                        if let Some(raytracing) = &self.renderer.raytracing {
-                            raytracing.record_commands(
-                                device,
-                                command_buffer,
-                                self.renderer.bindless_descriptor_set,
-                                self.graph.descriptor_set_camera.handle,
-                                &self.base.present_images[present_index as usize],
-                            );
-                        }
-                    } else {
+                    let gpu_frame_start_ns = if self.graph.profiling_enabled {
                         gpu_profiler::profiler().begin_frame();
-                        let gpu_frame_start_ns = puffin::now_ns();
+                        puffin::now_ns()
+                    } else {
+                        0
+                    };
 
-                        // Remove passes from previous frame
-                        self.graph.clear(&self.base.device);
+                    // Remove passes from previous frame
+                    self.graph.clear(&self.base.device);
 
-                        if true || self.raytracing_enabled {
-                            utopian::renderers::build_path_tracing_render_graph(
-                                &mut self.graph,
-                                &self.base.device,
-                                &self.base,
-                            );
-                        } else {
-                            utopian::renderers::build_render_graph(
-                                &mut self.graph,
-                                &self.base.device,
-                                &self.base,
-                                &self.renderer,
-                                &self.view_data,
-                                &self.camera,
-                            );
-
-                            // Todo: should be possible to trigger this when needed
-                            self.renderer.need_environment_map_update = false;
-                        }
-
-                        self.graph.prepare(device, &self.renderer);
-
-                        self.graph.render(
-                            device,
-                            command_buffer,
-                            &mut self.renderer,
-                            &[self.base.present_images[present_index as usize].clone()],
-                            self.view_data.rebuild_tlas == 1,
+                    if self.raytracing_enabled {
+                        utopian::renderers::build_path_tracing_render_graph(
+                            &mut self.graph,
+                            &self.base.device,
+                            &self.base,
+                        );
+                    } else {
+                        utopian::renderers::build_render_graph(
+                            &mut self.graph,
+                            &self.base.device,
+                            &self.base,
+                            &self.renderer,
+                            &self.view_data,
+                            &self.camera,
                         );
 
-                        gpu_profiler::profiler().end_frame();
-                        if self.graph.profiling_enabled {
-                            if let Some(report) = gpu_profiler::profiler().last_report() {
-                                report.send_to_puffin(gpu_frame_start_ns);
-                            };
-                        }
+                        // Todo: should be possible to trigger this when needed
+                        self.renderer.need_environment_map_update = false;
                     }
 
+                    self.graph.prepare(device, &self.renderer);
+
+                    self.graph.render(
+                        device,
+                        command_buffer,
+                        &mut self.renderer,
+                        &[self.base.present_images[present_index as usize].clone()],
+                        self.view_data.rebuild_tlas == 1,
+                    );
+
                     if self.graph.profiling_enabled {
+                        gpu_profiler::profiler().end_frame();
+                        if let Some(report) = gpu_profiler::profiler().last_report() {
+                            report.send_to_puffin(gpu_frame_start_ns);
+                        };
                         puffin_egui::profiler_window(&self.ui.egui_integration.context());
                     }
 

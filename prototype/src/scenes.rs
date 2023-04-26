@@ -13,7 +13,7 @@ pub fn create_scene(
 
     // create_cornell_box_scene(renderer, camera, device);
     create_metal_rough_spheres(renderer, camera, device);
-    // create_sponza_scene(renderer, camera, device);
+    create_sponza_scene(renderer, camera, device);
     // create_cube_scene(renderer, camera, device);
 }
 
