@@ -59,12 +59,10 @@ impl Application {
             rebuild_tlas: 1,
         };
 
-        let slice = unsafe { std::slice::from_raw_parts(&view_data, 1) };
-
         // Move from here
         let camera_uniform_buffer = utopian::Buffer::new(
             &base.device,
-            Some(slice),
+            Some(std::slice::from_ref(&view_data)),
             std::mem::size_of_val(&view_data) as u64,
             vk::BufferUsageFlags::UNIFORM_BUFFER,
             gpu_allocator::MemoryLocation::CpuToGpu,
@@ -262,7 +260,7 @@ impl Application {
     }
 
     fn run(&mut self) {
-        self.base.run(|input, events| unsafe {
+        self.base.run(|input, events| {
             puffin::profile_scope!("main_run");
 
             let present_index = self.base.prepare_frame();
@@ -360,7 +358,7 @@ impl Application {
                 |device, command_buffer| {
                     self.camera_ubo.update_memory(
                         &self.base.device,
-                        std::slice::from_raw_parts(&self.view_data, 1),
+                        std::slice::from_ref(&self.view_data),
                     );
 
                     let gpu_frame_start_ns = if self.graph.profiling_enabled {

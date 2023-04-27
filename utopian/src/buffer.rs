@@ -97,7 +97,7 @@ impl Buffer {
                 std::ptr::copy_nonoverlapping(src, dst, std::cmp::min(src_bytes, dst_bytes));
             } else {
                 // This is expensive and should not be done in a hot loop
-                let mut staging_buffer = Buffer::create_buffer(
+                let staging_buffer = Buffer::create_buffer(
                     device,
                     self.size,
                     vk::BufferUsageFlags::TRANSFER_SRC,
