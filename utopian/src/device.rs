@@ -4,7 +4,10 @@ use ash::extensions::khr::Swapchain;
 use ash::vk;
 use gpu_allocator::vulkan::*;
 use gpu_allocator::AllocatorDebugSettings;
-use std::sync::{Arc, Mutex};
+use std::{
+    mem,
+    sync::{Arc, Mutex},
+};
 
 pub struct Device {
     pub handle: ash::Device,
@@ -315,15 +318,13 @@ impl Device {
         data: T,
     ) {
         unsafe {
-            self.handle.cmd_push_constants(
+            (self.handle.fp_v1_0().cmd_push_constants)(
                 command_buffer,
                 pipeline_layout,
                 vk::ShaderStageFlags::ALL,
                 0,
-                std::slice::from_raw_parts(
-                    &data as *const _ as *const u8,
-                    std::mem::size_of_val(&data),
-                ),
+                mem::size_of_val(&data).try_into().unwrap(),
+                &data as *const _ as *const _,
             );
         }
     }
