@@ -1,8 +1,5 @@
-use std::{
-    collections::HashMap,
-    mem::{self, MaybeUninit},
-    slice,
-};
+use std::collections::HashMap;
+use std::mem::MaybeUninit;
 
 use ash::vk;
 
@@ -311,8 +308,8 @@ impl PassBuilder {
         // Note: Todo: this can be improved
         unsafe {
             let ptr = data as *const _ as *const MaybeUninit<u8>;
-            let size = mem::size_of::<T>();
-            let data_u8 = slice::from_raw_parts(ptr, size);
+            let size = std::mem::size_of::<T>();
+            let data_u8 = std::slice::from_raw_parts(ptr, size);
 
             assert!(data_u8.len() < MAX_UNIFORMS_SIZE);
 

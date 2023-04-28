@@ -4,10 +4,7 @@ use ash::extensions::khr::Swapchain;
 use ash::vk;
 use gpu_allocator::vulkan::*;
 use gpu_allocator::AllocatorDebugSettings;
-use std::{
-    mem,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 pub struct Device {
     pub handle: ash::Device,
@@ -323,7 +320,7 @@ impl Device {
                 pipeline_layout,
                 vk::ShaderStageFlags::ALL,
                 0,
-                mem::size_of_val(&data).try_into().unwrap(),
+                std::mem::size_of_val(&data).try_into().unwrap(),
                 &data as *const _ as *const _,
             );
         }

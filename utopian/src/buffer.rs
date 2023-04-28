@@ -1,6 +1,5 @@
 use ash::vk;
 use gpu_allocator::vulkan::*;
-use std::{cmp, mem, ptr};
 
 use crate::device::*;
 use crate::image::*;
@@ -90,12 +89,12 @@ impl Buffer {
     pub fn update_memory<T: Copy>(&mut self, device: &Device, data: &[T]) {
         unsafe {
             let src = data.as_ptr() as *const u8;
-            let src_bytes = data.len() * mem::size_of::<T>();
+            let src_bytes = data.len() * std::mem::size_of::<T>();
 
             if self.memory_location != gpu_allocator::MemoryLocation::GpuOnly {
                 let dst = self.allocation.mapped_ptr().unwrap().as_ptr() as *mut u8;
                 let dst_bytes = self.allocation.size() as usize;
-                ptr::copy_nonoverlapping(src, dst, cmp::min(src_bytes, dst_bytes));
+                std::ptr::copy_nonoverlapping(src, dst, std::cmp::min(src_bytes, dst_bytes));
             } else {
                 // This is expensive and should not be done in a hot loop
                 let mut staging_buffer = Buffer::create_buffer(
@@ -107,7 +106,7 @@ impl Buffer {
 
                 let dst = staging_buffer.allocation.mapped_ptr().unwrap().as_ptr() as *mut u8;
                 let dst_bytes = staging_buffer.allocation.size() as usize;
-                ptr::copy_nonoverlapping(src, dst, cmp::min(src_bytes, dst_bytes));
+                std::ptr::copy_nonoverlapping(src, dst, std::cmp::min(src_bytes, dst_bytes));
 
                 device.execute_and_submit(|device, cb| {
                     let regions = vk::BufferCopy::builder()
