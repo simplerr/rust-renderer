@@ -1,5 +1,6 @@
 use ash::vk;
 use gpu_allocator::vulkan::*;
+use std::{cmp, mem, ptr};
 
 use crate::device::*;
 use crate::image::*;
@@ -11,12 +12,6 @@ pub struct Buffer {
     pub memory_location: gpu_allocator::MemoryLocation,
     pub size: u64,
     pub debug_name: String,
-}
-
-// Helper function that only copies the data that fits into the destination
-fn copy_data_to_destination(dest: &mut [u8], data_u8: &[u8]) {
-    let copy_length = std::cmp::min(dest.len(), data_u8.len());
-    dest[0..copy_length].copy_from_slice(&data_u8[0..copy_length]);
 }
 
 impl Buffer {
@@ -94,14 +89,13 @@ impl Buffer {
 
     pub fn update_memory<T: Copy>(&mut self, device: &Device, data: &[T]) {
         unsafe {
-            let data_u8 = std::slice::from_raw_parts(
-                data.as_ptr() as *const u8,
-                data.len() * core::mem::size_of::<T>(),
-            );
+            let src = data.as_ptr() as *const u8;
+            let src_bytes = data.len() * mem::size_of::<T>();
 
             if self.memory_location != gpu_allocator::MemoryLocation::GpuOnly {
-                let dest = self.allocation.mapped_slice_mut().unwrap();
-                copy_data_to_destination(dest, data_u8);
+                let dst = self.allocation.mapped_ptr().unwrap().as_ptr() as *mut u8;
+                let dst_bytes = self.allocation.size() as usize;
+                ptr::copy_nonoverlapping(src, dst, cmp::min(src_bytes, dst_bytes));
             } else {
                 // This is expensive and should not be done in a hot loop
                 let mut staging_buffer = Buffer::create_buffer(
@@ -111,8 +105,9 @@ impl Buffer {
                     gpu_allocator::MemoryLocation::CpuToGpu,
                 );
 
-                let dest = staging_buffer.allocation.mapped_slice_mut().unwrap();
-                copy_data_to_destination(dest, data_u8);
+                let dst = staging_buffer.allocation.mapped_ptr().unwrap().as_ptr() as *mut u8;
+                let dst_bytes = staging_buffer.allocation.size() as usize;
+                ptr::copy_nonoverlapping(src, dst, cmp::min(src_bytes, dst_bytes));
 
                 device.execute_and_submit(|device, cb| {
                     let regions = vk::BufferCopy::builder()
