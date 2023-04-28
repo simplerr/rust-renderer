@@ -1,4 +1,8 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    mem::{self, MaybeUninit},
+    slice,
+};
 
 use ash::vk;
 
@@ -111,7 +115,7 @@ pub const MAX_UNIFORMS_SIZE: usize = 2048;
 // passes is placed in the same buffer but with different offsets.
 #[derive(Copy, Clone)]
 pub struct UniformData {
-    pub data: [u8; MAX_UNIFORMS_SIZE],
+    pub data: [MaybeUninit<u8>; MAX_UNIFORMS_SIZE],
     pub size: u64,
 }
 
@@ -306,9 +310,9 @@ impl PassBuilder {
 
         // Note: Todo: this can be improved
         unsafe {
-            let ptr = data as *const T;
-            let size = core::mem::size_of::<T>();
-            let data_u8 = std::slice::from_raw_parts(ptr as *const u8, std::mem::size_of::<T>());
+            let ptr = data as *const _ as *const MaybeUninit<u8>;
+            let size = mem::size_of::<T>();
+            let data_u8 = slice::from_raw_parts(ptr, size);
 
             assert!(data_u8.len() < MAX_UNIFORMS_SIZE);
 
@@ -320,7 +324,7 @@ impl PassBuilder {
                 entry.1.size = size as u64;
             } else {
                 let mut new_entry = UniformData {
-                    data: [0; MAX_UNIFORMS_SIZE],
+                    data: [MaybeUninit::zeroed(); MAX_UNIFORMS_SIZE],
                     size: size as u64,
                 };
                 new_entry.data[..data_u8.len()].copy_from_slice(data_u8);
