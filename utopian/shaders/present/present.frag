@@ -15,11 +15,6 @@ layout (set = 2, binding = 0) uniform sampler2D in_forward_texture;
 layout (set = 2, binding = 1) uniform sampler2D in_deferred_texture;
 layout (set = 2, binding = 2) uniform sampler2DArray in_shadow_map;
 
-layout (std430, set = 2, binding = 3) buffer TestSSBO
-{
-   float test[512];
-} testSSBO;
-
 layout(std140, set = 3, binding = 0) uniform FXAA_settings
 {
    vec4 enabled_debug_threshold;
@@ -53,10 +48,6 @@ void main() {
     /* Tonemapping */
     // color = color / (color + vec3(1.0));
     color = linearToSrgb(color);
-
-    if (uv.y > 0.98) {
-        color = vec3(testSSBO.test[int(uv.x * 512.0)]);
-    }
 
 #ifdef DEBUG_SHADOW_MAP
     if (uv.x > 0.75 && uv.y < 0.25) {
