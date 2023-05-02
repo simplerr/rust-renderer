@@ -73,8 +73,8 @@ pub struct VulkanBase {
     pub draw_command_buffer: vk::CommandBuffer,
     pub present_images: Vec<Image>,
     pub depth_image: Image,
-    pub present_complete_semaphore: vk::Semaphore,
-    pub rendering_complete_semaphore: vk::Semaphore,
+    present_complete_semaphore: vk::Semaphore,
+    rendering_complete_semaphore: vk::Semaphore,
     pub surface_format: vk::SurfaceFormatKHR,
     pub surface_resolution: vk::Extent2D,
     pub swapchain: vk::SwapchainKHR,
@@ -368,30 +368,22 @@ impl VulkanBase {
             );
 
             device.execute_and_submit(|device, cb| {
-                let layout_transition_barriers = vk::ImageMemoryBarrier::builder()
-                    .image(depth_image.image)
-                    .dst_access_mask(
-                        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
-                            | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
-                    )
-                    .new_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-                    .old_layout(vk::ImageLayout::UNDEFINED)
-                    .subresource_range(
-                        vk::ImageSubresourceRange::builder()
-                            .aspect_mask(vk::ImageAspectFlags::DEPTH)
-                            .layer_count(1)
-                            .level_count(1)
-                            .build(),
+                for present_image in &present_images {
+                    crate::synch::image_pipeline_barrier(
+                        device,
+                        cb,
+                        &present_image,
+                        vk_sync::AccessType::Nothing,
+                        vk_sync::AccessType::Present,
                     );
+                }
 
-                device.handle.cmd_pipeline_barrier(
+                crate::synch::image_pipeline_barrier(
+                    device,
                     cb,
-                    vk::PipelineStageFlags::BOTTOM_OF_PIPE,
-                    vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
-                    vk::DependencyFlags::empty(),
-                    &[],
-                    &[],
-                    &[layout_transition_barriers.build()],
+                    &depth_image,
+                    vk_sync::AccessType::Nothing,
+                    vk_sync::AccessType::DepthStencilAttachmentWrite,
                 );
             });
 
