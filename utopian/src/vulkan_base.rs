@@ -408,6 +408,8 @@ impl VulkanBase {
 
     pub fn prepare_frame(&self) -> u32 {
         unsafe {
+            puffin::profile_scope!("acquire_next_image");
+
             let (present_index, _) = self
                 .swapchain_loader
                 .acquire_next_image(
@@ -424,6 +426,8 @@ impl VulkanBase {
 
     pub fn present_frame(&self, present_index: u32) {
         unsafe {
+            puffin::profile_scope!("queue_present");
+
             let wait_semaphores = [self.rendering_complete_semaphore];
             let swapchains = [self.swapchain];
             let image_indices = [present_index];
@@ -440,6 +444,8 @@ impl VulkanBase {
 
     pub fn submit_commands(&self) {
         unsafe {
+            puffin::profile_scope!("queue_submit");
+
             let command_buffers = vec![self.draw_command_buffer];
             let wait_mask = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
             let wait_semaphores = [self.present_complete_semaphore];

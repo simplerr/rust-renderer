@@ -104,15 +104,18 @@ impl Application {
         render_commands: F,
     ) {
         unsafe {
-            device
-                .handle
-                .wait_for_fences(&[wait_fence], true, std::u64::MAX)
-                .expect("Wait for fence failed.");
+            {
+                puffin::profile_scope!("wait_for_fences");
+                device
+                    .handle
+                    .wait_for_fences(&[wait_fence], true, std::u64::MAX)
+                    .expect("Wait for fence failed.");
 
-            device
-                .handle
-                .reset_fences(&[wait_fence])
-                .expect("Reset fences failed.");
+                device
+                    .handle
+                    .reset_fences(&[wait_fence])
+                    .expect("Reset fences failed.");
+            }
 
             device
                 .handle
@@ -356,10 +359,8 @@ impl Application {
                 self.base.draw_command_buffer,
                 self.base.draw_commands_reuse_fence,
                 |device, command_buffer| {
-                    self.camera_ubo.update_memory(
-                        &self.base.device,
-                        std::slice::from_ref(&self.view_data),
-                    );
+                    self.camera_ubo
+                        .update_memory(&self.base.device, std::slice::from_ref(&self.view_data));
 
                     let gpu_frame_start_ns = if self.graph.profiling_enabled {
                         gpu_profiler::profiler().begin_frame();
