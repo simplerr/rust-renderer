@@ -13,6 +13,8 @@ struct Application {
     fps_timer: utopian::FpsTimer,
     raytracing_enabled: bool,
     shader_watcher: utopian::DirectoryWatcher,
+    current_frame: usize,      // Should be in VulkanBase
+    num_frames_in_flight: u32, // Should be in VulkanBase
 }
 
 impl Application {
@@ -80,6 +82,7 @@ impl Application {
         let shader_watcher = utopian::DirectoryWatcher::new("utopian/shaders/");
 
         let raytracing_supported = base.device.raytracing_supported;
+        let num_frames_in_flight = base.image_count;
 
         let graph = utopian::Graph::new(&base.device, &camera_uniform_buffer);
 
@@ -92,8 +95,10 @@ impl Application {
             renderer,
             ui,
             fps_timer: utopian::FpsTimer::new(),
-            raytracing_enabled: raytracing_supported,
+            raytracing_enabled: raytracing_supported && false,
             shader_watcher,
+            current_frame: 0,
+            num_frames_in_flight,
         }
     }
 
@@ -160,6 +165,7 @@ impl Application {
         view_data: &mut utopian::ViewUniformData,
         selected_transform: &mut Mat4,
         need_environment_map_update: &mut bool,
+        num_frames_in_flight: &mut u32,
     ) {
         egui::Window::new("rust-renderer 0.0.1")
             .resizable(true)
@@ -221,8 +227,19 @@ impl Application {
                     });
                 });
                 ui.horizontal(|ui| {
-                    // Bloated code due to needing u32 since view data is a uniform buffer
                     egui::Grid::new("settings_grid").show(ui, |ui| {
+                        let options = vec!["1", "2", "3"];
+                        ui.label("Frames in flight:");
+                        egui::ComboBox::from_id_source("dropdown")
+                            .selected_text(options[(*num_frames_in_flight - 1) as usize])
+                            .show_ui(ui, |ui| {
+                                for (i, option) in options.iter().enumerate() {
+                                    if ui.selectable_label(false, *option).clicked() {
+                                        *num_frames_in_flight = (i as u32) + 1;
+                                    }
+                                }
+                            });
+                        ui.end_row();
                         ui.add(U32Checkbox::new(&mut view_data.shadows_enabled, "Shadows:"));
                         ui.add(U32Checkbox::new(&mut view_data.ssao_enabled, "SSAO:"));
                         ui.add(U32Checkbox::new(&mut view_data.fxaa_enabled, "FXAA:"));
@@ -266,7 +283,9 @@ impl Application {
         self.base.run(|input, events| {
             puffin::profile_scope!("main_run");
 
-            let present_index = self.base.prepare_frame();
+            let present_index = self.base.prepare_frame(self.current_frame);
+
+            //println!("present_index: {}", present_index);
 
             self.ui.handle_events(events.clone(), self.base.window.id());
             self.ui.begin_frame();
@@ -283,6 +302,7 @@ impl Application {
                 &mut self.view_data,
                 &mut self.renderer.instances[1].transform,
                 &mut self.renderer.need_environment_map_update,
+                &mut self.num_frames_in_flight,
             );
 
             self.view_data.sun_dir = self.view_data.sun_dir.normalize();
@@ -356,8 +376,8 @@ impl Application {
 
             Application::record_commands(
                 &self.base.device,
-                self.base.draw_command_buffer,
-                self.base.draw_commands_reuse_fence,
+                self.base.draw_command_buffers[self.current_frame],
+                self.base.draw_commands_reuse_fence[self.current_frame],
                 |device, command_buffer| {
                     self.camera_ubo
                         .update_memory(&self.base.device, std::slice::from_ref(&self.view_data));
@@ -398,7 +418,7 @@ impl Application {
                         device,
                         command_buffer,
                         &mut self.renderer,
-                        &[self.base.present_images[present_index as usize].clone()],
+                        &[self.base.present_images[present_index].clone()],
                         self.view_data.rebuild_tlas == 1,
                     );
 
@@ -414,12 +434,13 @@ impl Application {
 
                     // This also does the transition of the swapchain image to PRESENT_SRC_KHR
                     self.ui
-                        .end_frame(command_buffer, present_index, &self.base.window);
+                        .end_frame(command_buffer, present_index as u32, &self.base.window);
                 },
             );
 
-            self.base.submit_commands();
-            self.base.present_frame(present_index);
+            self.base.submit_commands(self.current_frame);
+            self.base.present_frame(present_index, self.current_frame);
+            self.current_frame = (self.current_frame + 1) % self.num_frames_in_flight as usize;
         });
     }
 }
