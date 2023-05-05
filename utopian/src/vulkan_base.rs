@@ -64,17 +64,21 @@ unsafe extern "system" fn vulkan_debug_callback(
     vk::FALSE
 }
 
+pub struct Frame {
+    //pub index: usize,
+    pub command_buffer: vk::CommandBuffer,
+    pub command_buffer_reuse_fence: vk::Fence,
+    pub image_available_semaphore: vk::Semaphore,
+    pub render_finished_semaphore: vk::Semaphore,
+}
+
 pub struct VulkanBase {
     pub window: winit::window::Window,
     event_loop: RefCell<winit::event_loop::EventLoop<()>>,
     pub instance: ash::Instance,
     pub device: Device,
-    _command_pool: vk::CommandPool,
-    // Todo: group this into a struct
-    pub draw_command_buffers: Vec<vk::CommandBuffer>,
-    pub draw_commands_reuse_fence: Vec<vk::Fence>,
-    present_complete_semaphores: Vec<vk::Semaphore>,
-    rendering_complete_semaphores: Vec<vk::Semaphore>,
+    pub frames: Vec<Frame>,
+    pub command_pool: vk::CommandPool,
     pub image_count: u32,
     pub present_images: Vec<Image>,
     pub depth_image: Image,
@@ -92,9 +96,7 @@ impl VulkanBase {
         let (window, event_loop) = VulkanBase::create_window(width, height);
         let instance = VulkanBase::create_instance(&entry, &window);
         let (debug_utils, debug_callback) = VulkanBase::create_debug_utils(&entry, &instance);
-
         let (surface, surface_loader) = VulkanBase::create_surface(&entry, &instance, &window);
-
         let device = Device::new(&instance, surface, &surface_loader, debug_utils);
 
         let (swapchain, swapchain_loader, surface_format, surface_resolution, image_count) =
@@ -106,12 +108,6 @@ impl VulkanBase {
                 &surface_loader,
             );
 
-        let (_command_pool, draw_command_buffers) = VulkanBase::create_command_buffers(
-            &device.handle,
-            device.queue_family_index,
-            image_count,
-        );
-
         let (present_images, depth_image) = VulkanBase::setup_swapchain_images(
             &device,
             swapchain,
@@ -120,31 +116,17 @@ impl VulkanBase {
             surface_resolution,
         );
 
-        let (present_complete_semaphores, rendering_complete_semaphores) =
-            VulkanBase::create_semaphores(&device.handle, image_count);
+        let command_pool = VulkanBase::create_command_pool(&device);
 
-        let fence_create_info =
-            vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
-
-        let draw_commands_reuse_fence = (0..image_count)
-            .map(|_| unsafe {
-                device
-                    .handle
-                    .create_fence(&fence_create_info, None)
-                    .expect("Create fence failed.")
-            })
-            .collect();
+        let frames = VulkanBase::create_synchronization_frames(&device, command_pool, image_count);
 
         VulkanBase {
             window,
             event_loop: RefCell::new(event_loop),
             instance,
             device,
-            _command_pool,
-            draw_command_buffers,
-            draw_commands_reuse_fence,
-            present_complete_semaphores,
-            rendering_complete_semaphores,
+            frames,
+            command_pool,
             image_count,
             present_images,
             depth_image,
@@ -311,35 +293,6 @@ impl VulkanBase {
         }
     }
 
-    fn create_command_buffers(
-        device: &ash::Device,
-        queue_family_index: u32,
-        image_count: u32,
-    ) -> (vk::CommandPool, Vec<vk::CommandBuffer>) {
-        let pool_create_info = vk::CommandPoolCreateInfo::builder()
-            .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
-            .queue_family_index(queue_family_index);
-
-        let pool = unsafe {
-            device
-                .create_command_pool(&pool_create_info, None)
-                .expect("Failed to create command pool")
-        };
-
-        let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
-            .command_buffer_count(image_count)
-            .command_pool(pool)
-            .level(vk::CommandBufferLevel::PRIMARY);
-
-        let command_buffers = unsafe {
-            device
-                .allocate_command_buffers(&command_buffer_allocate_info)
-                .expect("Failed to allocate command buffer")
-        };
-
-        (pool, command_buffers)
-    }
-
     fn setup_swapchain_images(
         device: &Device,
         swapchain: vk::SwapchainKHR,
@@ -402,29 +355,59 @@ impl VulkanBase {
         }
     }
 
-    fn create_semaphores(
-        device: &ash::Device,
+    fn create_command_pool(device: &Device) -> vk::CommandPool {
+        let command_pool = unsafe {
+            device
+                .handle
+                .create_command_pool(
+                    &vk::CommandPoolCreateInfo::builder()
+                        .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
+                        .queue_family_index(device.queue_family_index),
+                    None,
+                )
+                .expect("Failed to create command pool")
+        };
+
+        return command_pool;
+    }
+
+    fn create_synchronization_frames(
+        device: &Device,
+        command_pool: vk::CommandPool,
         image_count: u32,
-    ) -> (Vec<vk::Semaphore>, Vec<vk::Semaphore>) {
-        unsafe {
-            let present_complete_semaphores = (0..image_count)
-                .map(|_| {
-                    device
+    ) -> Vec<Frame> {
+        let frames = (0..image_count)
+            .map(|_| unsafe {
+                Frame {
+                    command_buffer: device
+                        .handle
+                        .allocate_command_buffers(
+                            &vk::CommandBufferAllocateInfo::builder()
+                                .command_buffer_count(1)
+                                .command_pool(command_pool)
+                                .level(vk::CommandBufferLevel::PRIMARY),
+                        )
+                        .expect("Failed to allocate command buffer")[0],
+                    command_buffer_reuse_fence: device
+                        .handle
+                        .create_fence(
+                            &vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED),
+                            None,
+                        )
+                        .expect("Failed to create fence"),
+                    render_finished_semaphore: device
+                        .handle
                         .create_semaphore(&vk::SemaphoreCreateInfo::default(), None)
-                        .expect("Error creating semaphore")
-                })
-                .collect();
-
-            let rendering_complete_semaphores = (0..image_count)
-                .map(|_| {
-                    device
+                        .expect("Failed to create semaphore"),
+                    image_available_semaphore: device
+                        .handle
                         .create_semaphore(&vk::SemaphoreCreateInfo::default(), None)
-                        .expect("Error creating semaphore")
-                })
-                .collect();
+                        .expect("Failed to create semaphore"),
+                }
+            })
+            .collect();
 
-            (present_complete_semaphores, rendering_complete_semaphores)
-        }
+        return frames;
     }
 
     pub fn prepare_frame(&self, current_frame: usize) -> usize {
@@ -436,7 +419,7 @@ impl VulkanBase {
                 .acquire_next_image(
                     self.swapchain,
                     std::u64::MAX,
-                    self.present_complete_semaphores[current_frame],
+                    self.frames[current_frame].image_available_semaphore,
                     vk::Fence::null(),
                 )
                 .expect("Error acquiring next swapchain image");
@@ -452,7 +435,7 @@ impl VulkanBase {
         unsafe {
             puffin::profile_scope!("queue_present");
 
-            let wait_semaphores = [self.rendering_complete_semaphores[current_frame]];
+            let wait_semaphores = [self.frames[current_frame].render_finished_semaphore];
             let swapchains = [self.swapchain];
             let image_indices = [present_index as u32];
             let present_info = vk::PresentInfoKHR::builder()
@@ -470,9 +453,9 @@ impl VulkanBase {
         unsafe {
             puffin::profile_scope!("queue_submit");
 
-            let command_buffers = [self.draw_command_buffers[frame_index]];
-            let wait_semaphores = [self.present_complete_semaphores[frame_index]];
-            let signal_semaphores = [self.rendering_complete_semaphores[frame_index]];
+            let command_buffers = [self.frames[frame_index].command_buffer];
+            let wait_semaphores = [self.frames[frame_index].image_available_semaphore];
+            let signal_semaphores = [self.frames[frame_index].render_finished_semaphore];
 
             let submit_info = vk::SubmitInfo::builder()
                 .wait_semaphores(&wait_semaphores)
@@ -485,7 +468,7 @@ impl VulkanBase {
                 .queue_submit(
                     self.device.queue,
                     &[submit_info.build()],
-                    self.draw_commands_reuse_fence[frame_index as usize],
+                    self.frames[frame_index].command_buffer_reuse_fence,
                 )
                 .expect("Queue submit failed.");
         }

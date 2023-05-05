@@ -376,8 +376,8 @@ impl Application {
 
             Application::record_commands(
                 &self.base.device,
-                self.base.draw_command_buffers[self.current_frame],
-                self.base.draw_commands_reuse_fence[self.current_frame],
+                self.base.frames[self.current_frame].command_buffer,
+                self.base.frames[self.current_frame].command_buffer_reuse_fence,
                 |device, command_buffer| {
                     self.camera_ubo
                         .update_memory(&self.base.device, std::slice::from_ref(&self.view_data));
