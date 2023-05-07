@@ -99,7 +99,7 @@ pub struct TextureCopy {
 pub struct Graph {
     pub passes: Vec<Vec<RenderPass>>,
     pub resources: GraphResources,
-    pub descriptor_set_camera: crate::DescriptorSet,
+    pub descriptor_set_camera: Vec<crate::DescriptorSet>,
     pub pipeline_descs: Vec<PipelineDesc>,
     pub profiling_enabled: bool,
     current_frame: usize,
@@ -429,14 +429,18 @@ impl GraphResources {
 }
 
 impl Graph {
-    pub fn new(device: &Device, camera_uniform_buffer: &Buffer, num_frames_in_flight: u32) -> Self {
+    pub fn new(
+        device: &Device,
+        camera_uniform_buffer: &Vec<Buffer>,
+        num_frames_in_flight: u32,
+    ) -> Self {
         Graph {
             passes: (0..num_frames_in_flight).map(|_| vec![]).collect(),
             resources: GraphResources::new(),
-            descriptor_set_camera: Self::create_camera_descriptor_set(
-                device,
-                camera_uniform_buffer,
-            ),
+            descriptor_set_camera: (*camera_uniform_buffer)
+                .iter()
+                .map(|buffer| Self::create_camera_descriptor_set(device, buffer))
+                .collect(),
             pipeline_descs: vec![],
             profiling_enabled: false,
             current_frame: 0,
@@ -954,7 +958,7 @@ impl Graph {
                     bind_point,
                     pass_pipeline.pipeline_layout,
                     crate::DESCRIPTOR_SET_INDEX_VIEW,
-                    &[self.descriptor_set_camera.handle],
+                    &[self.descriptor_set_camera[self.current_frame].handle],
                     &[],
                 );
 

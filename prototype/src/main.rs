@@ -6,7 +6,7 @@ struct Application {
     base: utopian::VulkanBase,
     graph: utopian::Graph,
     view_data: utopian::ViewUniformData,
-    camera_ubo: utopian::Buffer,
+    camera_ubo: Vec<utopian::Buffer>,
     camera: utopian::Camera,
     renderer: utopian::Renderer,
     ui: prototype::ui::Ui,
@@ -61,15 +61,6 @@ impl Application {
             rebuild_tlas: 1,
         };
 
-        // Move from here
-        let camera_uniform_buffer = utopian::Buffer::new(
-            &base.device,
-            Some(std::slice::from_ref(&view_data)),
-            std::mem::size_of_val(&view_data) as u64,
-            vk::BufferUsageFlags::UNIFORM_BUFFER,
-            gpu_allocator::MemoryLocation::CpuToGpu,
-        );
-
         let ui = prototype::ui::Ui::new(
             width,
             height,
@@ -83,6 +74,19 @@ impl Application {
 
         let raytracing_supported = base.device.raytracing_supported;
         let num_frames_in_flight = base.image_count;
+
+        // Move from here
+        let camera_uniform_buffer = (0..num_frames_in_flight)
+            .map(|_| {
+                utopian::Buffer::new(
+                    &base.device,
+                    Some(std::slice::from_ref(&view_data)),
+                    std::mem::size_of_val(&view_data) as u64,
+                    vk::BufferUsageFlags::UNIFORM_BUFFER,
+                    gpu_allocator::MemoryLocation::CpuToGpu,
+                )
+            })
+            .collect::<Vec<_>>();
 
         let graph = utopian::Graph::new(&base.device, &camera_uniform_buffer, num_frames_in_flight);
 
@@ -379,7 +383,7 @@ impl Application {
                 self.base.frames[self.current_frame].command_buffer,
                 self.base.frames[self.current_frame].command_buffer_reuse_fence,
                 |device, command_buffer| {
-                    self.camera_ubo
+                    self.camera_ubo[self.current_frame]
                         .update_memory(&self.base.device, std::slice::from_ref(&self.view_data));
 
                     let gpu_frame_start_ns = if self.graph.profiling_enabled {
