@@ -97,11 +97,12 @@ pub struct TextureCopy {
 
 /// The frame graph that holds all the passes and resources.
 pub struct Graph {
-    pub passes: Vec<RenderPass>,
+    pub passes: Vec<Vec<RenderPass>>,
     pub resources: GraphResources,
     pub descriptor_set_camera: crate::DescriptorSet,
     pub pipeline_descs: Vec<PipelineDesc>,
     pub profiling_enabled: bool,
+    current_frame: usize,
 }
 
 pub const MAX_UNIFORMS_SIZE: usize = 2048;
@@ -401,7 +402,7 @@ impl PassBuilder {
             ));
         }
 
-        graph.passes.push(pass);
+        graph.passes[graph.current_frame].push(pass);
     }
 }
 
@@ -428,9 +429,9 @@ impl GraphResources {
 }
 
 impl Graph {
-    pub fn new(device: &Device, camera_uniform_buffer: &Buffer) -> Self {
+    pub fn new(device: &Device, camera_uniform_buffer: &Buffer, num_frames_in_flight: u32) -> Self {
         Graph {
-            passes: vec![],
+            passes: (0..num_frames_in_flight).map(|_| vec![]).collect(),
             resources: GraphResources::new(),
             descriptor_set_camera: Self::create_camera_descriptor_set(
                 device,
@@ -438,13 +439,18 @@ impl Graph {
             ),
             pipeline_descs: vec![],
             profiling_enabled: false,
+            current_frame: 0,
         }
+    }
+
+    pub fn new_frame(&mut self, current_frame: usize) {
+        self.current_frame = current_frame;
     }
 
     pub fn clear(&mut self, device: &crate::Device) {
         puffin::profile_function!();
 
-        for pass in &self.passes {
+        for pass in &self.passes[self.current_frame] {
             if let Some(descriptor_set) = &pass.uniforms_descriptor_set {
                 unsafe {
                     device
@@ -461,7 +467,7 @@ impl Graph {
             }
         }
 
-        self.passes.clear();
+        self.passes[self.current_frame].clear();
     }
 
     pub fn create_camera_descriptor_set(
@@ -629,7 +635,7 @@ impl Graph {
             }
         }
 
-        for pass in &mut self.passes {
+        for pass in &mut self.passes[self.current_frame] {
             pass.try_create_read_resources_descriptor_set(
                 device,
                 &self.resources.pipelines,
@@ -718,7 +724,7 @@ impl Graph {
             }
         }
 
-        for pass in &self.passes {
+        for pass in &self.passes[self.current_frame] {
             let active_gpu_scope = self.begin_gpu_scope(device, command_buffer, &pass.name);
 
             let pass_pipeline = &self.resources.pipelines[pass.pipeline_handle];

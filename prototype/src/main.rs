@@ -84,7 +84,7 @@ impl Application {
         let raytracing_supported = base.device.raytracing_supported;
         let num_frames_in_flight = base.image_count;
 
-        let graph = utopian::Graph::new(&base.device, &camera_uniform_buffer);
+        let graph = utopian::Graph::new(&base.device, &camera_uniform_buffer, num_frames_in_flight);
 
         Application {
             base,
@@ -390,6 +390,7 @@ impl Application {
                     };
 
                     // Remove passes from previous frame
+                    self.graph.new_frame(self.current_frame);
                     self.graph.clear(&self.base.device);
 
                     if self.raytracing_enabled {
