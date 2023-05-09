@@ -106,6 +106,7 @@ pub struct Image {
     pub device_memory: vk::DeviceMemory,
     pub current_layout: vk::ImageLayout,
     pub desc: ImageDesc,
+    pub debug_name: String,
 }
 
 impl Image {
@@ -216,6 +217,7 @@ impl Image {
                 device_memory,
                 current_layout: initial_layout,
                 desc,
+                debug_name: "unnamed_image".to_string(),
             }
         }
     }
@@ -249,6 +251,7 @@ impl Image {
             device_memory: vk::DeviceMemory::null(),
             current_layout: vk::ImageLayout::UNDEFINED,
             desc,
+            debug_name: "unnamed_image".to_string(),
         }
     }
 
@@ -295,6 +298,20 @@ impl Image {
                 .handle
                 .create_image_view(&image_view_info, None)
                 .unwrap()
+        }
+    }
+
+    pub fn set_debug_name(&mut self, device: &Device, name: &str) {
+        self.debug_name = String::from(name);
+        device.set_debug_name(vk::Handle::as_raw(self.image), vk::ObjectType::IMAGE, name);
+        device.set_debug_name(
+            vk::Handle::as_raw(self.image_view),
+            vk::ObjectType::IMAGE_VIEW,
+            name,
+        );
+
+        for view in &self.layer_views {
+            device.set_debug_name(vk::Handle::as_raw(*view), vk::ObjectType::IMAGE_VIEW, name);
         }
     }
 

@@ -8,7 +8,6 @@ pub struct Texture {
     pub image: Image,
     pub sampler: vk::Sampler,
     pub descriptor_info: vk::DescriptorImageInfo,
-    pub debug_name: String,
 }
 
 impl Texture {
@@ -26,15 +25,23 @@ impl Texture {
             device,
             Some(&image_data),
             ImageDesc::new_2d(width, height, vk::Format::R8G8B8A8_UNORM),
+            path,
         );
 
-        texture.set_debug_name(device, path);
+        texture.image.set_debug_name(device, path);
 
         texture
     }
 
-    pub fn create(device: &Device, pixels: Option<&[u8]>, image_desc: ImageDesc) -> Texture {
-        let image = Image::new_from_desc(device, image_desc);
+    pub fn create(
+        device: &Device,
+        pixels: Option<&[u8]>,
+        image_desc: ImageDesc,
+        debug_name: &str,
+    ) -> Texture {
+        let mut image = Image::new_from_desc(device, image_desc);
+
+        image.set_debug_name(device, debug_name);
 
         device.execute_and_submit(|device, cb| {
             image.transition_layout(device, cb, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
@@ -93,23 +100,6 @@ impl Texture {
             image,
             sampler,
             descriptor_info,
-            debug_name: String::from("unnamed_texture"),
         }
-    }
-
-    pub fn set_debug_name(&mut self, device: &Device, debug_name: &str) {
-        self.debug_name = String::from(debug_name);
-        let name = std::ffi::CString::new(debug_name).unwrap();
-        let name_info = vk::DebugUtilsObjectNameInfoEXT::builder()
-            .object_handle(vk::Handle::as_raw(self.image.image))
-            .object_name(&name)
-            .object_type(vk::ObjectType::IMAGE)
-            .build();
-        unsafe {
-            device
-                .debug_utils
-                .debug_utils_set_object_name(device.handle.handle(), &name_info)
-                .expect("Error setting debug name for image")
-        };
     }
 }

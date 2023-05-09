@@ -202,6 +202,7 @@ pub fn load_gltf(device: &Device, path: &str) -> Model {
             device,
             Some(&image.pixels),
             ImageDesc::new_2d(image.width, image.height, vk::Format::R8G8B8A8_UNORM),
+            path,
         );
 
         model.textures.push(texture);

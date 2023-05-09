@@ -183,17 +183,10 @@ impl Buffer {
 
     pub fn set_debug_name(&mut self, device: &Device, name: &str) {
         self.debug_name = String::from(name);
-        let name = std::ffi::CString::new(name).unwrap();
-        let name_info = vk::DebugUtilsObjectNameInfoEXT::builder()
-            .object_handle(vk::Handle::as_raw(self.buffer))
-            .object_name(&name)
-            .object_type(vk::ObjectType::BUFFER)
-            .build();
-        unsafe {
-            device
-                .debug_utils
-                .debug_utils_set_object_name(device.handle.handle(), &name_info)
-                .expect("Error setting debug name for buffer")
-        };
+        device.set_debug_name(
+            vk::Handle::as_raw(self.buffer),
+            vk::ObjectType::BUFFER,
+            name,
+        );
     }
 }

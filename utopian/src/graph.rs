@@ -554,10 +554,9 @@ impl Graph {
         self.resources
             .textures
             .iter()
-            .position(|iter| iter.texture.debug_name == debug_name)
+            .position(|iter| iter.texture.image.debug_name == debug_name)
             .unwrap_or_else(|| {
-                let mut texture = crate::Texture::create(&device, None, image_desc);
-                texture.set_debug_name(device, debug_name);
+                let texture = crate::Texture::create(&device, None, image_desc, debug_name);
 
                 self.resources.textures.push(GraphTexture {
                     texture,

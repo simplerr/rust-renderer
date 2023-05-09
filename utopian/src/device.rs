@@ -325,4 +325,18 @@ impl Device {
             );
         }
     }
+
+    pub fn set_debug_name(&self, object_handle: u64, object_type: vk::ObjectType, name: &str) {
+        let name = std::ffi::CString::new(name).unwrap();
+        let name_info = vk::DebugUtilsObjectNameInfoEXT::builder()
+            .object_handle(object_handle)
+            .object_name(&name)
+            .object_type(object_type)
+            .build();
+        unsafe {
+            self.debug_utils
+                .debug_utils_set_object_name(self.handle.handle(), &name_info)
+                .expect("Error setting debug name for buffer")
+        };
+    }
 }
