@@ -413,6 +413,15 @@ impl Application {
                             &self.camera,
                         );
 
+                        // utopian::renderers::build_minimal_forward_render_graph(
+                        //     &mut self.graph,
+                        //     &self.base.device,
+                        //     &self.base,
+                        //     &self.renderer,
+                        //     &self.view_data,
+                        //     &self.camera,
+                        // );
+
                         // Todo: should be possible to trigger this when needed
                         self.renderer.need_environment_map_update = false;
                     }

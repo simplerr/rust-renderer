@@ -231,3 +231,62 @@ pub fn build_path_tracing_render_graph(
         )
         .build(&device, graph);
 }
+
+pub fn build_minimal_forward_render_graph(
+    graph: &mut crate::Graph,
+    device: &crate::Device,
+    base: &crate::VulkanBase,
+    renderer: &crate::Renderer,
+    view_data: &crate::ViewUniformData,
+    camera: &crate::Camera,
+) {
+    puffin::profile_function!();
+
+    let width = base.surface_resolution.width;
+    let height = base.surface_resolution.height;
+    let rgba32_fmt = vk::Format::R32G32B32A32_SFLOAT;
+
+    // Forward & deferred output textures
+    let forward_output = graph.create_texture(
+        "forward_output",
+        device,
+        ImageDesc::new_2d(width, height, rgba32_fmt),
+    );
+    let shadow_map = graph.create_texture(
+        "shadow_map",
+        device,
+        ImageDesc::new_2d_array(4096, 4096, 4, vk::Format::D32_SFLOAT)
+            .aspect(vk::ImageAspectFlags::DEPTH)
+            .usage(
+                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT
+                    | vk::ImageUsageFlags::TRANSFER_DST
+                    | vk::ImageUsageFlags::SAMPLED,
+            ),
+    );
+
+    let (cascade_matrices, cascade_depths) = crate::renderers::shadow::setup_shadow_pass(
+        device,
+        graph,
+        shadow_map,
+        view_data.sun_dir,
+        camera,
+        view_data.shadows_enabled == 1,
+    );
+
+    crate::renderers::forward::setup_forward_pass(
+        &device,
+        graph,
+        &base,
+        forward_output,
+        shadow_map,
+        ([glam::Mat4::IDENTITY; 4 as usize], [0.0; 4 as usize]),
+    );
+
+    crate::renderers::present::setup_present_pass(
+        &device,
+        graph,
+        forward_output,
+        forward_output,
+        shadow_map,
+    );
+}
