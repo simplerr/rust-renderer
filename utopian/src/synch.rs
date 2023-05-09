@@ -29,6 +29,7 @@ pub fn image_pipeline_barrier(
     image: &Image,
     prev_access: vk_sync::AccessType,
     next_access: vk_sync::AccessType,
+    discard_contents: bool,
 ) -> vk_sync::AccessType {
     vk_sync::cmd::pipeline_barrier(
         &device.handle,
@@ -40,14 +41,14 @@ pub fn image_pipeline_barrier(
             next_accesses: &[next_access],
             previous_layout: vk_sync::ImageLayout::Optimal,
             next_layout: vk_sync::ImageLayout::Optimal,
-            discard_contents: false,
-            src_queue_family_index: 0,
-            dst_queue_family_index: 0,
+            discard_contents,
+            src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
+            dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
             image: image.image, // Todo transition all images
             range: vk::ImageSubresourceRange::builder()
                 .aspect_mask(image.desc.aspect_flags)
-                .layer_count(image.desc.array_layers)
-                .level_count(image.desc.mip_levels)
+                .layer_count(vk::REMAINING_ARRAY_LAYERS)
+                .level_count(vk::REMAINING_MIP_LEVELS)
                 .build(),
         }],
     );

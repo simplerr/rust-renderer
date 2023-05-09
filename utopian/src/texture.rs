@@ -44,7 +44,14 @@ impl Texture {
         image.set_debug_name(device, debug_name);
 
         device.execute_and_submit(|device, cb| {
-            image.transition_layout(device, cb, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
+            crate::synch::image_pipeline_barrier(
+                &device,
+                cb,
+                &image,
+                vk_sync::AccessType::General,
+                vk_sync::AccessType::TransferWrite,
+                true,
+            );
 
             if let Some(pixels) = pixels {
                 let staging_buffer = Buffer::new(
@@ -64,7 +71,14 @@ impl Texture {
                     vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL,
                 );
             } else {
-                image.transition_layout(device, cb, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+                crate::synch::image_pipeline_barrier(
+                    &device,
+                    cb,
+                    &image,
+                    vk_sync::AccessType::TransferWrite,
+                    vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer,
+                    false,
+                );
             }
         });
 

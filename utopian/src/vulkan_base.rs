@@ -339,6 +339,7 @@ impl VulkanBase {
                         &present_image,
                         vk_sync::AccessType::Nothing,
                         vk_sync::AccessType::Present,
+                        true,
                     );
                 }
 
@@ -348,6 +349,7 @@ impl VulkanBase {
                     &depth_image,
                     vk_sync::AccessType::Nothing,
                     vk_sync::AccessType::DepthStencilAttachmentWrite,
+                    true,
                 );
             });
 

@@ -758,6 +758,7 @@ impl Graph {
                             &self.resources.textures[read.texture].texture.image,
                             self.resources.textures[read.texture].prev_access,
                             read.access_type,
+                            false,
                         );
 
                         self.resources
@@ -829,6 +830,7 @@ impl Graph {
                     } else {
                         vk_sync::AccessType::ColorAttachmentWrite
                     },
+                    false,
                 );
 
                 self.resources
@@ -845,6 +847,7 @@ impl Graph {
                     &present_image[0],
                     vk_sync::AccessType::Present,
                     vk_sync::AccessType::ColorAttachmentWrite,
+                    false,
                 );
             }
 
@@ -1019,6 +1022,7 @@ impl Graph {
                     &self.resources.textures[src].texture.image,
                     self.resources.textures[src].prev_access,
                     vk_sync::AccessType::TransferRead,
+                    false,
                 );
                 self.resources.textures.get_mut(src).unwrap().prev_access = next_access;
 
@@ -1028,6 +1032,7 @@ impl Graph {
                     &self.resources.textures[dst].texture.image,
                     self.resources.textures[dst].prev_access,
                     vk_sync::AccessType::TransferWrite,
+                    false,
                 );
                 self.resources.textures.get_mut(dst).unwrap().prev_access = next_access;
 
