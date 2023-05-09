@@ -393,13 +393,21 @@ impl PassBuilder {
         }
 
         if self.uniforms.len() != 0 {
-            pass.uniform_buffer.replace(graph.create_buffer(
-                &self.uniforms.keys().next().unwrap(),
-                device,
-                self.uniforms.values().next().unwrap().1.size as u64,
-                vk::BufferUsageFlags::UNIFORM_BUFFER,
-                gpu_allocator::MemoryLocation::CpuToGpu,
-            ));
+            pass.uniform_buffer.replace(
+                graph.create_buffer(
+                    // Todo: Hack: this is very bad just to get unique buffers for every frame_index
+                    format!(
+                        "{}_frame_{}",
+                        self.uniforms.keys().next().unwrap(),
+                        graph.current_frame
+                    )
+                    .as_str(),
+                    device,
+                    self.uniforms.values().next().unwrap().1.size as u64,
+                    vk::BufferUsageFlags::UNIFORM_BUFFER,
+                    gpu_allocator::MemoryLocation::CpuToGpu,
+                ),
+            );
         }
 
         graph.passes[graph.current_frame].push(pass);
