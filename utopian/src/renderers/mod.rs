@@ -1,6 +1,6 @@
 use ash::vk;
 
-use crate::image::ImageDesc;
+use crate::{image::ImageDesc, TextureId};
 
 pub mod atmosphere;
 pub mod deferred;
@@ -11,6 +11,50 @@ pub mod marching_cubes;
 pub mod present;
 pub mod shadow;
 pub mod ssao;
+
+pub fn create_gbuffer_textures(
+    graph: &mut crate::Graph,
+    device: &crate::Device,
+    width: u32,
+    height: u32,
+) -> (TextureId, TextureId, TextureId, TextureId) {
+    (
+        graph.create_texture(
+            "gbuffer_position",
+            device,
+            ImageDesc::new_2d(width, height, vk::Format::R32G32B32A32_SFLOAT),
+        ),
+        graph.create_texture(
+            "gbuffer_normal",
+            device,
+            ImageDesc::new_2d(width, height, vk::Format::R32G32B32A32_SFLOAT),
+        ),
+        graph.create_texture(
+            "gbuffer_albedo",
+            device,
+            ImageDesc::new_2d(width, height, vk::Format::R8G8B8A8_UNORM),
+        ),
+        graph.create_texture(
+            "gbuffer_pbr",
+            device,
+            ImageDesc::new_2d(width, height, vk::Format::R32G32B32A32_SFLOAT),
+        ),
+    )
+}
+
+pub fn create_shadowmap_texture(graph: &mut crate::Graph, device: &crate::Device) -> TextureId {
+    graph.create_texture(
+        "shadow_map",
+        device,
+        ImageDesc::new_2d_array(4096, 4096, 4, vk::Format::D32_SFLOAT)
+            .aspect(vk::ImageAspectFlags::DEPTH)
+            .usage(
+                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT
+                    | vk::ImageUsageFlags::TRANSFER_DST
+                    | vk::ImageUsageFlags::SAMPLED,
+            ),
+    )
+}
 
 pub fn build_render_graph(
     graph: &mut crate::Graph,
@@ -24,54 +68,21 @@ pub fn build_render_graph(
 
     let width = base.surface_resolution.width;
     let height = base.surface_resolution.height;
-    let rgba8_format = vk::Format::R8G8B8A8_UNORM;
-    let rgba32_fmt = vk::Format::R32G32B32A32_SFLOAT;
 
-    // G-buffer textures
-    let gbuffer_position = graph.create_texture(
-        "gbuffer_position",
-        device,
-        ImageDesc::new_2d(width, height, rgba32_fmt),
-    );
-    let gbuffer_normal = graph.create_texture(
-        "gbuffer_normal",
-        device,
-        ImageDesc::new_2d(width, height, rgba32_fmt),
-    );
-    let gbuffer_albedo = graph.create_texture(
-        "gbuffer_albedo",
-        device,
-        ImageDesc::new_2d(width, height, rgba8_format),
-    );
-    let gbuffer_pbr = graph.create_texture(
-        "gbuffer_pbr",
-        device,
-        ImageDesc::new_2d(width, height, rgba32_fmt),
-    );
+    let (gbuffer_position, gbuffer_normal, gbuffer_albedo, gbuffer_pbr) =
+        create_gbuffer_textures(graph, device, width, height);
 
-    // Shadow map
-    let shadow_map = graph.create_texture(
-        "shadow_map",
-        device,
-        ImageDesc::new_2d_array(4096, 4096, 4, vk::Format::D32_SFLOAT)
-            .aspect(vk::ImageAspectFlags::DEPTH)
-            .usage(
-                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT
-                    | vk::ImageUsageFlags::TRANSFER_DST
-                    | vk::ImageUsageFlags::SAMPLED,
-            ),
-    );
+    let shadow_map = create_shadowmap_texture(graph, device);
 
-    // Forward & deferred output textures
     let forward_output = graph.create_texture(
         "forward_output",
         device,
-        ImageDesc::new_2d(width, height, rgba32_fmt),
+        ImageDesc::new_2d(width, height, vk::Format::R32G32B32A32_SFLOAT),
     );
     let deferred_output = graph.create_texture(
         "deferred_output",
         device,
-        ImageDesc::new_2d(width, height, rgba32_fmt),
+        ImageDesc::new_2d(width, height, vk::Format::R32G32B32A32_SFLOAT),
     );
 
     let ssao_output = graph.create_texture(
@@ -165,18 +176,6 @@ pub fn build_render_graph(
         deferred_output,
         shadow_map,
     );
-
-    // let forward_renderer = crate::renderers::forward::ForwardRenderer::new(
-    //     &device,
-    //     graph,
-    //     &base,
-    //     &renderer,
-    //     forward_output,
-    // );
-
-    // forward_renderer.render(device, graph, base, renderer, forward_output);
-
-    //graph
 }
 
 pub fn build_path_tracing_render_graph(
@@ -232,11 +231,26 @@ pub fn build_path_tracing_render_graph(
         .build(&device, graph);
 }
 
-pub fn build_minimal_forward_render_graph(
+pub fn build_hybrid_render_graph(
     graph: &mut crate::Graph,
     device: &crate::Device,
     base: &crate::VulkanBase,
     renderer: &crate::Renderer,
+    view_data: &crate::ViewUniformData,
+    camera: &crate::Camera,
+) {
+    puffin::profile_function!();
+
+    let width = base.surface_resolution.width;
+    let height = base.surface_resolution.height;
+
+    // Todo
+}
+
+pub fn build_minimal_forward_render_graph(
+    graph: &mut crate::Graph,
+    device: &crate::Device,
+    base: &crate::VulkanBase,
     view_data: &crate::ViewUniformData,
     camera: &crate::Camera,
 ) {
@@ -252,17 +266,7 @@ pub fn build_minimal_forward_render_graph(
         device,
         ImageDesc::new_2d(width, height, rgba32_fmt),
     );
-    let shadow_map = graph.create_texture(
-        "shadow_map",
-        device,
-        ImageDesc::new_2d_array(4096, 4096, 4, vk::Format::D32_SFLOAT)
-            .aspect(vk::ImageAspectFlags::DEPTH)
-            .usage(
-                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT
-                    | vk::ImageUsageFlags::TRANSFER_DST
-                    | vk::ImageUsageFlags::SAMPLED,
-            ),
-    );
+    let shadow_map = create_shadowmap_texture(graph, device);
 
     let (cascade_matrices, cascade_depths) = crate::renderers::shadow::setup_shadow_pass(
         device,
@@ -279,7 +283,7 @@ pub fn build_minimal_forward_render_graph(
         &base,
         forward_output,
         shadow_map,
-        ([glam::Mat4::IDENTITY; 4 as usize], [0.0; 4 as usize]),
+        (cascade_matrices, cascade_depths),
     );
 
     crate::renderers::present::setup_present_pass(

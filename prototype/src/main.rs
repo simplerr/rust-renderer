@@ -2,6 +2,14 @@ use ash::vk;
 use glam::{Mat4, Vec3};
 use prototype::ui::U32Checkbox;
 
+#[derive(Clone, Debug, Copy, PartialEq)]
+enum RenderGraphMode {
+    PathTraced,
+    Hybrid,
+    Rasterized,
+    Minimal,
+}
+
 struct Application {
     base: utopian::VulkanBase,
     graph: utopian::Graph,
@@ -11,10 +19,10 @@ struct Application {
     renderer: utopian::Renderer,
     ui: prototype::ui::Ui,
     fps_timer: utopian::FpsTimer,
-    raytracing_enabled: bool,
     shader_watcher: utopian::DirectoryWatcher,
     current_frame: usize,      // Should be in VulkanBase
     num_frames_in_flight: u32, // Should be in VulkanBase
+    render_graph_mode: RenderGraphMode,
 }
 
 impl Application {
@@ -99,10 +107,14 @@ impl Application {
             renderer,
             ui,
             fps_timer: utopian::FpsTimer::new(),
-            raytracing_enabled: raytracing_supported && false,
             shader_watcher,
             current_frame: 0,
             num_frames_in_flight,
+            render_graph_mode: if raytracing_supported {
+                RenderGraphMode::PathTraced
+            } else {
+                RenderGraphMode::Rasterized
+            },
         }
     }
 
@@ -170,6 +182,7 @@ impl Application {
         selected_transform: &mut Mat4,
         need_environment_map_update: &mut bool,
         num_frames_in_flight: &mut u32,
+        render_graph_mode: &mut RenderGraphMode,
     ) {
         egui::Window::new("rust-renderer 0.0.1")
             .resizable(true)
@@ -232,6 +245,26 @@ impl Application {
                 });
                 ui.horizontal(|ui| {
                     egui::Grid::new("settings_grid").show(ui, |ui| {
+                        let render_graph_mode_options =
+                            vec!["PathTraced", "Hybrid", "Rasterized", "Minimal"];
+                        let current_mode = format!("{:?}", *render_graph_mode);
+                        ui.label("Render Graph Mode:");
+                        egui::ComboBox::from_id_source("render_graph_mode_dropdown")
+                            .selected_text(current_mode)
+                            .show_ui(ui, |ui| {
+                                for (i, option) in render_graph_mode_options.iter().enumerate() {
+                                    if ui.selectable_label(false, *option).clicked() {
+                                        *render_graph_mode = match i {
+                                            0 => RenderGraphMode::PathTraced,
+                                            1 => RenderGraphMode::Hybrid,
+                                            2 => RenderGraphMode::Rasterized,
+                                            3 => RenderGraphMode::Minimal,
+                                            _ => panic!("Invalid render graph mode option index."),
+                                        };
+                                    }
+                                }
+                            });
+                        ui.end_row();
                         let options = vec!["1", "2", "3"];
                         ui.label("Frames in flight:");
                         egui::ComboBox::from_id_source("dropdown")
@@ -307,6 +340,7 @@ impl Application {
                 &mut self.renderer.instances[1].transform,
                 &mut self.renderer.need_environment_map_update,
                 &mut self.num_frames_in_flight,
+                &mut self.render_graph_mode,
             );
 
             self.view_data.sun_dir = self.view_data.sun_dir.normalize();
@@ -318,10 +352,19 @@ impl Application {
                 self.view_data.total_samples = 0;
             }
 
-            if input.key_pressed(winit::event::VirtualKeyCode::V) {
-                self.raytracing_enabled =
-                    !self.raytracing_enabled && self.base.device.raytracing_supported;
+            if input.key_pressed(winit::event::VirtualKeyCode::Key1)
+                && self.base.device.raytracing_supported
+            {
+                self.render_graph_mode = RenderGraphMode::PathTraced;
                 self.view_data.total_samples = 0;
+            } else if input.key_pressed(winit::event::VirtualKeyCode::Key2)
+                && self.base.device.raytracing_supported
+            {
+                self.render_graph_mode = RenderGraphMode::Hybrid;
+            } else if input.key_pressed(winit::event::VirtualKeyCode::Key3) {
+                self.render_graph_mode = RenderGraphMode::Rasterized;
+            } else if input.key_pressed(winit::event::VirtualKeyCode::Key4) {
+                self.render_graph_mode = RenderGraphMode::Minimal;
             }
 
             if let Some(path) = self.shader_watcher.check_if_modification() {
@@ -374,7 +417,7 @@ impl Application {
             self.view_data.eye_pos = self.camera.get_position();
             self.view_data.time = self.fps_timer.elapsed_seconds_from_start();
 
-            if self.raytracing_enabled {
+            if self.render_graph_mode == RenderGraphMode::PathTraced {
                 self.view_data.total_samples += self.view_data.samples_per_frame;
             }
 
@@ -397,13 +440,13 @@ impl Application {
                     self.graph.new_frame(self.current_frame);
                     self.graph.clear(&self.base.device);
 
-                    if self.raytracing_enabled {
+                    if self.render_graph_mode == RenderGraphMode::PathTraced {
                         utopian::renderers::build_path_tracing_render_graph(
                             &mut self.graph,
                             &self.base.device,
                             &self.base,
                         );
-                    } else {
+                    } else if self.render_graph_mode == RenderGraphMode::Rasterized {
                         utopian::renderers::build_render_graph(
                             &mut self.graph,
                             &self.base.device,
@@ -412,18 +455,17 @@ impl Application {
                             &self.view_data,
                             &self.camera,
                         );
-
-                        // utopian::renderers::build_minimal_forward_render_graph(
-                        //     &mut self.graph,
-                        //     &self.base.device,
-                        //     &self.base,
-                        //     &self.renderer,
-                        //     &self.view_data,
-                        //     &self.camera,
-                        // );
-
-                        // Todo: should be possible to trigger this when needed
                         self.renderer.need_environment_map_update = false;
+                    } else if self.render_graph_mode == RenderGraphMode::Hybrid {
+                        self.renderer.need_environment_map_update = false;
+                    } else if self.render_graph_mode == RenderGraphMode::Minimal {
+                        utopian::renderers::build_minimal_forward_render_graph(
+                            &mut self.graph,
+                            &self.base.device,
+                            &self.base,
+                            &self.view_data,
+                            &self.camera,
+                        );
                     }
 
                     self.graph.prepare(device, &self.renderer);
