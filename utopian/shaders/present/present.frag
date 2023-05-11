@@ -13,7 +13,6 @@ layout (location = 0) out vec4 out_color;
 
 layout (set = 2, binding = 0) uniform sampler2D in_forward_texture;
 layout (set = 2, binding = 1) uniform sampler2D in_deferred_texture;
-layout (set = 2, binding = 2) uniform sampler2DArray in_shadow_map;
 
 layout(std140, set = 3, binding = 0) uniform FXAA_settings
 {
@@ -48,21 +47,6 @@ void main() {
     /* Tonemapping */
     // color = color / (color + vec3(1.0));
     color = linearToSrgb(color);
-
-#ifdef DEBUG_SHADOW_MAP
-    if (uv.x > 0.75 && uv.y < 0.25) {
-        color = texture(in_shadow_map, vec3(in_uv * 4.0, 0.0)).rgb;
-    }
-    else if (uv.x > 0.75 && uv.y < 0.50) {
-        color = texture(in_shadow_map, vec3(in_uv * 4.0, 1.0)).rgb;
-    }
-    else if (uv.x > 0.75 && uv.y < 0.75) {
-        color = texture(in_shadow_map, vec3(in_uv * 4.0, 2.0)).rgb;
-    }
-    else if (uv.x > 0.75 && uv.y < 1.0) {
-        color = texture(in_shadow_map, vec3(in_uv * 4.0, 3.0)).rgb;
-    }
-#endif
 
     out_color = vec4(color, 1.0);
 }

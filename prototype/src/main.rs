@@ -113,7 +113,7 @@ impl Application {
             render_graph_mode: if raytracing_supported {
                 RenderGraphMode::PathTraced
             } else {
-                RenderGraphMode::Rasterized
+                RenderGraphMode::Minimal
             },
         }
     }

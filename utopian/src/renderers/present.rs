@@ -5,7 +5,6 @@ pub fn setup_present_pass(
     graph: &mut crate::Graph,
     forward_output: crate::TextureId,
     deferred_output: crate::TextureId,
-    shadow_map: crate::TextureId,
 ) {
     puffin::profile_function!();
 
@@ -20,7 +19,6 @@ pub fn setup_present_pass(
         )
         .read(forward_output)
         .read(deferred_output)
-        .read(shadow_map)
         .uniforms(
             "settings_fxaa",
             &(glam::Vec4::new(1.0, 0.0, fxaa_threshold, 0.0)),

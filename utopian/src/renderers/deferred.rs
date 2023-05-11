@@ -14,6 +14,7 @@ pub fn setup_deferred_pass(
     gbuffer_albedo: crate::TextureId,
     gbuffer_pbr: crate::TextureId,
     shadow_map: crate::TextureId,
+    rt_shadows: crate::TextureId,
     ssao_output: crate::TextureId,
     irradiance_map: crate::TextureId,
     specular_map: crate::TextureId,
@@ -35,6 +36,7 @@ pub fn setup_deferred_pass(
         .read(gbuffer_albedo)
         .read(gbuffer_pbr)
         .read(shadow_map)
+        .read(rt_shadows)
         .read(ssao_output)
         .read(irradiance_map)
         .read(specular_map)

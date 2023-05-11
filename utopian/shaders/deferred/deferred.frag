@@ -16,10 +16,11 @@ layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_normal;
 layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_albedo;
 layout (set = 2, binding = 3) uniform sampler2D in_gbuffer_pbr;
 layout (set = 2, binding = 4) uniform sampler2DArray in_shadow_map;
-layout (set = 2, binding = 5) uniform sampler2D in_ssao;
-layout (set = 2, binding = 6) uniform samplerCube in_irradiance_map;
-layout (set = 2, binding = 7) uniform samplerCube in_specular_map;
-layout (set = 2, binding = 8) uniform sampler2D in_brdf_lut;
+layout (set = 2, binding = 5) uniform sampler2D in_rt_shadows;
+layout (set = 2, binding = 6) uniform sampler2D in_ssao;
+layout (set = 2, binding = 7) uniform samplerCube in_irradiance_map;
+layout (set = 2, binding = 8) uniform samplerCube in_specular_map;
+layout (set = 2, binding = 9) uniform sampler2D in_brdf_lut;
 
 // Todo: set=2 should be dedicated to input textures but the shader reflection
 // does not support gaps in the descriptor sets
@@ -129,6 +130,10 @@ void main() {
         #ifdef CASCADE_DEBUG
             color.rgb *= cascade_index_to_debug_color(cascadeIndex);
         #endif
+    }
+    else {
+        float shadow = texture(in_rt_shadows, uv).r;
+        color = color * max(shadow, 0.3);
     }
 
     if (view.ssao_enabled == 1) {

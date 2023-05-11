@@ -9,6 +9,7 @@ pub mod gbuffer;
 pub mod ibl;
 pub mod marching_cubes;
 pub mod present;
+pub mod rt_shadows;
 pub mod shadow;
 pub mod ssao;
 
@@ -100,6 +101,15 @@ pub fn build_render_graph(
         view_data.shadows_enabled == 1,
     );
 
+    let rt_shadows = crate::renderers::rt_shadows::setup_rt_shadows_pass(
+        device,
+        graph,
+        gbuffer_position,
+        gbuffer_normal,
+        width,
+        height,
+    );
+
     crate::renderers::gbuffer::setup_gbuffer_pass(
         &device,
         graph,
@@ -139,6 +149,7 @@ pub fn build_render_graph(
         gbuffer_albedo,
         gbuffer_pbr,
         shadow_map,
+        rt_shadows,
         ssao_output,
         irradiance_map,
         specular_map,
@@ -169,13 +180,7 @@ pub fn build_render_graph(
         true,
     );
 
-    crate::renderers::present::setup_present_pass(
-        &device,
-        graph,
-        forward_output,
-        deferred_output,
-        shadow_map,
-    );
+    crate::renderers::present::setup_present_pass(&device, graph, forward_output, deferred_output);
 }
 
 pub fn build_path_tracing_render_graph(
@@ -286,11 +291,5 @@ pub fn build_minimal_forward_render_graph(
         (cascade_matrices, cascade_depths),
     );
 
-    crate::renderers::present::setup_present_pass(
-        &device,
-        graph,
-        forward_output,
-        forward_output,
-        shadow_map,
-    );
+    crate::renderers::present::setup_present_pass(&device, graph, forward_output, forward_output);
 }
