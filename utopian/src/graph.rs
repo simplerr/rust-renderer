@@ -690,6 +690,9 @@ impl Graph {
             if desc.compute_path.map_or(false, |p| path.ends_with(&p))
                 || desc.vertex_path.map_or(false, |p| path.ends_with(&p))
                 || desc.fragment_path.map_or(false, |p| path.ends_with(&p))
+                || desc.raygen_path.map_or(false, |p| path.ends_with(&p))
+                || desc.miss_path.map_or(false, |p| path.ends_with(&p))
+                || desc.hit_path.map_or(false, |p| path.ends_with(&p))
             {
                 pipeline.recreate_pipeline(device, bindless_descriptor_set_layout);
             }
