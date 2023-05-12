@@ -3,11 +3,10 @@
 
 #include "include/atmosphere.glsl"
 #include "include/view.glsl"
-#include "payload.glsl"
 
-layout(location = 0) rayPayloadInEXT Payload rayPayload;
+layout(location = 0) rayPayloadInEXT bool rayPayload;
 
 void main()
 {
-   rayPayload = Payload(vec4(-1), vec4(0.0), vec4(0.0), 0);
+   rayPayload =  false;
 }

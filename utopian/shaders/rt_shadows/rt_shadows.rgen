@@ -3,15 +3,13 @@
 
 #include "include/bindless.glsl"
 #include "include/view.glsl"
-#include "payload.glsl"
 
 layout(set = 2, binding = 0) uniform accelerationStructureEXT topLevelAS;
 layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_position;
 layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_normal;
 layout(set = 2, binding = 3, rgba8) uniform image2D output_image;
 
-layout(location = 0) rayPayloadEXT Payload rayPayload;
-layout(location = 1) rayPayloadEXT Payload shadowRayPayload;
+layout(location = 0) rayPayloadEXT bool rayPayload;
 
 // Clever offset_ray function from Ray Tracing Gems chapter 6
 // Offsets the ray origin from current position p, along normal n (which must be geometric normal)
@@ -50,10 +48,11 @@ void main()
    float tmin = 0.001;
    float tmax = 10000.0;
 
-   // Todo: shall use gl_RayFlagsSkipClosestHitShaderEXT and gl_RayFlagsTerminateOnFirstHitEXT
-   traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin.xyz, tmin, light_dir, tmax, 0);
+   rayPayload = true;
+   traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsTerminateOnFirstHitEXT,
+               0xff, 0, 0, 0, origin.xyz, tmin, light_dir, tmax, 0);
 
-   if (rayPayload.colorDistance.w != -1) {
+   if (rayPayload) {
       pixelColor = vec3(0.0);
    }
 
