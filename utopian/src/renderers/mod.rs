@@ -9,6 +9,7 @@ pub mod gbuffer;
 pub mod ibl;
 pub mod marching_cubes;
 pub mod present;
+pub mod rt_reflections;
 pub mod rt_shadows;
 pub mod shadow;
 pub mod ssao;
@@ -120,6 +121,16 @@ pub fn build_render_graph(
         gbuffer_pbr,
     );
 
+    let rt_reflections = crate::renderers::rt_reflections::setup_rt_reflections_pass(
+        device,
+        graph,
+        gbuffer_position,
+        gbuffer_normal,
+        gbuffer_pbr,
+        width,
+        height,
+    );
+
     crate::renderers::ssao::setup_ssao_pass(
         &device,
         graph,
@@ -150,6 +161,7 @@ pub fn build_render_graph(
         gbuffer_pbr,
         shadow_map,
         rt_shadows,
+        rt_reflections,
         ssao_output,
         irradiance_map,
         specular_map,
