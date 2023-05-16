@@ -76,11 +76,6 @@ pub fn build_render_graph(
 
     let shadow_map = create_shadowmap_texture(graph, device);
 
-    let forward_output = graph.create_texture(
-        "forward_output",
-        device,
-        ImageDesc::new_2d(width, height, vk::Format::R32G32B32A32_SFLOAT),
-    );
     let deferred_output = graph.create_texture(
         "deferred_output",
         device,
@@ -148,15 +143,6 @@ pub fn build_render_graph(
         view_data.ssao_enabled == 1,
     );
 
-    crate::renderers::forward::setup_forward_pass(
-        &device,
-        graph,
-        &base,
-        forward_output,
-        shadow_map,
-        (cascade_matrices, cascade_depths),
-    );
-
     crate::renderers::deferred::setup_deferred_pass(
         &device,
         graph,
@@ -197,7 +183,7 @@ pub fn build_render_graph(
         true,
     );
 
-    crate::renderers::present::setup_present_pass(&device, graph, forward_output, deferred_output);
+    crate::renderers::present::setup_present_pass(&device, graph, deferred_output);
 }
 
 pub fn build_path_tracing_render_graph(
@@ -308,5 +294,5 @@ pub fn build_minimal_forward_render_graph(
         (cascade_matrices, cascade_depths),
     );
 
-    crate::renderers::present::setup_present_pass(&device, graph, forward_output, forward_output);
+    crate::renderers::present::setup_present_pass(&device, graph, forward_output);
 }

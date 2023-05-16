@@ -3,8 +3,7 @@ use crate::PipelineDesc;
 pub fn setup_present_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
-    forward_output: crate::TextureId,
-    deferred_output: crate::TextureId,
+    color_output: crate::TextureId,
 ) {
     puffin::profile_function!();
 
@@ -17,8 +16,7 @@ pub fn setup_present_pass(
                 .vertex_path("utopian/shaders/common/fullscreen.vert")
                 .fragment_path("utopian/shaders/present/present.frag"),
         )
-        .read(forward_output)
-        .read(deferred_output)
+        .read(color_output)
         .uniforms(
             "settings_fxaa",
             &(glam::Vec4::new(1.0, 0.0, fxaa_threshold, 0.0)),

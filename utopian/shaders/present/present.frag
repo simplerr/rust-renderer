@@ -11,8 +11,7 @@ layout (location = 0) in vec2 in_uv;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform sampler2D in_forward_texture;
-layout (set = 2, binding = 1) uniform sampler2D in_deferred_texture;
+layout (set = 2, binding = 0) uniform sampler2D in_color_texture;
 
 layout(std140, set = 3, binding = 0) uniform FXAA_settings
 {
@@ -26,22 +25,11 @@ void main() {
 
     vec3 color = vec3(0.0);
 
-    // Just for testing
-    if (false && uv.x < 0.5) {
-        if (view.fxaa_enabled == 1) {
-            color = fxaa(in_forward_texture, uv);
-        }
-        else {
-            color = texture(in_forward_texture, uv).rgb;
-        }
+    if (view.fxaa_enabled == 1) {
+        color = fxaa(in_color_texture, uv);
     }
     else {
-        if (view.fxaa_enabled == 1) {
-            color = fxaa(in_deferred_texture, uv);
-        }
-        else {
-            color = texture(in_deferred_texture, uv).rgb;
-        }
+        color = texture(in_color_texture, uv).rgb;
     }
 
     /* Tonemapping */
