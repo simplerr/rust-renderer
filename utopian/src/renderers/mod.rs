@@ -121,12 +121,18 @@ pub fn build_render_graph(
         gbuffer_pbr,
     );
 
+    let (environment_map, irradiance_map, specular_map, brdf_lut) =
+        crate::renderers::ibl::setup_cubemap_pass(&device, graph, renderer);
+
     let rt_reflections = crate::renderers::rt_reflections::setup_rt_reflections_pass(
         device,
         graph,
         gbuffer_position,
         gbuffer_normal,
         gbuffer_pbr,
+        irradiance_map,
+        specular_map,
+        brdf_lut,
         width,
         height,
     );
@@ -139,9 +145,6 @@ pub fn build_render_graph(
         ssao_output,
         view_data.ssao_enabled == 1,
     );
-
-    let (environment_map, irradiance_map, specular_map, brdf_lut) =
-        crate::renderers::ibl::setup_cubemap_pass(&device, graph, renderer);
 
     crate::renderers::forward::setup_forward_pass(
         &device,

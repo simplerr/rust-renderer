@@ -74,6 +74,7 @@ void main() {
     pixel.normal = normal;
     pixel.metallic = metallic;
     pixel.roughness = roughness;
+    pixel.occlusion = occlusion;
 
     /* Direct lighting */
     vec3 Lo = vec3(0.0);

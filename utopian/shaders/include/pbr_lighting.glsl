@@ -33,6 +33,7 @@ struct PixelParams
    vec3 F0;
    float metallic;
    float roughness;
+   float occlusion;
 };
 
 vec3 surfaceShading(const PixelParams pixel, const Light light, const vec3 eyePos, float lightColorFactor)
@@ -94,4 +95,33 @@ vec3 surfaceShading(const PixelParams pixel, const Light light, const vec3 eyePo
    color = (kD * pixel.baseColor / PI + specular) * radiance * NdotL;
 
    return color;
+}
+
+vec3 imageBasedLighting(const PixelParams pixel, const vec3 eyePos, samplerCube in_irradiance_map,
+                        samplerCube in_specular_map, sampler2D in_brdf_lut)
+{
+   vec3 V = normalize(eyePos - pixel.position);
+   vec3 R = -reflect(V, pixel.normal); // Note: -1 indicates that the specular cubemp not being as expected
+
+   vec3 F0 = vec3(0.04);
+   F0 = mix(F0, pixel.baseColor, pixel.metallic);
+
+   vec3 F = fresnelSchlickRoughness(max(dot(pixel.normal, V), 0.0), F0, pixel.roughness);
+   vec3 kS = F;
+   vec3 kD = 1.0 - kS;
+   kD *= 1.0 - pixel.metallic;
+
+   vec3 irradiance = texture(in_irradiance_map, pixel.normal).rgb;
+   vec3 diffuse    = irradiance * pixel.baseColor;
+
+   // Sample both the pre-filter map and the BRDF lut and combine them together as per the Split-Sum approximation to get the IBL specular part.
+   // Note: 1 - roughness, same as Vulkan-glTF-PBR but differs from LearnOpenGL
+   const float MAX_REFLECTION_LOD = 7.0;
+   vec3 prefilteredColor = textureLod(in_specular_map, R, pixel.roughness * MAX_REFLECTION_LOD).rgb;
+   vec2 brdf = texture(in_brdf_lut, vec2(max(dot(pixel.normal, V), 0.0), 1.0f - pixel.roughness)).rg;
+   vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+
+   vec3 ambient = (kD * diffuse + specular) * pixel.occlusion;
+
+   return ambient;
 }

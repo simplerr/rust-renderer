@@ -3,36 +3,18 @@
 
 #include "include/bindless.glsl"
 #include "include/view.glsl"
-#include "payload.glsl"
+#include "include/pbr_lighting.glsl"
 
 layout(set = 2, binding = 0) uniform accelerationStructureEXT topLevelAS;
 layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_position;
 layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_normal;
 layout (set = 2, binding = 3) uniform sampler2D in_gbuffer_pbr;
-layout(set = 2, binding = 4, rgba8) uniform image2D output_image;
+layout (set = 2, binding = 4) uniform samplerCube in_irradiance_map;
+layout (set = 2, binding = 5) uniform samplerCube in_specular_map;
+layout (set = 2, binding = 6) uniform sampler2D in_brdf_lut;
+layout(set = 2, binding = 7, rgba8) uniform image2D output_image;
 
-layout(location = 0) rayPayloadEXT Payload rayPayload;
-
-// Clever offset_ray function from Ray Tracing Gems chapter 6
-// Offsets the ray origin from current position p, along normal n (which must be geometric normal)
-// so that no self-intersection can occur.
-vec3 offsetRay(const vec3 p, const vec3 n)
-{
-   const float origin = 1.0f / 32.0f;
-   const float float_scale = 1.0f / 65536.0f;
-   const float int_scale = 256.0f;
-
-   ivec3 of_i = ivec3(int_scale * n.x, int_scale * n.y, int_scale * n.z);
-
-   vec3 p_i = vec3(
-      intBitsToFloat(floatBitsToInt(p.x) + ((p.x < 0) ? -of_i.x : of_i.x)),
-      intBitsToFloat(floatBitsToInt(p.y) + ((p.y < 0) ? -of_i.y : of_i.y)),
-      intBitsToFloat(floatBitsToInt(p.z) + ((p.z < 0) ? -of_i.z : of_i.z)));
-
-   return vec3(abs(p.x) < origin ? p.x + float_scale * n.x : p_i.x,
-      abs(p.y) < origin ? p.y + float_scale * n.y : p_i.y,
-      abs(p.z) < origin ? p.z + float_scale * n.z : p_i.z);
-}
+layout(location = 0) rayPayloadEXT vec3 rayPayload;
 
 void main()
 {
@@ -58,8 +40,8 @@ void main()
 
       traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT,
                   0xff, 0, 0, 0, origin.xyz, tmin, reflectDir, tmax, 0);
-
-      imageStore(output_image, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.colorDistance.rgb, 0.0));
+      
+      imageStore(output_image, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload, 0.0));
    }
    else {
       imageStore(output_image, ivec2(gl_LaunchIDEXT.xy), vec4(0.0));

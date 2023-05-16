@@ -3,9 +3,8 @@
 
 #include "include/atmosphere.glsl"
 #include "include/view.glsl"
-#include "payload.glsl"
 
-layout(location = 0) rayPayloadInEXT Payload rayPayload;
+layout(location = 0) rayPayloadInEXT vec3 rayPayload;
 
 void main()
 {
@@ -22,5 +21,5 @@ void main()
    sky_color = min(sky_color, vec3(1.0));
 #endif
 
-   rayPayload = Payload(vec4(sky_color, -1), vec4(0.0), vec4(0.0), 0);
+   rayPayload = sky_color;
 }

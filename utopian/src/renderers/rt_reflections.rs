@@ -7,6 +7,9 @@ pub fn setup_rt_reflections_pass(
     gbuffer_position: crate::TextureId,
     gbuffer_normal: crate::TextureId,
     gbuffer_pbr: crate::TextureId,
+    irradiance_map: crate::TextureId,
+    specular_map: crate::TextureId,
+    brdf_lut: crate::TextureId,
     width: u32,
     height: u32,
 ) -> crate::TextureId {
@@ -30,6 +33,9 @@ pub fn setup_rt_reflections_pass(
         .read(gbuffer_position)
         .read(gbuffer_normal)
         .read(gbuffer_pbr)
+        .read(irradiance_map)
+        .read(specular_map)
+        .read(brdf_lut)
         .image_write(output_image)
         .trace_rays(width, height, 1)
         .build(&device, graph);
