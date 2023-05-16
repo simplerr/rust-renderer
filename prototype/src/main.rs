@@ -67,6 +67,7 @@ impl Application {
             ibl_enabled: 1,
             marching_cubes_enabled: 0,
             rebuild_tlas: 1,
+            raytracing_supported: base.device.raytracing_supported as u32,
         };
 
         let ui = prototype::ui::Ui::new(
@@ -113,7 +114,7 @@ impl Application {
             render_graph_mode: if raytracing_supported {
                 RenderGraphMode::PathTraced
             } else {
-                RenderGraphMode::Minimal
+                RenderGraphMode::Rasterized
             },
         }
     }

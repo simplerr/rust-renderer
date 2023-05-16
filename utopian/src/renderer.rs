@@ -62,6 +62,7 @@ pub struct ViewUniformData {
     pub ibl_enabled: u32,
     pub marching_cubes_enabled: u32,
     pub rebuild_tlas: u32,
+    pub raytracing_supported: u32,
 }
 
 #[derive(Clone, Copy, Debug)]

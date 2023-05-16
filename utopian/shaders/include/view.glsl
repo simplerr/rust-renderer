@@ -22,6 +22,7 @@ layout (std140, set = 1, binding = 0) uniform UBO_view
     uint ibl_enabled;
     uint marching_cubes_enabled;
     uint rebuild_tlas;
+    uint raytracing_supported;
 } view;
 
 // Due to gl_Position not being multiplied by -1 we need to flip the

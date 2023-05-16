@@ -109,6 +109,7 @@ pub fn build_render_graph(
         gbuffer_normal,
         width,
         height,
+        view_data.raytracing_supported == 1,
     );
 
     crate::renderers::gbuffer::setup_gbuffer_pass(
@@ -135,6 +136,7 @@ pub fn build_render_graph(
         brdf_lut,
         width,
         height,
+        view_data.raytracing_supported == 1,
     );
 
     crate::renderers::ssao::setup_ssao_pass(

@@ -101,7 +101,7 @@ void main() {
 
     vec3 color = ambient + Lo;
 
-    if (material.raytrace_properties.x == 1) {
+    if (view.raytracing_supported == 1 && material.raytrace_properties.x == 1) {
         vec3 reflectedColor = texture(in_rt_reflections, uv).rgb;
         color = mix(color, reflectedColor, 1.0);
     }
@@ -117,7 +117,7 @@ void main() {
             color.rgb *= cascade_index_to_debug_color(cascadeIndex);
         #endif
     }
-    else {
+    else if (view.raytracing_supported == 1) {
         float shadow = texture(in_rt_shadows, uv).r;
         color = color * max(shadow, 0.3);
     }

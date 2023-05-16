@@ -530,7 +530,7 @@ impl Graph {
         descriptor_set_camera
     }
 
-    pub fn add_pass(&mut self, name: String, pipeline_handle: PipelineId) -> PassBuilder {
+    fn add_pass(&mut self, name: String, pipeline_handle: PipelineId) -> PassBuilder {
         PassBuilder {
             name,
             pipeline_handle,

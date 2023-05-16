@@ -8,6 +8,7 @@ pub fn setup_rt_shadows_pass(
     gbuffer_normal: crate::TextureId,
     width: u32,
     height: u32,
+    enabled: bool,
 ) -> crate::TextureId {
     puffin::profile_function!();
 
@@ -17,20 +18,22 @@ pub fn setup_rt_shadows_pass(
         ImageDesc::new_2d(width, height, vk::Format::R8_UNORM),
     );
 
-    graph
-        .add_pass_from_desc(
-            "rt_shadows_pass",
-            crate::PipelineDesc::builder()
-                .raygen_path("utopian/shaders/rt_shadows/rt_shadows.rgen")
-                .miss_path("utopian/shaders/rt_shadows/rt_shadows.rmiss")
-                .hit_path("utopian/shaders/rt_shadows/rt_shadows.rchit"),
-        )
-        .tlas(0)
-        .read(gbuffer_position)
-        .read(gbuffer_normal)
-        .image_write(output_image)
-        .trace_rays(width, height, 1)
-        .build(&device, graph);
+    if enabled {
+        graph
+            .add_pass_from_desc(
+                "rt_shadows_pass",
+                crate::PipelineDesc::builder()
+                    .raygen_path("utopian/shaders/rt_shadows/rt_shadows.rgen")
+                    .miss_path("utopian/shaders/rt_shadows/rt_shadows.rmiss")
+                    .hit_path("utopian/shaders/rt_shadows/rt_shadows.rchit"),
+            )
+            .tlas(0)
+            .read(gbuffer_position)
+            .read(gbuffer_normal)
+            .image_write(output_image)
+            .trace_rays(width, height, 1)
+            .build(&device, graph);
+    }
 
     output_image
 }
