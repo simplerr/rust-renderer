@@ -186,7 +186,7 @@ impl Application {
         num_frames_in_flight: &mut u32,
         render_graph_mode: &mut RenderGraphMode,
     ) {
-        egui::Window::new("rust-renderer 0.0.1")
+        egui::Window::new("rust-renderer")
             .resizable(true)
             .vscroll(true)
             .show(egui_context, |ui| {
@@ -362,11 +362,11 @@ impl Application {
             } else if input.key_pressed(winit::event::VirtualKeyCode::Key2)
                 && self.base.device.raytracing_supported
             {
-                self.render_graph_mode = RenderGraphMode::Hybrid;
-            } else if input.key_pressed(winit::event::VirtualKeyCode::Key3) {
                 self.render_graph_mode = RenderGraphMode::Rasterized;
-            } else if input.key_pressed(winit::event::VirtualKeyCode::Key4) {
+            } else if input.key_pressed(winit::event::VirtualKeyCode::Key3) {
                 self.render_graph_mode = RenderGraphMode::Minimal;
+            } else if input.key_pressed(winit::event::VirtualKeyCode::Key4) {
+                self.render_graph_mode = RenderGraphMode::Hybrid;
             }
 
             if let Some(path) = self.shader_watcher.check_if_modification() {
@@ -435,7 +435,9 @@ impl Application {
                             &self.base.device,
                             &self.base,
                         );
-                    } else if self.render_graph_mode == RenderGraphMode::Rasterized {
+                    } else if self.render_graph_mode == RenderGraphMode::Rasterized
+                        || self.render_graph_mode == RenderGraphMode::Hybrid
+                    {
                         utopian::renderers::build_render_graph(
                             &mut self.graph,
                             &self.base.device,
@@ -444,8 +446,6 @@ impl Application {
                             &self.view_data,
                             &self.camera,
                         );
-                        self.renderer.need_environment_map_update = false;
-                    } else if self.render_graph_mode == RenderGraphMode::Hybrid {
                         self.renderer.need_environment_map_update = false;
                     } else if self.render_graph_mode == RenderGraphMode::Minimal {
                         utopian::renderers::build_minimal_forward_render_graph(
