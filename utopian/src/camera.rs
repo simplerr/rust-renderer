@@ -43,7 +43,7 @@ impl Camera {
     pub fn get_lookat_rotation(pos: Vec3, target: Vec3) -> Quat {
         // Rotation calculation from
         // https://github.com/h3r2tic/dolly/blob/main/src/drivers/look_at.rs
-        
+
         (target - pos)
             .try_normalize()
             .and_then(|forward| {

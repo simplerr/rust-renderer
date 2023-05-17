@@ -63,9 +63,9 @@ pub fn setup_shadow_pass(
 
         // Project frustum corners into world space
         let inv_cam = (camera.get_projection() * camera.get_view()).inverse();
-        for i in 0..8 {
-            let inv_corner = inv_cam * frustum_corners[i].extend(1.0);
-            frustum_corners[i] = inv_corner.xyz() / inv_corner.w;
+        for corner in &mut frustum_corners {
+            let inv_corner = inv_cam * corner.extend(1.0);
+            *corner = inv_corner.xyz() / inv_corner.w;
         }
 
         for i in 0..4 {
@@ -78,8 +78,8 @@ pub fn setup_shadow_pass(
         let frustum_center: Vec3 = frustum_corners.iter().sum::<Vec3>() / 8.0;
 
         let mut radius: f32 = 0.0;
-        for i in 0..8 {
-            let distance = (frustum_corners[i] - frustum_center).length();
+        for corner in &frustum_corners {
+            let distance = (*corner - frustum_center).length();
             radius = radius.max(distance);
         }
         radius = f32::ceil(radius * 16.0) / 16.0;

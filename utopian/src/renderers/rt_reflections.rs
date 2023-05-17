@@ -1,6 +1,7 @@
 use crate::image::ImageDesc;
 use ash::vk;
 
+#[allow(clippy::too_many_arguments)]
 pub fn setup_rt_reflections_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,

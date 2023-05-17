@@ -378,8 +378,6 @@ impl VulkanBase {
         command_pool: vk::CommandPool,
         image_count: u32,
     ) -> Vec<Frame> {
-        
-
         (0..image_count)
             .map(|_| unsafe {
                 Frame {
@@ -426,7 +424,6 @@ impl VulkanBase {
                 )
                 .expect("Error acquiring next swapchain image");
 
-            
             //assert_eq!(present_index, next_semaphore);
 
             present_index as usize

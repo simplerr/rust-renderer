@@ -6,6 +6,12 @@ pub struct FpsTimer {
     elapsed_frames: u32,
 }
 
+impl Default for FpsTimer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FpsTimer {
     pub fn new() -> Self {
         FpsTimer {

@@ -198,7 +198,9 @@ pub fn create_layouts_from_reflection(
     Vec<vk::PushConstantRange>,
 ) {
     let mut descriptor_sets_layouts: Vec<vk::DescriptorSetLayout> = reflection
-        .descriptor_set_reflections.values().map(|descriptor_set| {
+        .descriptor_set_reflections
+        .values()
+        .map(|descriptor_set| {
             let descriptor_set_layout_bindings: Vec<vk::DescriptorSetLayoutBinding> =
                 descriptor_set
                     .iter()
@@ -267,16 +269,14 @@ pub fn create_layouts_from_reflection(
         );
     }
 
-    let pipeline_layout_create_info: vk::PipelineLayoutCreateInfoBuilder;
-
-    if !push_constant_ranges.is_empty() {
-        pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(&descriptor_sets_layouts)
-            .push_constant_ranges(&push_constant_ranges);
-    } else {
-        pipeline_layout_create_info =
-            vk::PipelineLayoutCreateInfo::builder().set_layouts(&descriptor_sets_layouts);
-    }
+    let pipeline_layout_create_info: vk::PipelineLayoutCreateInfoBuilder =
+        if !push_constant_ranges.is_empty() {
+            vk::PipelineLayoutCreateInfo::builder()
+                .set_layouts(&descriptor_sets_layouts)
+                .push_constant_ranges(&push_constant_ranges)
+        } else {
+            vk::PipelineLayoutCreateInfo::builder().set_layouts(&descriptor_sets_layouts)
+        };
 
     let pipeline_layout = unsafe {
         device

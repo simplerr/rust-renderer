@@ -174,6 +174,7 @@ impl Application {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn update_ui(
         egui_context: &egui::Context,
         camera_pos: &mut Vec3,

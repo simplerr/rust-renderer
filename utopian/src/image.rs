@@ -255,6 +255,7 @@ impl Image {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn create_image_view(
         device: &Device,
         image: vk::Image,
@@ -287,7 +288,6 @@ impl Image {
                 layer_count,
                 base_mip_level: 0,
                 level_count: mip_levels,
-                ..Default::default()
             },
             image,
             ..Default::default()

@@ -6,6 +6,7 @@ struct PushConstants {
     pad: [u32; 3],
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn setup_deferred_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,

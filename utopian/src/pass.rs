@@ -11,6 +11,7 @@ use crate::Renderer;
 
 pub struct RenderPass {
     pub pipeline_handle: PipelineId,
+    #[allow(clippy::type_complexity)]
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
     pub reads: Vec<Resource>,
@@ -27,13 +28,14 @@ pub struct RenderPass {
 }
 
 impl RenderPass {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         name: String,
         pipeline_handle: PipelineId,
         presentation_pass: bool,
         depth_attachment: Option<DepthAttachment>,
         uniforms: HashMap<String, (String, UniformData)>,
-        render_func: Option<
+        #[allow(clippy::type_complexity)] render_func: Option<
             Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>,
         >,
         copy_command: Option<TextureCopy>,
@@ -59,9 +61,9 @@ impl RenderPass {
     pub fn try_create_read_resources_descriptor_set(
         &mut self,
         device: &Device,
-        pipelines: &Vec<Pipeline>,
-        textures: &Vec<GraphTexture>,
-        buffers: &Vec<GraphBuffer>,
+        pipelines: &[Pipeline],
+        textures: &[GraphTexture],
+        buffers: &[GraphBuffer],
         tlas: vk::AccelerationStructureKHR,
     ) {
         puffin::profile_function!();
@@ -122,8 +124,8 @@ impl RenderPass {
     pub fn try_create_uniform_buffer_descriptor_set(
         &mut self,
         device: &Device,
-        pipelines: &Vec<Pipeline>,
-        buffers: &Vec<GraphBuffer>,
+        pipelines: &[Pipeline],
+        buffers: &[GraphBuffer],
     ) {
         puffin::profile_function!();
 
@@ -157,11 +159,7 @@ impl RenderPass {
         }
     }
 
-    pub fn update_uniform_buffer_memory(
-        &mut self,
-        device: &Device,
-        buffers: &mut Vec<GraphBuffer>,
-    ) {
+    pub fn update_uniform_buffer_memory(&mut self, device: &Device, buffers: &mut [GraphBuffer]) {
         puffin::profile_function!();
 
         if let Some(buffer_id) = self.uniform_buffer {
@@ -178,7 +176,7 @@ impl RenderPass {
         color_attachments: &[(Image, ViewType, vk::AttachmentLoadOp)],
         depth_attachment: Option<(Image, ViewType, vk::AttachmentLoadOp)>,
         extent: vk::Extent2D,
-        pipelines: &Vec<Pipeline>,
+        pipelines: &[Pipeline],
     ) {
         let bind_point = match pipelines[self.pipeline_handle].pipeline_type {
             PipelineType::Graphics => vk::PipelineBindPoint::GRAPHICS,

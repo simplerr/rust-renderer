@@ -51,6 +51,12 @@ pub struct RayTracingSbt {
     pub callable_sbt: vk::StridedDeviceAddressRegionKHR,
 }
 
+impl Default for PipelineDescBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Hash for PipelineDesc {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.vertex_path.hash(state);
@@ -513,8 +519,6 @@ impl Pipeline {
             .groups(&shader_group_create_infos)
             .build();
 
-        
-
         unsafe {
             device
                 .raytracing_pipeline_ext
@@ -536,12 +540,7 @@ impl Pipeline {
         let shader_handle_storage = unsafe {
             device
                 .raytracing_pipeline_ext
-                .get_ray_tracing_shader_group_handles(
-                    pipeline,
-                    0,
-                    group_count as u32,
-                    sbt_size,
-                )
+                .get_ray_tracing_shader_group_handles(pipeline, 0, group_count as u32, sbt_size)
                 .expect("Failed to get raytracing shader group handles")
         };
 

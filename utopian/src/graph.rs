@@ -122,6 +122,7 @@ pub struct PassBuilder {
     pub pipeline_handle: PipelineId,
     pub reads: Vec<Resource>,
     pub writes: Vec<Attachment>,
+    #[allow(clippy::type_complexity)]
     pub render_func:
         Option<Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>>,
     pub depth_attachment: Option<DepthAttachment>,
@@ -423,15 +424,15 @@ impl GraphResources {
         }
     }
 
-    pub fn buffer<'a>(&'a self, id: BufferId) -> &'a GraphBuffer {
+    pub fn buffer(&self, id: BufferId) -> &GraphBuffer {
         &self.buffers[id]
     }
 
-    pub fn texture<'a>(&'a self, id: TextureId) -> &'a GraphTexture {
+    pub fn texture(&self, id: TextureId) -> &GraphTexture {
         &self.textures[id]
     }
 
-    pub fn pipeline<'a>(&'a self, id: PipelineId) -> &'a Pipeline {
+    pub fn pipeline(&self, id: PipelineId) -> &Pipeline {
         &self.pipelines[id]
     }
 }
