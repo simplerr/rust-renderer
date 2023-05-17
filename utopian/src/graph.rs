@@ -1086,10 +1086,6 @@ impl Graph {
         command_buffer: vk::CommandBuffer,
         name: &String,
     ) -> Option<gpu_profiler::backend::ash::VulkanActiveScope> {
-        if !self.profiling_enabled {
-            return None;
-        }
-
         let name_c_str = std::ffi::CString::new(name.as_str()).unwrap();
         let debug_label = vk::DebugUtilsLabelEXT::builder()
             .label_name(&name_c_str)
@@ -1101,14 +1097,16 @@ impl Graph {
                 .cmd_begin_debug_utils_label(command_buffer, &debug_label)
         };
 
-        let active_scope = {
+        if self.profiling_enabled {
             let query_id = gpu_profiler::profiler().create_scope(name);
-            device
-                .frame_profiler
-                .begin_scope(&device.handle, command_buffer, query_id)
-        };
-
-        Some(active_scope)
+            Some(
+                device
+                    .frame_profiler
+                    .begin_scope(&device.handle, command_buffer, query_id),
+            )
+        } else {
+            None
+        }
     }
 
     pub fn end_gpu_scope(
@@ -1117,12 +1115,12 @@ impl Graph {
         command_buffer: vk::CommandBuffer,
         active_scope: Option<gpu_profiler::backend::ash::VulkanActiveScope>,
     ) {
+        unsafe { device.debug_utils.cmd_end_debug_utils_label(command_buffer) };
+
         if self.profiling_enabled {
             device
                 .frame_profiler
                 .end_scope(&device.handle, command_buffer, active_scope.unwrap());
-
-            unsafe { device.debug_utils.cmd_end_debug_utils_label(command_buffer) };
         }
     }
 }
