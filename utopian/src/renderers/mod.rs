@@ -212,9 +212,9 @@ pub fn build_path_tracing_render_graph(
         .add_pass_from_desc(
             "reference_pt_pass",
             crate::PipelineDesc::builder()
-                .raygen_path("utopian/shaders/raytracing_basic/basic.rgen")
-                .miss_path("utopian/shaders/raytracing_basic/basic.rmiss")
-                .hit_path("utopian/shaders/raytracing_basic/basic.rchit"),
+                .raygen_path("utopian/shaders/pathtrace_reference/reference.rgen")
+                .miss_path("utopian/shaders/pathtrace_reference/reference.rmiss")
+                .hit_path("utopian/shaders/pathtrace_reference/reference.rchit"),
         )
         .tlas(0)
         .image_write(output_image)

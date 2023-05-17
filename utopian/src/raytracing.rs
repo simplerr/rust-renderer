@@ -49,9 +49,9 @@ impl Raytracing {
         let pipeline = crate::Pipeline::new(
             device,
             crate::PipelineDesc::builder()
-                .raygen_path("utopian/shaders/raytracing_basic/basic.rgen")
-                .miss_path("utopian/shaders/raytracing_basic/basic.rmiss")
-                .hit_path("utopian/shaders/raytracing_basic/basic.rchit")
+                .raygen_path("utopian/shaders/pathtrace_reference/reference.rgen")
+                .miss_path("utopian/shaders/pathtrace_reference/reference.rmiss")
+                .hit_path("utopian/shaders/pathtrace_reference/reference.rchit")
                 .build(),
             bindless_descriptor_set_layout,
         );
