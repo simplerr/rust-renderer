@@ -72,7 +72,7 @@ impl Reflection {
         // Retrieve binding and set mappings
         let binding_mappings: HashMap<String, Binding> = descriptor_sets_combined
             .iter()
-            .map(|(set_key, set_val)| {
+            .flat_map(|(set_key, set_val)| {
                 let bindings: HashMap<String, Binding> = set_val
                     .iter()
                     .map(|(binding_key, binding_val)| {
@@ -89,7 +89,6 @@ impl Reflection {
 
                 bindings
             })
-            .flatten()
             .collect();
 
         Reflection {
@@ -199,9 +198,7 @@ pub fn create_layouts_from_reflection(
     Vec<vk::PushConstantRange>,
 ) {
     let mut descriptor_sets_layouts: Vec<vk::DescriptorSetLayout> = reflection
-        .descriptor_set_reflections
-        .iter()
-        .map(|(_slot, descriptor_set)| {
+        .descriptor_set_reflections.values().map(|descriptor_set| {
             let descriptor_set_layout_bindings: Vec<vk::DescriptorSetLayoutBinding> =
                 descriptor_set
                     .iter()

@@ -71,7 +71,7 @@ pub fn setup_shadow_pass(
         for i in 0..4 {
             let dist = frustum_corners[i + 4] - frustum_corners[i];
             frustum_corners[i + 4] = frustum_corners[i] + (dist * split_dist);
-            frustum_corners[i] = frustum_corners[i] + (dist * last_split_dist);
+            frustum_corners[i] += dist * last_split_dist;
         }
 
         // Get frustum center
@@ -118,7 +118,7 @@ pub fn setup_shadow_pass(
                     .default_primitive_vertex_attributes(),
             )
             .uniforms("cascade_view_projection", &view_projection_matrix)
-            .depth_attachment_layer(shadow_map, i as u32)
+            .depth_attachment_layer(shadow_map, i)
             .render(move |device, command_buffer, renderer, pass, resources| {
                 // Todo: This is a hack to get around the fact that we can't properly disable a pass
                 if enabled {
@@ -127,7 +127,7 @@ pub fn setup_shadow_pass(
                     renderer.draw_meshes(device, command_buffer, pipeline.pipeline_layout);
                 }
             })
-            .build(&device, graph);
+            .build(device, graph);
     }
 
     (out_cascade_matrices, out_split_depths)

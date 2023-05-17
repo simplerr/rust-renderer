@@ -90,7 +90,7 @@ impl Pipeline {
             pipeline_layout: vk::PipelineLayout::null(),
             descriptor_set_layouts: vec![],
             reflection: shader::Reflection::default(),
-            pipeline_desc: pipeline_desc.clone(),
+            pipeline_desc,
             pipeline_type,
             raytracing_sbt: None,
         };
@@ -108,7 +108,7 @@ impl Pipeline {
     ) -> bool {
         // Todo: cleanup old resources
 
-        if let Ok(_) = Self::create_pipeline(self, device, bindless_descriptor_set_layout) {
+        if Self::create_pipeline(self, device, bindless_descriptor_set_layout).is_ok() {
             println!("Successfully recompiled shader");
             return true;
         }
@@ -161,14 +161,14 @@ impl Pipeline {
                 pipeline_layout,
             ),
             PipelineType::Raytracing => Pipeline::create_raytracing_pipeline(
-                &device,
+                device,
                 shader_stage_create_infos,
                 pipeline_layout,
             ),
         };
 
         if pipeline.pipeline_type == PipelineType::Raytracing {
-            let raytracing_sbt = Pipeline::create_raytracing_sbt(&device, new_handle);
+            let raytracing_sbt = Pipeline::create_raytracing_sbt(device, new_handle);
             pipeline.raytracing_sbt = Some(raytracing_sbt);
         }
 
@@ -433,7 +433,7 @@ impl Pipeline {
         let reflection =
             shader::Reflection::new(&[raygen_spv_file, miss_spv_file, closest_hit_spv_file]);
         let (pipeline_layout, descriptor_set_layouts, _) = shader::create_layouts_from_reflection(
-            &device,
+            device,
             &reflection,
             bindless_descriptor_set_layout,
         );
@@ -442,10 +442,10 @@ impl Pipeline {
         let miss_spv_file = Cursor::new(miss_spv_file);
         let closest_hit_spv_file = Cursor::new(closest_hit_spv_file);
 
-        let raygen_shader_module = crate::shader::create_shader_module(raygen_spv_file, &device);
-        let miss_shader_module = crate::shader::create_shader_module(miss_spv_file, &device);
+        let raygen_shader_module = crate::shader::create_shader_module(raygen_spv_file, device);
+        let miss_shader_module = crate::shader::create_shader_module(miss_spv_file, device);
         let closest_hit_shader_module =
-            crate::shader::create_shader_module(closest_hit_spv_file, &device);
+            crate::shader::create_shader_module(closest_hit_spv_file, device);
 
         let shader_entry_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
         let shader_stage_create_infos = vec![
@@ -513,7 +513,9 @@ impl Pipeline {
             .groups(&shader_group_create_infos)
             .build();
 
-        let pipeline = unsafe {
+        
+
+        unsafe {
             device
                 .raytracing_pipeline_ext
                 .create_ray_tracing_pipelines(
@@ -523,9 +525,7 @@ impl Pipeline {
                     None,
                 )
                 .expect("Failed to create raytracing pipeline")[0]
-        };
-
-        pipeline
+        }
     }
 
     fn create_raytracing_sbt(device: &Device, pipeline: vk::Pipeline) -> RayTracingSbt {
@@ -540,7 +540,7 @@ impl Pipeline {
                     pipeline,
                     0,
                     group_count as u32,
-                    sbt_size as usize,
+                    sbt_size,
                 )
                 .expect("Failed to get raytracing shader group handles")
         };

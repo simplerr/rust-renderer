@@ -14,9 +14,9 @@ pub fn setup_marching_cubes_pass(
 ) {
     puffin::profile_function!();
 
-    let num_voxels = 32 as u32;
+    let num_voxels = 32_u32;
     let mut size = num_voxels.pow(3) * std::mem::size_of::<Vertex>() as u32;
-    size = size * 5;
+    size *= 5;
 
     let voxel_size: f32 = 1.0;
     let view_distance: f32 = 100.0;
@@ -68,7 +68,7 @@ pub fn setup_marching_cubes_pass(
         )
         .write_buffer(draw_command_buffer)
         .dispatch(1, 1, 1)
-        .build(&device, graph);
+        .build(device, graph);
 
     graph
         .add_pass_from_desc(
@@ -80,7 +80,7 @@ pub fn setup_marching_cubes_pass(
         .write_buffer(vertex_buffer)
         .uniforms("ubo", &data_tuple)
         .dispatch(num_voxels, num_voxels, num_voxels)
-        .build(&device, graph);
+        .build(device, graph);
 
     graph
         .add_pass_from_desc(
@@ -132,5 +132,5 @@ pub fn setup_marching_cubes_pass(
                 );
             },
         )
-        .build(&device, graph);
+        .build(device, graph);
 }

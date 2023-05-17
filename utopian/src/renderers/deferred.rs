@@ -50,5 +50,5 @@ pub fn setup_deferred_pass(
                 device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
             },
         )
-        .build(&device, graph);
+        .build(device, graph);
 }

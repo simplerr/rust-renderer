@@ -310,7 +310,7 @@ impl Application {
                         .mode(egui_gizmo::GizmoMode::Translate);
 
                     if let Some(response) = gizmo.interact(ui) {
-                        *selected_transform = Mat4::from_cols_array_2d(&response.transform.into());
+                        *selected_transform = Mat4::from_cols_array_2d(&response.transform);
                         view_data.total_samples = 0; // Reset raytracing when moving objects
                     }
                 });

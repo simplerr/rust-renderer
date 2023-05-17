@@ -43,15 +43,15 @@ impl Camera {
     pub fn get_lookat_rotation(pos: Vec3, target: Vec3) -> Quat {
         // Rotation calculation from
         // https://github.com/h3r2tic/dolly/blob/main/src/drivers/look_at.rs
-        let rotation = (target - pos)
+        
+        (target - pos)
             .try_normalize()
             .and_then(|forward| {
                 let right = forward.cross(Vec3::Y).try_normalize()?;
                 let up = right.cross(forward);
                 Some(Quat::from_mat3(&Mat3::from_cols(right, up, -forward)))
             })
-            .unwrap_or_default();
-        rotation
+            .unwrap_or_default()
     }
 
     pub fn update(&mut self, input: &Input) -> bool {

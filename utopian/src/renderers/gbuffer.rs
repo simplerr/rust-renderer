@@ -48,5 +48,5 @@ pub fn setup_gbuffer_pass(
 
             renderer.draw_meshes(device, command_buffer, pipeline.pipeline_layout);
         })
-        .build(&device, graph);
+        .build(device, graph);
 }

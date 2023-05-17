@@ -46,7 +46,7 @@ impl Ui {
                 .handle_event::<winit::event::Event<winit::event::WindowEvent>>(
                     &winit::event::Event::WindowEvent {
                         window_id,
-                        event: event,
+                        event,
                     },
                 );
         }

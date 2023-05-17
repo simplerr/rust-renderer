@@ -38,7 +38,7 @@ unsafe extern "system" fn vulkan_debug_callback(
     _user_data: *mut std::os::raw::c_void,
 ) -> vk::Bool32 {
     let callback_data = *p_callback_data;
-    let message_id_number: i32 = callback_data.message_id_number as i32;
+    let message_id_number: i32 = callback_data.message_id_number;
 
     let message_id_name = if callback_data.p_message_id_name.is_null() {
         Cow::from("")
@@ -336,7 +336,7 @@ impl VulkanBase {
                     crate::synch::image_pipeline_barrier(
                         device,
                         cb,
-                        &present_image,
+                        present_image,
                         vk_sync::AccessType::Nothing,
                         vk_sync::AccessType::Present,
                         true,
@@ -370,7 +370,7 @@ impl VulkanBase {
                 .expect("Failed to create command pool")
         };
 
-        return command_pool;
+        command_pool
     }
 
     fn create_synchronization_frames(
@@ -378,7 +378,9 @@ impl VulkanBase {
         command_pool: vk::CommandPool,
         image_count: u32,
     ) -> Vec<Frame> {
-        let frames = (0..image_count)
+        
+
+        (0..image_count)
             .map(|_| unsafe {
                 Frame {
                     command_buffer: device
@@ -407,9 +409,7 @@ impl VulkanBase {
                         .expect("Failed to create semaphore"),
                 }
             })
-            .collect();
-
-        return frames;
+            .collect()
     }
 
     pub fn prepare_frame(&self, current_frame: usize) -> usize {
@@ -426,10 +426,10 @@ impl VulkanBase {
                 )
                 .expect("Error acquiring next swapchain image");
 
-            let present_index = present_index as usize;
+            
             //assert_eq!(present_index, next_semaphore);
 
-            present_index
+            present_index as usize
         }
     }
 

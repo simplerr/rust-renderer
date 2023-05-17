@@ -45,7 +45,7 @@ impl Texture {
 
         device.execute_and_submit(|device, cb| {
             crate::synch::image_pipeline_barrier(
-                &device,
+                device,
                 cb,
                 &image,
                 vk_sync::AccessType::General,
@@ -72,7 +72,7 @@ impl Texture {
                 );
             } else {
                 crate::synch::image_pipeline_barrier(
-                    &device,
+                    device,
                     cb,
                     &image,
                     vk_sync::AccessType::TransferWrite,

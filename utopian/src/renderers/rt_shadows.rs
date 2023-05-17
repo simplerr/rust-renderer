@@ -32,7 +32,7 @@ pub fn setup_rt_shadows_pass(
             .read(gbuffer_normal)
             .image_write(output_image)
             .trace_rays(width, height, 1)
-            .build(&device, graph);
+            .build(device, graph);
     }
 
     output_image

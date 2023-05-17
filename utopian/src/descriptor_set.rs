@@ -23,9 +23,7 @@ impl DescriptorSet {
         layout: vk::DescriptorSetLayout,
         binding_map: BindingMap,
     ) -> DescriptorSet {
-        let descriptor_pool_sizes = binding_map
-            .iter()
-            .map(|(_, val)| {
+        let descriptor_pool_sizes = binding_map.values().map(|val| {
                 let descriptor_type = match val.info.ty {
                     rspirv_reflect::DescriptorType::COMBINED_IMAGE_SAMPLER => {
                         vk::DescriptorType::COMBINED_IMAGE_SAMPLER
@@ -66,13 +64,13 @@ impl DescriptorSet {
                 )
                 .max_sets(descriptor_pool_sizes.len() as u32);
 
-            let descriptor_pool = unsafe {
+            
+            unsafe {
                 device
                     .handle
                     .create_descriptor_pool(&descriptor_pool_info, None)
                     .expect("Error creating descriptor pool")
-            };
-            descriptor_pool
+            }
         };
 
         let descriptor_sets = {
@@ -82,13 +80,13 @@ impl DescriptorSet {
                 .set_layouts(&[layout])
                 .build();
 
-            let descriptor_sets = unsafe {
+            
+            unsafe {
                 device
                     .handle
                     .allocate_descriptor_sets(&descriptor_alloc_info)
                     .expect("Error allocating descriptor sets")
-            };
-            descriptor_sets
+            }
         };
 
         DescriptorSet {

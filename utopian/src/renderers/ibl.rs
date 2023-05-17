@@ -91,7 +91,7 @@ pub fn setup_cubemap_pass(
                         .dst_mip_level(mip)
                         .build(),
                 )
-                .build(&device, graph);
+                .build(device, graph);
         }
     }
 
@@ -112,7 +112,7 @@ pub fn setup_cubemap_pass(
                 device.handle.cmd_set_viewport(cb, 0, &viewport);
                 device.handle.cmd_draw(cb, 3, 1, 0, 0);
             })
-            .build(&device, graph);
+            .build(device, graph);
     }
 
     // Specular filter pass (all mip levels)
@@ -152,7 +152,7 @@ pub fn setup_cubemap_pass(
                         .dst_mip_level(mip)
                         .build(),
                 )
-                .build(&device, graph);
+                .build(device, graph);
         }
     }
 
@@ -167,7 +167,7 @@ pub fn setup_cubemap_pass(
         .render(move |device, command_buffer, _, _, _| unsafe {
             device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
         })
-        .build(&device, graph);
+        .build(device, graph);
 
     (environment_map, irradiance_map, specular_map, brdf_lut)
 }

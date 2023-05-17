@@ -128,7 +128,7 @@ impl Renderer {
 
         let raytracing = match device.raytracing_supported {
             true => Some(Raytracing::new(
-                &device,
+                device,
                 vk::Extent2D { width, height },
                 Some(bindless_descriptor_set_layout),
             )),

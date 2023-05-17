@@ -108,9 +108,9 @@ pub fn build_render_graph(
     );
 
     crate::renderers::gbuffer::setup_gbuffer_pass(
-        &device,
+        device,
         graph,
-        &base,
+        base,
         gbuffer_position,
         gbuffer_normal,
         gbuffer_albedo,
@@ -118,7 +118,7 @@ pub fn build_render_graph(
     );
 
     let (environment_map, irradiance_map, specular_map, brdf_lut) =
-        crate::renderers::ibl::setup_cubemap_pass(&device, graph, renderer);
+        crate::renderers::ibl::setup_cubemap_pass(device, graph, renderer);
 
     let rt_reflections = crate::renderers::rt_reflections::setup_rt_reflections_pass(
         device,
@@ -135,7 +135,7 @@ pub fn build_render_graph(
     );
 
     crate::renderers::ssao::setup_ssao_pass(
-        &device,
+        device,
         graph,
         gbuffer_position,
         gbuffer_normal,
@@ -144,7 +144,7 @@ pub fn build_render_graph(
     );
 
     crate::renderers::deferred::setup_deferred_pass(
-        &device,
+        device,
         graph,
         gbuffer_position,
         gbuffer_normal,
@@ -165,7 +165,7 @@ pub fn build_render_graph(
         crate::renderers::marching_cubes::setup_marching_cubes_pass(
             device,
             graph,
-            &base,
+            base,
             deferred_output,
             shadow_map,
             (cascade_matrices, cascade_depths),
@@ -174,16 +174,16 @@ pub fn build_render_graph(
     }
 
     crate::renderers::atmosphere::setup_atmosphere_pass(
-        &device,
+        device,
         graph,
-        &base,
+        base,
         deferred_output,
         environment_map,
         camera,
         true,
     );
 
-    crate::renderers::present::setup_present_pass(&device, graph, deferred_output);
+    crate::renderers::present::setup_present_pass(device, graph, deferred_output);
 }
 
 pub fn build_path_tracing_render_graph(
@@ -220,7 +220,7 @@ pub fn build_path_tracing_render_graph(
         .image_write(output_image)
         .image_write(accumulation_image)
         .trace_rays(width, height, 1)
-        .build(&device, graph);
+        .build(device, graph);
 
     graph
         .add_pass_from_desc(
@@ -236,21 +236,21 @@ pub fn build_path_tracing_render_graph(
                 device.handle.cmd_draw(command_buffer, 3, 1, 0, 0);
             },
         )
-        .build(&device, graph);
+        .build(device, graph);
 }
 
 pub fn build_hybrid_render_graph(
-    graph: &mut crate::Graph,
-    device: &crate::Device,
+    _graph: &mut crate::Graph,
+    _device: &crate::Device,
     base: &crate::VulkanBase,
-    renderer: &crate::Renderer,
-    view_data: &crate::ViewUniformData,
-    camera: &crate::Camera,
+    _renderer: &crate::Renderer,
+    _view_data: &crate::ViewUniformData,
+    _camera: &crate::Camera,
 ) {
     puffin::profile_function!();
 
-    let width = base.surface_resolution.width;
-    let height = base.surface_resolution.height;
+    let _width = base.surface_resolution.width;
+    let _height = base.surface_resolution.height;
 
     // Todo
 }
@@ -286,13 +286,13 @@ pub fn build_minimal_forward_render_graph(
     );
 
     crate::renderers::forward::setup_forward_pass(
-        &device,
+        device,
         graph,
-        &base,
+        base,
         forward_output,
         shadow_map,
         (cascade_matrices, cascade_depths),
     );
 
-    crate::renderers::present::setup_present_pass(&device, graph, forward_output);
+    crate::renderers::present::setup_present_pass(device, graph, forward_output);
 }

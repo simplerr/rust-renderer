@@ -29,7 +29,7 @@ pub fn setup_ssao_pass(
                 }
             },
         )
-        .build(&device, graph);
+        .build(device, graph);
 
     // It is common to also have a blur pass for SSAO which can be added here.
     // The SSAO effect looks decent without it, but it should be added here in the future.

@@ -65,5 +65,5 @@ pub fn setup_atmosphere_pass(
                 }
             },
         )
-        .build(&device, graph);
+        .build(device, graph);
 }

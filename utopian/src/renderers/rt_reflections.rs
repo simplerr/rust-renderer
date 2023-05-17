@@ -40,7 +40,7 @@ pub fn setup_rt_reflections_pass(
             .read(brdf_lut)
             .image_write(output_image)
             .trace_rays(width, height, 1)
-            .build(&device, graph);
+            .build(device, graph);
     }
 
     output_image

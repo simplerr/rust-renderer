@@ -67,9 +67,9 @@ impl RenderPass {
         puffin::profile_function!();
 
         // If there are input textures then create the descriptor set used to read them
-        if self.reads.len() > 0 && self.read_resources_descriptor_set.is_none() {
+        if !self.reads.is_empty() && self.read_resources_descriptor_set.is_none() {
             let descriptor_set_read_resources = crate::DescriptorSet::new(
-                &device,
+                device,
                 pipelines[self.pipeline_handle].descriptor_set_layouts
                     [crate::DESCRIPTOR_SET_INDEX_INPUT_TEXTURES as usize],
                 pipelines[self.pipeline_handle]
@@ -82,13 +82,13 @@ impl RenderPass {
                     Resource::Texture(read) => {
                         if read.input_type == TextureResourceType::CombinedImageSampler {
                             descriptor_set_read_resources.write_combined_image(
-                                &device,
+                                device,
                                 DescriptorIdentifier::Index(idx as u32),
                                 &textures[read.texture].texture,
                             );
                         } else if read.input_type == TextureResourceType::StorageImage {
                             descriptor_set_read_resources.write_storage_image(
-                                &device,
+                                device,
                                 DescriptorIdentifier::Index(idx as u32),
                                 &textures[read.texture].texture.image,
                             );
@@ -96,7 +96,7 @@ impl RenderPass {
                     }
                     Resource::Buffer(read) => {
                         descriptor_set_read_resources.write_storage_buffer(
-                            &device,
+                            device,
                             DescriptorIdentifier::Index(idx as u32),
                             &buffers[read.buffer].buffer,
                         );
@@ -106,7 +106,7 @@ impl RenderPass {
                     Resource::Tlas(_) => {
                         assert!(tlas != vk::AccelerationStructureKHR::null());
                         descriptor_set_read_resources.write_acceleration_structure(
-                            &device,
+                            device,
                             DescriptorIdentifier::Index(idx as u32),
                             tlas,
                         );
@@ -127,7 +127,7 @@ impl RenderPass {
     ) {
         puffin::profile_function!();
 
-        if self.uniforms.len() > 0 && self.uniforms_descriptor_set.is_none() {
+        if !self.uniforms.is_empty() && self.uniforms_descriptor_set.is_none() {
             // Todo: the usage of self.uniforms.values().next().unwrap() means
             // that only a single uniform buffer is supported
 
@@ -137,7 +137,7 @@ impl RenderPass {
             let uniform_name = &self.uniforms.values().next().unwrap().0;
             let binding = pipelines[self.pipeline_handle]
                 .reflection
-                .get_binding(&uniform_name);
+                .get_binding(uniform_name);
             let descriptor_set = crate::DescriptorSet::new(
                 device,
                 pipelines[self.pipeline_handle].descriptor_set_layouts[binding.set as usize],
@@ -268,7 +268,7 @@ impl RenderPass {
 
             let scissors = [vk::Rect2D {
                 offset: vk::Offset2D { x: 0, y: 0 },
-                extent: extent,
+                extent,
             }];
 
             device

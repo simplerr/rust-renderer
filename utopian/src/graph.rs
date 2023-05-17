@@ -392,7 +392,7 @@ impl PassBuilder {
             }
         }
 
-        if self.uniforms.len() != 0 {
+        if !self.uniforms.is_empty() {
             pass.uniform_buffer.replace(
                 graph.create_buffer(
                     // Todo: Hack: this is very bad just to get unique buffers for every frame_index
@@ -403,7 +403,7 @@ impl PassBuilder {
                     )
                     .as_str(),
                     device,
-                    self.uniforms.values().next().unwrap().1.size as u64,
+                    self.uniforms.values().next().unwrap().1.size,
                     vk::BufferUsageFlags::UNIFORM_BUFFER,
                     gpu_allocator::MemoryLocation::CpuToGpu,
                 ),
@@ -519,12 +519,12 @@ impl Graph {
         );
 
         let descriptor_set_camera =
-            crate::DescriptorSet::new(&device, descriptor_set_layout, binding_map);
+            crate::DescriptorSet::new(device, descriptor_set_layout, binding_map);
 
         descriptor_set_camera.write_uniform_buffer(
-            &device,
+            device,
             "view".to_string(),
-            &camera_uniform_buffer,
+            camera_uniform_buffer,
         );
 
         descriptor_set_camera
@@ -574,7 +574,7 @@ impl Graph {
             .iter()
             .position(|iter| iter.texture.image.debug_name == debug_name)
             .unwrap_or_else(|| {
-                let texture = crate::Texture::create(&device, None, image_desc, debug_name);
+                let texture = crate::Texture::create(device, None, image_desc, debug_name);
 
                 self.resources.textures.push(GraphTexture {
                     texture,
@@ -687,12 +687,12 @@ impl Graph {
     ) {
         for pipeline in &mut self.resources.pipelines {
             let desc = &pipeline.pipeline_desc;
-            if desc.compute_path.map_or(false, |p| path.ends_with(&p))
-                || desc.vertex_path.map_or(false, |p| path.ends_with(&p))
-                || desc.fragment_path.map_or(false, |p| path.ends_with(&p))
-                || desc.raygen_path.map_or(false, |p| path.ends_with(&p))
-                || desc.miss_path.map_or(false, |p| path.ends_with(&p))
-                || desc.hit_path.map_or(false, |p| path.ends_with(&p))
+            if desc.compute_path.map_or(false, |p| path.ends_with(p))
+                || desc.vertex_path.map_or(false, |p| path.ends_with(p))
+                || desc.fragment_path.map_or(false, |p| path.ends_with(p))
+                || desc.raygen_path.map_or(false, |p| path.ends_with(p))
+                || desc.miss_path.map_or(false, |p| path.ends_with(p))
+                || desc.hit_path.map_or(false, |p| path.ends_with(p))
             {
                 pipeline.recreate_pipeline(device, bindless_descriptor_set_layout);
             }
@@ -756,7 +756,7 @@ impl Graph {
                 match read {
                     Resource::Texture(read) => {
                         let next_access = crate::synch::image_pipeline_barrier(
-                            &device,
+                            device,
                             command_buffer,
                             &self.resources.textures[read.texture].texture.image,
                             self.resources.textures[read.texture].prev_access,
@@ -818,7 +818,7 @@ impl Graph {
 
             for write in &writes_for_synch {
                 let next_access = crate::synch::image_pipeline_barrier(
-                    &device,
+                    device,
                     command_buffer,
                     &self.resources.textures[write.texture].texture.image,
                     self.resources.textures[write.texture].prev_access,
@@ -845,7 +845,7 @@ impl Graph {
 
             if pass.presentation_pass {
                 crate::synch::image_pipeline_barrier(
-                    &device,
+                    device,
                     command_buffer,
                     &present_image[0],
                     vk_sync::AccessType::Present,
@@ -867,7 +867,7 @@ impl Graph {
                 .collect();
 
             // Todo: very ugly just to get the extents...
-            let extent = if pass.writes.len() > 0 {
+            let extent = if !pass.writes.is_empty() {
                 vk::Extent2D {
                     width: self.resources.textures[pass.writes[0].texture]
                         .texture
@@ -878,29 +878,27 @@ impl Graph {
                         .image
                         .height(),
                 }
+            } else if pass.depth_attachment.is_some() {
+                match pass.depth_attachment.as_ref().unwrap() {
+                    DepthAttachment::GraphHandle(depth_attachment) => vk::Extent2D {
+                        width: self.resources.textures[depth_attachment.texture]
+                            .texture
+                            .image
+                            .width(),
+                        height: self.resources.textures[depth_attachment.texture]
+                            .texture
+                            .image
+                            .height(),
+                    },
+                    DepthAttachment::External(depth_attachment, _) => vk::Extent2D {
+                        width: depth_attachment.width(),
+                        height: depth_attachment.height(),
+                    },
+                }
             } else {
-                if pass.depth_attachment.is_some() {
-                    match pass.depth_attachment.as_ref().unwrap() {
-                        DepthAttachment::GraphHandle(depth_attachment) => vk::Extent2D {
-                            width: self.resources.textures[depth_attachment.texture]
-                                .texture
-                                .image
-                                .width(),
-                            height: self.resources.textures[depth_attachment.texture]
-                                .texture
-                                .image
-                                .height(),
-                        },
-                        DepthAttachment::External(depth_attachment, _) => vk::Extent2D {
-                            width: depth_attachment.width(),
-                            height: depth_attachment.height(),
-                        },
-                    }
-                } else {
-                    vk::Extent2D {
-                        width: 1,
-                        height: 1,
-                    }
+                vk::Extent2D {
+                    width: 1,
+                    height: 1,
                 }
             };
 
@@ -1020,7 +1018,7 @@ impl Graph {
                 // Image barriers
                 // (a bit verbose, but ok for now)
                 let next_access = crate::synch::image_pipeline_barrier(
-                    &device,
+                    device,
                     command_buffer,
                     &self.resources.textures[src].texture.image,
                     self.resources.textures[src].prev_access,
@@ -1030,7 +1028,7 @@ impl Graph {
                 self.resources.textures.get_mut(src).unwrap().prev_access = next_access;
 
                 let next_access = crate::synch::image_pipeline_barrier(
-                    &device,
+                    device,
                     command_buffer,
                     &self.resources.textures[dst].texture.image,
                     self.resources.textures[dst].prev_access,
