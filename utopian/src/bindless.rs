@@ -10,7 +10,7 @@ pub fn create_bindless_descriptor_set_layout(device: &Device) -> vk::DescriptorS
         // Textures
         vk::DescriptorSetLayoutBinding::builder()
             .binding(0)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
             .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32)
             .stage_flags(vk::ShaderStageFlags::ALL)
             .build(),
@@ -75,7 +75,7 @@ pub fn create_bindless_descriptor_set(
     layout: vk::DescriptorSetLayout,
 ) -> vk::DescriptorSet {
     let descriptor_sizes = [vk::DescriptorPoolSize {
-        ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+        ty: vk::DescriptorType::SAMPLED_IMAGE,
         descriptor_count: MAX_BINDLESS_DESCRIPTOR_COUNT as u32,
     }];
 

@@ -36,6 +36,7 @@ impl DescriptorSet {
                     rspirv_reflect::DescriptorType::STORAGE_IMAGE => {
                         vk::DescriptorType::STORAGE_IMAGE
                     }
+                    rspirv_reflect::DescriptorType::SAMPLER => vk::DescriptorType::SAMPLER,
                     rspirv_reflect::DescriptorType::UNIFORM_BUFFER => {
                         vk::DescriptorType::UNIFORM_BUFFER
                     }
@@ -183,6 +184,62 @@ impl DescriptorSet {
                 .update_descriptor_sets(&[descriptor_writes], &[])
         };
     }
+
+    pub fn write_sampled_image(
+        &self,
+        device: &Device,
+        name: DescriptorIdentifier,
+        texture: &Texture,
+    ) {
+        let binding = match name {
+            DescriptorIdentifier::Name(name) => match self.binding_map.get(&name) {
+                Some(binding) => binding.binding,
+                None => panic!("No descriptor binding found with name: \"{}\"", name),
+            },
+            DescriptorIdentifier::Index(index) => index,
+        };
+
+        let descriptor_writes = vk::WriteDescriptorSet::builder()
+            .dst_set(self.handle)
+            .dst_binding(binding)
+            .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
+            .image_info(&[texture.descriptor_info])
+            .build();
+
+        unsafe {
+            device
+                .handle
+                .update_descriptor_sets(&[descriptor_writes], &[])
+        };
+    }
+
+    // pub fn write_sampler(
+    //     &self,
+    //     device: &Device,
+    //     name: DescriptorIdentifier,
+    //     texture: &Texture,
+    // ) {
+    //     let binding = match name {
+    //         DescriptorIdentifier::Name(name) => match self.binding_map.get(&name) {
+    //             Some(binding) => binding.binding,
+    //             None => panic!("No descriptor binding found with name: \"{}\"", name),
+    //         },
+    //         DescriptorIdentifier::Index(index) => index,
+    //     };
+
+    //     let descriptor_writes = vk::WriteDescriptorSet::builder()
+    //         .dst_set(self.handle)
+    //         .dst_binding(binding)
+    //         .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
+    //         .image_info(&[texture.descriptor_info])
+    //         .build();
+
+    //     unsafe {
+    //         device
+    //             .handle
+    //             .update_descriptor_sets(&[descriptor_writes], &[])
+    //     };
+    // }
 
     pub fn write_storage_image(&self, device: &Device, name: DescriptorIdentifier, image: &Image) {
         let binding = match name {

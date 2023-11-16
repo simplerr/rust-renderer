@@ -10,8 +10,8 @@ layout (location = 0) in vec2 in_uv;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform sampler2D in_gbuffer_position;
-layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_normal;
+layout (set = 3, binding = 0) uniform texture2D in_gbuffer_position;
+layout (set = 3, binding = 1) uniform texture2D in_gbuffer_normal;
 
 const int KERNEL_SIZE = 32;
 
@@ -20,7 +20,7 @@ const int KERNEL_SIZE = 32;
 //    vec4 kernelSamples[KERNEL_SIZE];
 // } ubo;
 
-layout(std140, set = 3, binding = 0) uniform UBO_settings
+layout(std140, set = 4, binding = 0) uniform UBO_settings
 {
    float radius;
    float bias;
@@ -69,7 +69,7 @@ void main()
    vec2 uv = in_uv;
 
    // Get G-Buffer values
-   vec3 positionWorld = texture(in_gbuffer_position, uv).xyz;
+   vec3 positionWorld = texture(sampler2D(in_gbuffer_position, defaultSampler), uv).xyz;
    vec3 fragPosView = (view.view * vec4(positionWorld, 1.0f)).xyz;
 
    // The position texture is cleared with 1 so this is a way to detect if we are in the skybox
@@ -79,7 +79,7 @@ void main()
    }
 
    mat4 normalMatrix = transpose(inverse(view.view));
-   vec3 normalWorld = texture(in_gbuffer_normal, uv).rgb;
+   vec3 normalWorld = texture(sampler2D(in_gbuffer_normal, defaultSampler), uv).rgb;
    vec3 normalView = normalize((normalMatrix * vec4(normalWorld, 0.0)).xyz);
 
    // Todo:
@@ -105,7 +105,7 @@ void main()
       offset.xyz = offset.xyz * 0.5f + 0.5f;
       offset.xy = FLIP_UV_Y(offset.xy);
 
-      float sampleDepth = (view.view * vec4(texture(in_gbuffer_position, offset.xy).xyz, 1.0f)).z;
+      float sampleDepth = (view.view * vec4(texture(sampler2D(in_gbuffer_position, defaultSampler), offset.xy).xyz, 1.0f)).z;
 
       float rangeCheck = smoothstep(0.0f, 1.0f, settings_ubo.radius / abs(fragPosView.z - sampleDepth));
       occlusion += (sampleDepth >= samplePos.z ? 1.0f : 0.0f) * rangeCheck;

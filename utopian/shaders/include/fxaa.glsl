@@ -15,9 +15,9 @@ float rgb2luma(vec3 rgb)
 }
 
 // Implementation from http://blog.simonrodriguez.fr/articles/30-07-2016_implementing_fxaa.html
-vec3 fxaa(sampler2D inputTexture, vec2 uv)
+vec3 fxaa(texture2D inputTexture, vec2 uv)
 {
-   vec3 colorCenter = texture(inputTexture, uv).rgb;
+   vec3 colorCenter = texture(sampler2D(inputTexture, defaultSampler), uv).rgb;
    vec3 outColor = colorCenter;
 
    if (settings_fxaa.enabled_debug_threshold.x != 1.0)
@@ -33,10 +33,10 @@ vec3 fxaa(sampler2D inputTexture, vec2 uv)
    float lumaCenter = rgb2luma(colorCenter);
 
    // Luma at the four direct neighbours of the current fragment.
-   float lumaDown = rgb2luma(textureOffset(inputTexture, uv, ivec2(0, -1)).rgb);
-   float lumaUp = rgb2luma(textureOffset(inputTexture, uv, ivec2(0, 1)).rgb);
-   float lumaLeft = rgb2luma(textureOffset(inputTexture, uv, ivec2(-1, 0)).rgb);
-   float lumaRight = rgb2luma(textureOffset(inputTexture, uv, ivec2(1, 0)).rgb);
+   float lumaDown = rgb2luma(textureOffset(sampler2D(inputTexture, defaultSampler), uv, ivec2(0, -1)).rgb);
+   float lumaUp = rgb2luma(textureOffset(sampler2D(inputTexture, defaultSampler), uv, ivec2(0, 1)).rgb);
+   float lumaLeft = rgb2luma(textureOffset(sampler2D(inputTexture, defaultSampler), uv, ivec2(-1, 0)).rgb);
+   float lumaRight = rgb2luma(textureOffset(sampler2D(inputTexture, defaultSampler), uv, ivec2(1, 0)).rgb);
 
    // Find the maximum and minimum luma around the current fragment.
    float lumaMin = min(lumaCenter, min(min(lumaDown, lumaUp), min(lumaLeft, lumaRight)));
@@ -56,10 +56,10 @@ vec3 fxaa(sampler2D inputTexture, vec2 uv)
    */
 
    // Query the 4 remaining corners lumas.
-   float lumaDownLeft = rgb2luma(textureOffset(inputTexture, uv, ivec2(-1, -1)).rgb);
-   float lumaUpRight = rgb2luma(textureOffset(inputTexture, uv, ivec2(1, 1)).rgb);
-   float lumaUpLeft = rgb2luma(textureOffset(inputTexture, uv, ivec2(-1, 1)).rgb);
-   float lumaDownRight = rgb2luma(textureOffset(inputTexture, uv, ivec2(1, -1)).rgb);
+   float lumaDownLeft = rgb2luma(textureOffset(sampler2D(inputTexture, defaultSampler), uv, ivec2(-1, -1)).rgb);
+   float lumaUpRight = rgb2luma(textureOffset(sampler2D(inputTexture, defaultSampler), uv, ivec2(1, 1)).rgb);
+   float lumaUpLeft = rgb2luma(textureOffset(sampler2D(inputTexture, defaultSampler), uv, ivec2(-1, 1)).rgb);
+   float lumaDownRight = rgb2luma(textureOffset(sampler2D(inputTexture, defaultSampler), uv, ivec2(1, -1)).rgb);
 
    // Combine the four edges lumas (using intermediary variables for future computations with the same values).
    float lumaDownUp = lumaDown + lumaUp;
@@ -131,8 +131,8 @@ vec3 fxaa(sampler2D inputTexture, vec2 uv)
    vec2 uv2 = currentUv + offset;
 
    // Read the lumas at both current extremities of the exploration segment, and compute the delta wrt to the local average luma.
-   float lumaEnd1 = rgb2luma(texture(inputTexture, uv1).rgb);
-   float lumaEnd2 = rgb2luma(texture(inputTexture, uv2).rgb);
+   float lumaEnd1 = rgb2luma(texture(sampler2D(inputTexture, defaultSampler), uv1).rgb);
+   float lumaEnd2 = rgb2luma(texture(sampler2D(inputTexture, defaultSampler), uv2).rgb);
    lumaEnd1 -= lumaLocalAverage;
    lumaEnd2 -= lumaLocalAverage;
 
@@ -160,13 +160,13 @@ vec3 fxaa(sampler2D inputTexture, vec2 uv)
          // If needed, read luma in 1st direction, compute delta.
          if(!reached1)
          {
-            lumaEnd1 = rgb2luma(texture(inputTexture, uv1).rgb);
+            lumaEnd1 = rgb2luma(texture(sampler2D(inputTexture, defaultSampler), uv1).rgb);
             lumaEnd1 = lumaEnd1 - lumaLocalAverage;
          }
          // If needed, read luma in opposite direction, compute delta.
          if(!reached2)
          {
-            lumaEnd2 = rgb2luma(texture(inputTexture, uv2).rgb);
+            lumaEnd2 = rgb2luma(texture(sampler2D(inputTexture, defaultSampler), uv2).rgb);
             lumaEnd2 = lumaEnd2 - lumaLocalAverage;
          }
          // If the luma deltas at the current extremities is larger than the local gradient, we have reached the side of the edge.
@@ -241,7 +241,7 @@ vec3 fxaa(sampler2D inputTexture, vec2 uv)
       finalUv.x += finalOffset * stepLength;
 
    // Read the color at the new UV coordinates, and use it.
-   vec3 finalColor = texture(inputTexture, finalUv).rgb;
+   vec3 finalColor = texture(sampler2D(inputTexture, defaultSampler), finalUv).rgb;
    outColor = finalColor;
 
    if (settings_fxaa.enabled_debug_threshold.y == 1.0)

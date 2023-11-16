@@ -104,11 +104,10 @@ impl Texture {
                 .expect("Unable to create sampler")
         };
 
-        let descriptor_info = vk::DescriptorImageInfo {
-            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-            image_view: image.image_view,
-            sampler,
-        };
+        let descriptor_info = vk::DescriptorImageInfo::builder()
+            .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+            .image_view(image.image_view)
+            .build();
 
         Texture {
             image,

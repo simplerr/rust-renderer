@@ -10,9 +10,9 @@ layout (location = 0) in vec2 in_uv;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform samplerCube in_enviroment_map;
+layout (set = 3, binding = 0) uniform textureCube in_enviroment_map;
 
-layout (std140, set = 3, binding = 0) uniform UBO_parameters
+layout (std140, set = 4, binding = 0) uniform UBO_parameters
 {
    mat4 view;
    mat4 projection;
@@ -42,7 +42,7 @@ void main()
          // Tangent space to world
          vec3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * normal;
 
-         irradiance += texture(in_enviroment_map, sampleVec).rgb * cos(theta) * sin(theta);
+         irradiance += texture(samplerCube(in_enviroment_map, defaultSampler), sampleVec).rgb * cos(theta) * sin(theta);
          nrSamples++;
       }
    }

@@ -6,9 +6,9 @@
 #include "include/view.glsl"
 #include "include/pbr_lighting.glsl"
 
-layout (set = 2, binding = 4) uniform samplerCube in_irradiance_map;
-layout (set = 2, binding = 5) uniform samplerCube in_specular_map;
-layout (set = 2, binding = 6) uniform sampler2D in_brdf_lut;
+layout (set = 3, binding = 4) uniform textureCube in_irradiance_map;
+layout (set = 3, binding = 5) uniform textureCube in_specular_map;
+layout (set = 3, binding = 6) uniform texture2D in_brdf_lut;
 
 layout(location = 0) rayPayloadInEXT vec3 rayPayload;
 hitAttributeEXT vec2 attribs;
@@ -44,7 +44,7 @@ void main()
 
    vec2 uv = v0.uv * barycentrics.x + v1.uv * barycentrics.y + v2.uv * barycentrics.z;
 
-   vec3 color = texture(samplerColor[material.diffuse_map], uv).xyz;
+   vec3 color = texture(sampler2D(samplerColor[material.diffuse_map], defaultSampler), uv).xyz;
    color *= material.base_color_factor.rgb;
 
    if (view.ibl_enabled == 1)
@@ -53,9 +53,9 @@ void main()
       pixel.position = world_position;
       pixel.baseColor = color;
       pixel.normal = world_normal;
-      pixel.metallic = texture(samplerColor[material.metallic_roughness_map], uv).b;
-      pixel.roughness = texture(samplerColor[material.metallic_roughness_map], uv).g;
-      pixel.occlusion = texture(samplerColor[material.occlusion_map], uv).r;
+      pixel.metallic = texture(sampler2D(samplerColor[material.metallic_roughness_map], defaultSampler), uv).b;
+      pixel.roughness = texture(sampler2D(samplerColor[material.metallic_roughness_map], defaultSampler), uv).g;
+      pixel.occlusion = texture(sampler2D(samplerColor[material.occlusion_map], defaultSampler), uv).r;
 
       rayPayload = imageBasedLighting(pixel, view.eye_pos.xyz, in_irradiance_map, in_specular_map, in_brdf_lut);
    }

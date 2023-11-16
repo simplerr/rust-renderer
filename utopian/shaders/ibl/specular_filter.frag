@@ -11,10 +11,10 @@ layout (location = 0) in vec2 in_uv;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform samplerCube in_enviroment_map;
+layout (set = 3, binding = 0) uniform textureCube in_enviroment_map;
 
 // Todo: could be push constants instead
-layout (std140, set = 3, binding = 0) uniform UBO_parameters
+layout (std140, set = 4, binding = 0) uniform UBO_parameters
 {
    mat4 view;
    mat4 projection;
@@ -43,7 +43,7 @@ vec3 prefilterEnvMap(vec3 R, float roughness)
    vec3 V = R;
    vec3 color = vec3(0.0);
    float totalWeight = 0.0;
-   float envMapDim = float(textureSize(in_enviroment_map, 0).s);
+   float envMapDim = float(textureSize(samplerCube(in_enviroment_map, defaultSampler), 0).s);
    const int numSamples = 32;
    for(uint i = 0u; i < numSamples; i++) {
       vec2 Xi = hammersley2d(i, numSamples);
@@ -64,7 +64,7 @@ vec3 prefilterEnvMap(vec3 R, float roughness)
          float omegaP = 4.0 * PI / (6.0 * envMapDim * envMapDim);
          // Biased (+1.0) mip level for better result
          float mipLevel = roughness == 0.0 ? 0.0 : max(0.5 * log2(omegaS / omegaP) + 1.0, 0.0f);
-         color += textureLod(in_enviroment_map, L, mipLevel).rgb * dotNL;
+         color += textureLod(samplerCube(in_enviroment_map, defaultSampler), L, mipLevel).rgb * dotNL;
          totalWeight += dotNL;
 
       }

@@ -12,7 +12,7 @@ struct DrawCommand
   uint firstInstance;
 };
 
-layout(std430, set = 2, binding = 0) buffer DrawCommandSSBO
+layout(std430, set = 3, binding = 0) buffer DrawCommandSSBO
 {
    DrawCommand drawCommand;
 } drawCommandSSBO;

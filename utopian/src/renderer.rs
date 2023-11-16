@@ -6,10 +6,11 @@ pub const MAX_NUM_GPU_MATERIALS: usize = 1024;
 pub const MAX_NUM_GPU_MESHES: usize = 1024;
 
 /// All shaders share these common descriptor set indexes
-/// Every custom shader descriptor set needs to be starting from index 3
+/// Every custom shader descriptor set needs to be starting from index 4
 pub const DESCRIPTOR_SET_INDEX_BINDLESS: u32 = 0;
 pub const DESCRIPTOR_SET_INDEX_VIEW: u32 = 1;
-pub const DESCRIPTOR_SET_INDEX_INPUT_TEXTURES: u32 = 2;
+pub const DESCRIPTOR_SET_INDEX_DEFAULT_SAMPLER: u32 = 2;
+pub const DESCRIPTOR_SET_INDEX_INPUT_TEXTURES: u32 = 3;
 
 pub struct ModelInstance {
     pub model: Model,
@@ -261,7 +262,7 @@ impl Renderer {
             .dst_set(self.bindless_descriptor_set)
             .dst_binding(0)
             .dst_array_element(new_image_index)
-            .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE)
             .image_info(std::slice::from_ref(&texture.descriptor_info))
             .build();
 

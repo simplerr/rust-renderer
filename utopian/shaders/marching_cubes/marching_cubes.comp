@@ -6,8 +6,8 @@
 #include "tables.glsl"
 #include "noise.glsl"
 
-// layout (set = 0, binding = 0) uniform isampler2D edgeTableTex;
-// layout (set = 0, binding = 1) uniform isampler2D triangleTableTex;
+// layout (set = 0, binding = 0) uniform itexture2D edgeTableTex;
+// layout (set = 0, binding = 1) uniform itexture2D triangleTableTex;
 // layout (set = 0, binding = 2) uniform sampler3D sdfImage;
 
 // layout(push_constant) uniform PushConsts {
@@ -24,17 +24,17 @@ struct DrawCommand
   uint firstInstance;
 };
 
-layout(std430, set = 2, binding = 0) buffer DrawCommandSSBO
+layout(std430, set = 3, binding = 0) buffer DrawCommandSSBO
 {
    DrawCommand drawCommand;
 } drawCommandSSBO;
 
-layout(std430, set = 2, binding = 1) buffer VertexSSBO
+layout(std430, set = 3, binding = 1) buffer VertexSSBO
 {
    Vertex vertices[];
 } vertexSSBO;
 
-layout (set = 3, binding = 0) uniform UBO_input
+layout (set = 4, binding = 0) uniform UBO_input
 {
    vec4 offsets[8];
    vec4 color;
@@ -111,7 +111,7 @@ float density(vec3 pos)
    const float blockSize = ubo.voxelsInBlock * ubo.voxelSize;
    const vec3 uv = vec3((pos - (800 - ubo.viewDistance) * blockSize) / (ubo.viewDistance * 2 * blockSize));
 
-   float noise3d = texture(sdfImage, uv / 1.0f).r;
+   float noise3d = texture(sampler3D(sdfImage, defaultSampler), uv / 1.0f).r;
    density = max(noise3d, density);
 #endif
 

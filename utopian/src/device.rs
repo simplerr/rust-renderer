@@ -21,6 +21,7 @@ pub struct Device {
     pub raytracing_supported: bool,
     pub debug_utils: ash::extensions::ext::DebugUtils,
     pub frame_profiler: crate::profiler_backend::VkProfilerData,
+    pub default_sampler: vk::Sampler,
 }
 
 impl Drop for Device {
@@ -188,6 +189,27 @@ impl Device {
                 ),
             );
 
+            let default_sampler_info = vk::SamplerCreateInfo {
+                mag_filter: vk::Filter::LINEAR,
+                min_filter: vk::Filter::LINEAR,
+                mipmap_mode: vk::SamplerMipmapMode::LINEAR,
+                address_mode_u: vk::SamplerAddressMode::MIRRORED_REPEAT,
+                address_mode_v: vk::SamplerAddressMode::MIRRORED_REPEAT,
+                address_mode_w: vk::SamplerAddressMode::MIRRORED_REPEAT,
+                max_anisotropy: 1.0,
+                border_color: vk::BorderColor::FLOAT_OPAQUE_WHITE,
+                compare_op: vk::CompareOp::NEVER,
+                min_lod: 0.0,
+                max_lod: vk::LOD_CLAMP_NONE,
+                ..Default::default()
+            };
+
+            let default_sampler = unsafe {
+                device
+                    .create_sampler(&default_sampler_info, None)
+                    .expect("Unable to create default sampler")
+            };
+
             Device {
                 handle: device,
                 physical_device,
@@ -203,6 +225,7 @@ impl Device {
                 raytracing_supported,
                 debug_utils,
                 frame_profiler,
+                default_sampler,
             }
         }
     }

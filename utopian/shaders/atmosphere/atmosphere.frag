@@ -11,7 +11,7 @@ layout (location = 0) in vec3 in_pos_l;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform samplerCube in_enviroment_map;
+layout (set = 3, binding = 0) uniform textureCube in_enviroment_map;
 
 void main()
 {
@@ -25,7 +25,7 @@ void main()
    vec3 color = vec3(0.0);
 
    if (view.cubemap_enabled == 1) {
-      color = textureLod(in_enviroment_map, rayDir * vec3(1, -1, 1), 2).rgb;
+      color = textureLod(samplerCube(in_enviroment_map, defaultSampler), rayDir * vec3(1, -1, 1), 2).rgb;
    }
    else {
       vec3 transmittance;

@@ -34,7 +34,7 @@ struct Mesh
    uint material;
 };
 
-layout (set = 0, binding = 0) uniform sampler2D samplerColor[];
+layout (set = 0, binding = 0) uniform texture2D samplerColor[];
 
 layout (std430, set = 0, binding = 1) readonly buffer VerticesSSBO
 {
@@ -56,3 +56,4 @@ layout (scalar, set = 0, binding = 4) readonly buffer MeshesSSBO
    Mesh meshes[];
 } meshesSSBO;
 
+layout (set = 2, binding = 0) uniform sampler defaultSampler;

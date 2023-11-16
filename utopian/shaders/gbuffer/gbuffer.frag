@@ -28,11 +28,11 @@ void main()
     Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
     Material material = materialsSSBO.materials[mesh.material];
 
-    vec4 diffuse_color = texture(samplerColor[material.diffuse_map], in_uv);
-    vec4 normal_map = texture(samplerColor[material.normal_map], in_uv);
-    float metallic = texture(samplerColor[material.metallic_roughness_map], in_uv).b;
-    float roughness = texture(samplerColor[material.metallic_roughness_map], in_uv).g;
-    float occlusion = texture(samplerColor[material.occlusion_map], in_uv).r;
+    vec4 diffuse_color = texture(sampler2D(samplerColor[material.diffuse_map], defaultSampler), in_uv);
+    vec4 normal_map = texture(sampler2D(samplerColor[material.normal_map], defaultSampler), in_uv);
+    float metallic = texture(sampler2D(samplerColor[material.metallic_roughness_map], defaultSampler), in_uv).b;
+    float roughness = texture(sampler2D(samplerColor[material.metallic_roughness_map], defaultSampler), in_uv).g;
+    float occlusion = texture(sampler2D(samplerColor[material.occlusion_map], defaultSampler), in_uv).r;
 
     // From sRGB space to Linear space
     //diffuse_color.rgb = pow(diffuse_color.rgb, vec3(2.2));

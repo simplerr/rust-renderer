@@ -16,11 +16,11 @@ layout (location = 5) in mat3 in_tbn;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform sampler2DArray in_shadow_map;
+layout (set = 3, binding = 0) uniform texture2DArray in_shadow_map;
 
 // Todo: set=2 should be dedicated to input textures but the shader reflection
 // does not support gaps in the descriptor sets
-layout (std140, set = 3, binding = 0) uniform UBO_shadowmapParams
+layout (std140, set = 4, binding = 0) uniform UBO_shadowmapParams
 {
     mat4 view_projection_matrices[4];
     vec4 cascade_splits;
@@ -52,11 +52,11 @@ void main() {
     Mesh mesh = meshesSSBO.meshes[pushConsts.mesh_index];
     Material material = materialsSSBO.materials[mesh.material];
 
-    vec4 diffuse_color = texture(samplerColor[material.diffuse_map], in_uv);
-    vec4 normal_map = texture(samplerColor[material.normal_map], in_uv);
-    float metallic = texture(samplerColor[material.metallic_roughness_map], in_uv).b;
-    float roughness = texture(samplerColor[material.metallic_roughness_map], in_uv).g;
-    float occlusion = texture(samplerColor[material.occlusion_map], in_uv).r;
+    vec4 diffuse_color = texture(sampler2D(samplerColor[material.diffuse_map], defaultSampler), in_uv);
+    vec4 normal_map = texture(sampler2D(samplerColor[material.normal_map], defaultSampler), in_uv);
+    float metallic = texture(sampler2D(samplerColor[material.metallic_roughness_map], defaultSampler), in_uv).b;
+    float roughness = texture(sampler2D(samplerColor[material.metallic_roughness_map], defaultSampler), in_uv).g;
+    float occlusion = texture(sampler2D(samplerColor[material.occlusion_map], defaultSampler), in_uv).r;
 
     // From sRGB space to Linear space
     diffuse_color.rgb = pow(diffuse_color.rgb, vec3(2.2));

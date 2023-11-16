@@ -263,7 +263,7 @@ pub fn compile_glsl_shader_naga(path: &str) -> Option<naga::Module> {
 }
 
 pub fn create_layouts_from_reflection(
-    device: &ash::Device,
+    device: &crate::Device,
     reflection: &Reflection,
     bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
 ) -> (
@@ -271,6 +271,10 @@ pub fn create_layouts_from_reflection(
     Vec<vk::DescriptorSetLayout>,
     Vec<vk::PushConstantRange>,
 ) {
+    // println!("-------------------------------------------------");
+    // println!("");
+    // println!("{:#?}", reflection.descriptor_set_reflections);
+
     let mut descriptor_sets_layouts: Vec<vk::DescriptorSetLayout> = reflection
         .descriptor_set_reflections
         .values()
@@ -286,6 +290,7 @@ pub fn create_layouts_from_reflection(
                             rspirv_reflect::DescriptorType::SAMPLED_IMAGE => {
                                 vk::DescriptorType::SAMPLED_IMAGE
                             }
+                            rspirv_reflect::DescriptorType::SAMPLER => vk::DescriptorType::SAMPLER,
                             rspirv_reflect::DescriptorType::STORAGE_IMAGE => {
                                 vk::DescriptorType::STORAGE_IMAGE
                             }
@@ -301,17 +306,29 @@ pub fn create_layouts_from_reflection(
                             _ => panic!("Unsupported descriptor type"),
                         };
 
-                        let descriptor_set_layout_binding =
+                        let mut descriptor_set_layout_binding_builder =
                             vk::DescriptorSetLayoutBinding::builder()
                                 .binding(*binding)
                                 .descriptor_type(descriptor_type)
                                 .descriptor_count(1) // descriptor_info.binding_count
-                                .stage_flags(vk::ShaderStageFlags::ALL)
-                                .build();
+                                .stage_flags(vk::ShaderStageFlags::ALL);
+
+                        if descriptor_type == vk::DescriptorType::SAMPLER {
+                            println!("SAMPLER!");
+                            descriptor_set_layout_binding_builder =
+                                descriptor_set_layout_binding_builder.immutable_samplers(
+                                    std::slice::from_ref(&device.default_sampler),
+                                );
+                        }
+
+                        let descriptor_set_layout_binding =
+                            descriptor_set_layout_binding_builder.build();
 
                         descriptor_set_layout_binding
                     })
                     .collect();
+
+            //println!("{:#?}", descriptor_set_layout_bindings);
 
             let descriptor_sets_layout_info = vk::DescriptorSetLayoutCreateInfo::builder()
                 .bindings(&descriptor_set_layout_bindings)
@@ -319,6 +336,7 @@ pub fn create_layouts_from_reflection(
 
             unsafe {
                 device
+                    .handle
                     .create_descriptor_set_layout(&descriptor_sets_layout_info, None)
                     .expect("Error creating descriptor set layout")
             }
@@ -354,6 +372,7 @@ pub fn create_layouts_from_reflection(
 
     let pipeline_layout = unsafe {
         device
+            .handle
             .create_pipeline_layout(&pipeline_layout_create_info, None)
             .expect("Error creating pipeline layout")
     };
@@ -365,12 +384,16 @@ pub fn create_layouts_from_reflection(
     )
 }
 
-pub fn create_shader_module(mut spv_file: Cursor<&[u8]>, device: &ash::Device) -> vk::ShaderModule {
+pub fn create_shader_module(
+    mut spv_file: Cursor<&[u8]>,
+    device: &crate::Device,
+) -> vk::ShaderModule {
     let shader_code = read_spv(&mut spv_file).expect("Failed to read shader spv file");
     let shader_info = vk::ShaderModuleCreateInfo::builder().code(&shader_code);
 
     unsafe {
         device
+            .handle
             .create_shader_module(&shader_info, None)
             .expect("Error creating shader module")
     }

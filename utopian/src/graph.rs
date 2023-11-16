@@ -66,6 +66,7 @@ pub struct Attachment {
 pub enum TextureResourceType {
     CombinedImageSampler,
     StorageImage,
+    SampledImage,
 }
 
 #[derive(Copy, Clone)]
@@ -100,6 +101,7 @@ pub struct Graph {
     pub passes: Vec<Vec<RenderPass>>,
     pub resources: GraphResources,
     pub descriptor_set_camera: Vec<crate::DescriptorSet>,
+    pub descriptor_set_default_samplers: crate::DescriptorSet,
     pub pipeline_descs: Vec<PipelineDesc>,
     pub profiling_enabled: bool,
     current_frame: usize,
@@ -137,7 +139,7 @@ impl PassBuilder {
     pub fn read(mut self, resource_id: TextureId) -> Self {
         self.reads.push(Resource::Texture(TextureResource {
             texture: resource_id,
-            input_type: TextureResourceType::CombinedImageSampler,
+            input_type: TextureResourceType::SampledImage,
             access_type: vk_sync::AccessType::AnyShaderReadSampledImageOrUniformTexelBuffer,
         }));
         self
@@ -450,6 +452,7 @@ impl Graph {
                 .iter()
                 .map(|buffer| Self::create_camera_descriptor_set(device, buffer))
                 .collect(),
+            descriptor_set_default_samplers: Self::create_default_samplers_descriptor_set(device),
             pipeline_descs: vec![],
             profiling_enabled: false,
             current_frame: 0,
@@ -529,6 +532,43 @@ impl Graph {
         );
 
         descriptor_set_camera
+    }
+
+    pub fn create_default_samplers_descriptor_set(device: &Device) -> crate::DescriptorSet {
+        let descriptor_set_layout_binding = vk::DescriptorSetLayoutBinding::builder()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::SAMPLER)
+            .descriptor_count(1)
+            .stage_flags(vk::ShaderStageFlags::ALL)
+            .immutable_samplers(std::slice::from_ref(&device.default_sampler))
+            .build();
+
+        let descriptor_sets_layout_info = vk::DescriptorSetLayoutCreateInfo::builder()
+            .bindings(&[descriptor_set_layout_binding])
+            .build();
+
+        let descriptor_set_layout = unsafe {
+            device
+                .handle
+                .create_descriptor_set_layout(&descriptor_sets_layout_info, None)
+                .expect("Error creating descriptor set layout")
+        };
+
+        let mut binding_map: crate::shader::BindingMap = std::collections::BTreeMap::new();
+        binding_map.insert(
+            "defaultSampler".to_string(),
+            crate::shader::Binding {
+                set: crate::DESCRIPTOR_SET_INDEX_DEFAULT_SAMPLER,
+                binding: 0,
+                info: rspirv_reflect::DescriptorInfo {
+                    ty: rspirv_reflect::DescriptorType::SAMPLER,
+                    binding_count: rspirv_reflect::BindingCount::One,
+                    name: "defaultSampler".to_string(),
+                },
+            },
+        );
+
+        crate::DescriptorSet::new(device, descriptor_set_layout, binding_map)
     }
 
     fn add_pass(&mut self, name: String, pipeline_handle: PipelineId) -> PassBuilder {
@@ -963,6 +1003,15 @@ impl Graph {
                     pass_pipeline.pipeline_layout,
                     crate::DESCRIPTOR_SET_INDEX_BINDLESS,
                     &[renderer.bindless_descriptor_set],
+                    &[],
+                );
+
+                device.handle.cmd_bind_descriptor_sets(
+                    command_buffer,
+                    bind_point,
+                    pass_pipeline.pipeline_layout,
+                    crate::DESCRIPTOR_SET_INDEX_DEFAULT_SAMPLER,
+                    &[self.descriptor_set_default_samplers.handle],
                     &[],
                 );
 

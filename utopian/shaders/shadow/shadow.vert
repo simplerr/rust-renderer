@@ -26,7 +26,7 @@ layout(push_constant) uniform PushConsts {
    ivec3 pad;
 } pushConsts;
 
-layout (std140, set = 2, binding = 0) uniform UBO_parameters
+layout (std140, set = 3, binding = 0) uniform UBO_parameters
 {
     mat4 matrix;
 } cascade_view_projection;

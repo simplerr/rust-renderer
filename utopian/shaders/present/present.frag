@@ -11,9 +11,9 @@ layout (location = 0) in vec2 in_uv;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform sampler2D in_color_texture;
+layout (set = 3, binding = 0) uniform texture2D in_color_texture;
 
-layout(std140, set = 3, binding = 0) uniform FXAA_settings
+layout(std140, set = 4, binding = 0) uniform FXAA_settings
 {
    vec4 enabled_debug_threshold;
 } settings_fxaa;
@@ -29,7 +29,7 @@ void main() {
         color = fxaa(in_color_texture, uv);
     }
     else {
-        color = texture(in_color_texture, uv).rgb;
+        color = texture(sampler2D(in_color_texture, defaultSampler), uv).rgb;
     }
 
     /* Tonemapping */

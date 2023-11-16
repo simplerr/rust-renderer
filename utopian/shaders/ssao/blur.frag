@@ -8,7 +8,7 @@ layout (std140, set = 0, binding = 0) uniform UBO_settings
    int blurRadius;
 } ubo;
 
-layout (set = 1, binding = 0) uniform sampler2D inputTexture;
+layout (set = 1, binding = 0) uniform texture2D inputTexture;
 
 layout (location = 0) in vec2 InTex;
 
@@ -25,7 +25,7 @@ void main()
       for (int y = -blurRange; y < blurRange; y++) 
       {
          vec2 offset = vec2(float(x), float(y)) * texelSize;
-         result += texture(inputTexture, InTex + offset).r;
+         result += texture(sampler2D(inputTexture, defaultSampler), InTex + offset).r;
          n++;
       }
    }

@@ -5,14 +5,14 @@
 #include "include/view.glsl"
 #include "include/pbr_lighting.glsl"
 
-layout(set = 2, binding = 0) uniform accelerationStructureEXT topLevelAS;
-layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_position;
-layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_normal;
-layout (set = 2, binding = 3) uniform sampler2D in_gbuffer_pbr;
-layout (set = 2, binding = 4) uniform samplerCube in_irradiance_map;
-layout (set = 2, binding = 5) uniform samplerCube in_specular_map;
-layout (set = 2, binding = 6) uniform sampler2D in_brdf_lut;
-layout(set = 2, binding = 7, rgba8) uniform image2D output_image;
+layout(set = 3, binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout (set = 3, binding = 1) uniform texture2D in_gbuffer_position;
+layout (set = 3, binding = 2) uniform texture2D in_gbuffer_normal;
+layout (set = 3, binding = 3) uniform texture2D in_gbuffer_pbr;
+layout (set = 3, binding = 4) uniform textureCube in_irradiance_map;
+layout (set = 3, binding = 5) uniform textureCube in_specular_map;
+layout (set = 3, binding = 6) uniform texture2D in_brdf_lut;
+layout(set = 3, binding = 7, rgba8) uniform image2D output_image;
 
 layout(location = 0) rayPayloadEXT vec3 rayPayload;
 
@@ -23,14 +23,14 @@ void main()
    const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy);
    vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
 
-   vec3 origin = texture(in_gbuffer_position, inUV).xyz;
-   vec3 normal = texture(in_gbuffer_normal, inUV).xyz;
+   vec3 origin = texture(sampler2D(in_gbuffer_position, defaultSampler), inUV).xyz;
+   vec3 normal = texture(sampler2D(in_gbuffer_normal, defaultSampler), inUV).xyz;
    origin.xyz = offsetRay(origin.xyz, normal.xyz);
 
    vec3 toEye = normalize(view.eye_pos - origin.xyz);
    vec3 reflectDir = reflect(-toEye, normal.xyz);
 
-   uint material_index = uint(texture(in_gbuffer_pbr, inUV).a);
+   uint material_index = uint(texture(sampler2D(in_gbuffer_pbr, defaultSampler), inUV).a);
    Material material = materialsSSBO.materials[material_index];
 
    // Metal

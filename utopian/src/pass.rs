@@ -94,6 +94,12 @@ impl RenderPass {
                                 DescriptorIdentifier::Index(idx as u32),
                                 &textures[read.texture].texture.image,
                             );
+                        } else if read.input_type == TextureResourceType::SampledImage {
+                            descriptor_set_read_resources.write_sampled_image(
+                                device,
+                                DescriptorIdentifier::Index(idx as u32),
+                                &textures[read.texture].texture,
+                            );
                         }
                     }
                     Resource::Buffer(read) => {

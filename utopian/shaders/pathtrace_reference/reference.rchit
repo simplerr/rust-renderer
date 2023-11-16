@@ -2,6 +2,7 @@
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
+#include "include/view.glsl"
 #include "include/bindless.glsl"
 #include "payload.glsl"
 #include "random.glsl"
@@ -37,7 +38,7 @@ void main()
    }
 
    vec2 uv = v0.uv * barycentrics.x + v1.uv * barycentrics.y + v2.uv * barycentrics.z;
-   vec3 color = texture(samplerColor[material.diffuse_map], uv).xyz;
+   vec3 color = texture(sampler2D(samplerColor[material.diffuse_map], defaultSampler), uv).xyz;
    color *= material.base_color_factor.rgb;
 
    vec3 scatterDirection;

@@ -22,7 +22,7 @@ float calculateShadow(vec3 position, out uint cascadeIndex)
    projCoordinate.xy = FLIP_UV_Y(projCoordinate.xy);
 
    float shadow = 0.0f;
-   vec2 texelSize = 1.0 / textureSize(in_shadow_map, 0).xy;
+   vec2 texelSize = 1.0 / textureSize(sampler2DArray(in_shadow_map, defaultSampler), 0).xy;
    int count = 0;
    int range = 1;
    for (int x = -range; x <= range; x++)
@@ -33,7 +33,7 @@ float calculateShadow(vec3 position, out uint cascadeIndex)
          if (projCoordinate.z <= 1.0f && projCoordinate.z > -1.0f)
          {
             vec2 offset = vec2(x, y) * texelSize;
-            float closestDepth = texture(in_shadow_map, vec3(projCoordinate.xy + offset, cascadeIndex)).r;
+            float closestDepth = texture(sampler2DArray(in_shadow_map, defaultSampler), vec3(projCoordinate.xy + offset, cascadeIndex)).r;
             float bias = 0.0005;
             const float shadowFactor = 0.3f;
             float testDepth = projCoordinate.z - bias;

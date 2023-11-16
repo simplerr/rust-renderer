@@ -130,18 +130,18 @@ impl Pipeline {
         let (shader_stage_create_infos, reflection, pipeline_layout, descriptor_set_layouts) =
             match pipeline.pipeline_type {
                 PipelineType::Graphics => Pipeline::create_graphics_shader_modules(
-                    &device.handle,
+                    device,
                     desc.vertex_path.unwrap(),
                     desc.fragment_path.unwrap(),
                     bindless_descriptor_set_layout,
                 ),
                 PipelineType::Compute => Pipeline::create_compute_shader_modules(
-                    &device.handle,
+                    device,
                     desc.compute_path.unwrap(),
                     bindless_descriptor_set_layout,
                 ),
                 PipelineType::Raytracing => Pipeline::create_raytracing_shader_modules(
-                    &device.handle,
+                    device,
                     desc.raygen_path.unwrap(),
                     desc.miss_path.unwrap(),
                     desc.hit_path.unwrap(),
@@ -187,7 +187,7 @@ impl Pipeline {
     }
 
     fn create_graphics_shader_modules(
-        device: &ash::Device,
+        device: &Device,
         vertex_shader_path: &str,
         fragment_shader_path: &str,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
@@ -200,8 +200,10 @@ impl Pipeline {
         ),
         shaderc::Error,
     > {
-        let test = shader::compile_glsl_shader_naga(vertex_shader_path);
-        let test2 = shader::compile_glsl_shader_naga(fragment_shader_path);
+        // let test = shader::compile_glsl_shader_naga(vertex_shader_path);
+        // let test2 = shader::compile_glsl_shader_naga(fragment_shader_path);
+
+        println!("{}", vertex_shader_path);
 
         let vertex_spv_file = shader::compile_glsl_shader(vertex_shader_path)?;
         let fragment_spv_file = shader::compile_glsl_shader(fragment_shader_path)?;
@@ -354,7 +356,7 @@ impl Pipeline {
     }
 
     fn create_compute_shader_modules(
-        device: &ash::Device,
+        device: &Device,
         compute_shader_path: &str,
         bindless_descriptor_set_layout: Option<vk::DescriptorSetLayout>,
     ) -> Result<
@@ -417,7 +419,7 @@ impl Pipeline {
     }
 
     fn create_raytracing_shader_modules(
-        device: &ash::Device,
+        device: &Device,
         raygen_shader_path: &str,
         miss_shader_path: &str,
         closest_hit_shader_path: &str,

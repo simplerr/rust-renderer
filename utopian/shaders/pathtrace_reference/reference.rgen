@@ -7,9 +7,9 @@
 #include "payload.glsl"
 #include "random.glsl"
 
-layout(set = 2, binding = 0) uniform accelerationStructureEXT topLevelAS;
-layout(set = 2, binding = 1, rgba8) uniform image2D output_image;
-layout(set = 2, binding = 2, rgba32f) uniform image2D accumulation_image;
+layout(set = 3, binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout(set = 3, binding = 1, rgba8) uniform image2D output_image;
+layout(set = 3, binding = 2, rgba32f) uniform image2D accumulation_image;
 
 layout(location = 0) rayPayloadEXT Payload rayPayload;
 layout(location = 1) rayPayloadEXT Payload shadowRayPayload;

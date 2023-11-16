@@ -11,21 +11,21 @@ layout (location = 0) in vec2 in_uv;
 
 layout (location = 0) out vec4 out_color;
 
-layout (set = 2, binding = 0) uniform sampler2D in_gbuffer_position;
-layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_normal;
-layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_albedo;
-layout (set = 2, binding = 3) uniform sampler2D in_gbuffer_pbr;
-layout (set = 2, binding = 4) uniform sampler2DArray in_shadow_map;
-layout (set = 2, binding = 5) uniform sampler2D in_rt_shadows;
-layout (set = 2, binding = 6) uniform sampler2D in_rt_reflections;
-layout (set = 2, binding = 7) uniform sampler2D in_ssao;
-layout (set = 2, binding = 8) uniform samplerCube in_irradiance_map;
-layout (set = 2, binding = 9) uniform samplerCube in_specular_map;
-layout (set = 2, binding = 10) uniform sampler2D in_brdf_lut;
+layout (set = 3, binding = 0) uniform texture2D in_gbuffer_position;
+layout (set = 3, binding = 1) uniform texture2D in_gbuffer_normal;
+layout (set = 3, binding = 2) uniform texture2D in_gbuffer_albedo;
+layout (set = 3, binding = 3) uniform texture2D in_gbuffer_pbr;
+layout (set = 3, binding = 4) uniform texture2DArray in_shadow_map;
+layout (set = 3, binding = 5) uniform texture2D in_rt_shadows;
+layout (set = 3, binding = 6) uniform texture2D in_rt_reflections;
+layout (set = 3, binding = 7) uniform texture2D in_ssao;
+layout (set = 3, binding = 8) uniform textureCube in_irradiance_map;
+layout (set = 3, binding = 9) uniform textureCube in_specular_map;
+layout (set = 3, binding = 10) uniform texture2D in_brdf_lut;
 
 // Todo: set=2 should be dedicated to input textures but the shader reflection
 // does not support gaps in the descriptor sets
-layout (std140, set = 3, binding = 0) uniform UBO_shadowmapParams
+layout (std140, set = 4, binding = 0) uniform UBO_shadowmapParams
 {
     mat4 view_projection_matrices[4];
     vec4 cascade_splits;
@@ -56,16 +56,16 @@ Light lights[numLights] = {
 void main() {
     vec2 uv = FLIP_UV_Y(in_uv);
 
-    uint material_index = uint(texture(in_gbuffer_pbr, uv).a);
+    uint material_index = uint(texture(sampler2D(in_gbuffer_pbr, defaultSampler), uv).a);
     Material material = materialsSSBO.materials[material_index];
 
-    vec3 position = texture(in_gbuffer_position, uv).rgb;
-    vec3 normal = texture(in_gbuffer_normal, uv).rgb;
-    vec3 diffuse_color = texture(in_gbuffer_albedo, uv).rgb;
-    float metallic = texture(in_gbuffer_pbr, uv).r;
-    float roughness = texture(in_gbuffer_pbr, uv).g;
-    float occlusion = texture(in_gbuffer_pbr, uv).b;
-    float ssao = texture(in_ssao, in_uv).r;
+    vec3 position = texture(sampler2D(in_gbuffer_position, defaultSampler), uv).rgb;
+    vec3 normal = texture(sampler2D(in_gbuffer_normal, defaultSampler), uv).rgb;
+    vec3 diffuse_color = texture(sampler2D(in_gbuffer_albedo, defaultSampler), uv).rgb;
+    float metallic = texture(sampler2D(in_gbuffer_pbr, defaultSampler), uv).r;
+    float roughness = texture(sampler2D(in_gbuffer_pbr, defaultSampler), uv).g;
+    float occlusion = texture(sampler2D(in_gbuffer_pbr, defaultSampler), uv).b;
+    float ssao = texture(sampler2D(in_ssao, defaultSampler), in_uv).r;
 
     roughness *= material.roughness_factor;
     metallic *= material.metallic_factor;
@@ -102,7 +102,7 @@ void main() {
     vec3 color = ambient + Lo;
 
     if (view.raytracing_supported == 1 && material.raytrace_properties.x == 1) {
-        vec3 reflectedColor = texture(in_rt_reflections, uv).rgb;
+        vec3 reflectedColor = texture(sampler2D(in_rt_reflections, defaultSampler), uv).rgb;
         color = mix(color, reflectedColor, 1.0);
     }
 
@@ -118,7 +118,7 @@ void main() {
         #endif
     }
     else if (view.raytracing_supported == 1) {
-        float shadow = texture(in_rt_shadows, uv).r;
+        float shadow = texture(sampler2D(in_rt_shadows, defaultSampler), uv).r;
         color = color * max(shadow, 0.3);
     }
 

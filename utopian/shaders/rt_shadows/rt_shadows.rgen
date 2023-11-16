@@ -4,10 +4,10 @@
 #include "include/bindless.glsl"
 #include "include/view.glsl"
 
-layout(set = 2, binding = 0) uniform accelerationStructureEXT topLevelAS;
-layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_position;
-layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_normal;
-layout(set = 2, binding = 3, rgba8) uniform image2D output_image;
+layout(set = 3, binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout (set = 3, binding = 1) uniform texture2D in_gbuffer_position;
+layout (set = 3, binding = 2) uniform texture2D in_gbuffer_normal;
+layout(set = 3, binding = 3, rgba8) uniform image2D output_image;
 
 layout(location = 0) rayPayloadEXT bool rayPayload;
 
@@ -18,8 +18,8 @@ void main()
    const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy);
    vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
 
-   vec3 origin = texture(in_gbuffer_position, inUV).xyz;
-   vec3 normal = texture(in_gbuffer_normal, inUV).xyz;
+   vec3 origin = texture(sampler2D(in_gbuffer_position, defaultSampler), inUV).xyz;
+   vec3 normal = texture(sampler2D(in_gbuffer_normal, defaultSampler), inUV).xyz;
    origin.xyz = offsetRay(origin.xyz, normal.xyz);
 
    vec3 light_dir = normalize(view.sun_dir);
