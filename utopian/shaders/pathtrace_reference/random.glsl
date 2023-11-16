@@ -40,3 +40,33 @@ vec2 randomPointInUnitDisk(inout uint rngState)
       }
    }
 }
+
+// inline vec3 random_cosine_direction() {
+//    auto r1 = random_double();
+//    auto r2 = random_double();
+
+//    auto phi = 2*pi*r1;
+//    auto x = cos(phi)*sqrt(r2);
+//    auto y = sin(phi)*sqrt(r2);
+//    auto z = sqrt(1-r2);
+
+//    return vec3(x, y, z);
+// }
+
+// // Samples a direction within a hemisphere oriented along +Z axis with a cosine-weighted distribution 
+// // Source: "Sampling Transformations Zoo" in Ray Tracing Gems by Shirley et al.
+// // A derivation and explanation is available at https://raytracing.github.io/books/RayTracingTheRestOfYourLife.html#generatingrandomdirections
+// vec3 sampleHemisphere(vec2 u, out float pdf)
+// {
+//    float a = sqrt(u.x);
+//    float b = TWO_PI * u.y;
+
+//    vec3 result = vec3(
+//       a * cos(b),
+//       a * sin(b),
+//       sqrt(1.0f - u.x));
+
+//    pdf = result.z * ONE_OVER_PI;
+
+//    return result;
+// }

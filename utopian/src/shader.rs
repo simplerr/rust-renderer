@@ -1,5 +1,6 @@
 use ash::util::*;
 use ash::vk;
+use naga::front::glsl::Error;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
@@ -186,6 +187,79 @@ pub fn compile_glsl_shader(path: &str) -> Result<shaderc::CompilationArtifact, s
     //println!("{}", text_result.as_text());
 
     Ok(binary_result)
+}
+fn extract_include_path(shader_path: &str, include_line: &str) -> String {
+    // Find the start and end indices of the file path within double quotes
+    let start_index = include_line
+        .find('"')
+        .expect("No starting quote found in include directive")
+        + 1; // +1 to skip the quote itself
+    let end_index = include_line
+        .rfind('"')
+        .expect("No ending quote found in include directive");
+
+    // Extract the file path
+    let include_request = include_line[start_index..end_index].to_string();
+
+    let include_path = Path::new(shader_path).parent().unwrap();
+    let mut include_path = include_path.join(include_request.clone());
+
+    // Look in the include folder if file not found
+    if !Path::new(&include_path).exists() {
+        include_path = Path::new("utopian/shaders").join(include_request);
+    }
+
+    include_path.into_os_string().into_string().unwrap()
+}
+
+fn preprocess_shader(shader_path: &str) -> String {
+    let shader_source = fs::read_to_string(shader_path).expect("Failed to read shader file");
+
+    let mut processed_source = String::new();
+
+    for line in shader_source.lines() {
+        if line.starts_with("#include") {
+            let include_path = extract_include_path(shader_path, line); // Implement this function
+            let include_source = preprocess_shader(include_path.as_str());
+            processed_source.push_str(&include_source);
+        } else {
+            processed_source.push_str(line);
+            processed_source.push('\n');
+        }
+    }
+
+    processed_source
+}
+
+pub fn compile_glsl_shader_naga(path: &str) -> Option<naga::Module> {
+    let source = &fs::read_to_string(path).expect("Error reading shader file")[..];
+    let preprocessed_source = preprocess_shader(path);
+
+    // println!("{}", preprocessed_source);
+    // println!("-------------------------------");
+    // println!("-------------------------------");
+
+    let mut frontend = naga::front::glsl::Frontend::default();
+    let options = naga::front::glsl::Options::from(naga::ShaderStage::Vertex);
+
+    //let result = frontend.parse(&options, source);
+    let result = frontend.parse(&options, &preprocessed_source);
+
+    match result {
+        Ok(module) => {
+            println!("Successfully compiled: '{}'", path);
+            Some(module)
+        }
+        Err(errors) => {
+            // If parsing failed, 'errors' is a Vec<Error>
+            println!("Failed to parse '{}' GLSL shader. Errors:", path);
+            // for error in errors {
+            //     println!("{:#?}", error);
+            //     println!("{:#?}", error.meta.location(&preprocessed_source));
+            // }
+            None
+        }
+    }
 }
 
 pub fn create_layouts_from_reflection(

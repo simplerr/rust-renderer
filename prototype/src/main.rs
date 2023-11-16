@@ -111,7 +111,7 @@ impl Application {
             shader_watcher,
             current_frame: 0,
             num_frames_in_flight,
-            render_graph_mode: if raytracing_supported {
+            render_graph_mode: if false && raytracing_supported {
                 RenderGraphMode::PathTraced
             } else {
                 RenderGraphMode::Rasterized
