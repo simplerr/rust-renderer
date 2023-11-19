@@ -21,10 +21,10 @@ void main()
 {
    vec3 worldDir = world_dir_from_uv(in_uv, params.view_mat, params.projection);
 
-   vec3 rayStart = extract_camera_position(view.view_mat);
+   vec3 rayStart = extract_camera_position(view_ubo.view);
    vec3 rayDir = worldDir;
    float rayLength = 999999999.0f;
-   vec3 sunDir = view.sun_dir;
+   vec3 sunDir = view_ubo.sun_dir;
    vec3 lightColor = vec3(1.0f);
 
    vec3 transmittance;

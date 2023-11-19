@@ -1,7 +1,7 @@
 
 layout (std140, set = 1, binding = 0) uniform UBO_view
 {
-    mat4 view_mat;
+    mat4 view;
     mat4 projection;
     mat4 inverse_view;
     mat4 inverse_projection;
@@ -23,7 +23,7 @@ layout (std140, set = 1, binding = 0) uniform UBO_view
     uint marching_cubes_enabled;
     uint rebuild_tlas;
     uint raytracing_supported;
-} view;
+} view_ubo;
 
 // Due to gl_Position not being multiplied by -1 we need to flip the
 // y axis of the uv coordinates. Todo: this should be possible to  get rid of.

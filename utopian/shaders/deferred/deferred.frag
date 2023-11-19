@@ -84,30 +84,30 @@ void main() {
     /* Direct lighting */
     vec3 Lo = vec3(0.0);
 
-    Light sun_light = Light(vec4(1.0f), vec3(0.0f), 0.0f, view.sun_dir * vec3(-1, 1, -1), 0.0f, vec3(1.0), 0.0f, vec3(0.0f), 0.0f, vec4(0.0f));
-    Lo += surfaceShading(pixel, sun_light, view.eye_pos.xyz, 1.0f);
+    Light sun_light = Light(vec4(1.0f), vec3(0.0f), 0.0f, view_ubo.sun_dir * vec3(-1, 1, -1), 0.0f, vec3(1.0), 0.0f, vec3(0.0f), 0.0f, vec4(0.0f));
+    Lo += surfaceShading(pixel, sun_light, view_ubo.eye_pos.xyz, 1.0f);
 
     // for (int i = 0; i < numLights; i++)
     // {
-    //    Lo += surfaceShading(pixel, lights[i], view.eye_pos.xyz, 1.0f);
+    //    Lo += surfaceShading(pixel, lights[i], view_ubo.eye_pos.xyz, 1.0f);
     // }
 
     vec3 ambient = vec3(0.03) * diffuse_color.rgb * occlusion;
 
-    if (view.ibl_enabled == 1)
+    if (view_ubo.ibl_enabled == 1)
     {
-        ambient = imageBasedLighting(pixel, view.eye_pos.xyz, in_irradiance_map, in_specular_map, in_brdf_lut);
+        ambient = imageBasedLighting(pixel, view_ubo.eye_pos.xyz, in_irradiance_map, in_specular_map, in_brdf_lut);
     }
 
     vec3 color = ambient + Lo;
 
-    if (view.raytracing_supported == 1 && material.raytrace_properties.x == 1) {
+    if (view_ubo.raytracing_supported == 1 && material.raytrace_properties.x == 1) {
         vec3 reflectedColor = texture(sampler2D(in_rt_reflections, defaultSampler), uv).rgb;
         color = mix(color, reflectedColor, 1.0);
     }
 
     // Shadow
-    if (view.shadows_enabled == 1) {
+    if (view_ubo.shadows_enabled == 1) {
         uint cascadeIndex = 0;
         float shadow = calculateShadow(position, cascadeIndex);
         color = color * shadow;
@@ -117,12 +117,12 @@ void main() {
             color.rgb *= cascade_index_to_debug_color(cascadeIndex);
         #endif
     }
-    else if (view.raytracing_supported == 1) {
+    else if (view_ubo.raytracing_supported == 1) {
         float shadow = texture(sampler2D(in_rt_shadows, defaultSampler), uv).r;
         color = color * max(shadow, 0.3);
     }
 
-    if (view.ssao_enabled == 1) {
+    if (view_ubo.ssao_enabled == 1) {
         color *= ssao;
     }
 

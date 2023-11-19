@@ -35,6 +35,6 @@ void main()
 
    // Removes the translation components of the matrix to always keep the skybox at the same distance
    //mat4 viewNoTranslation = mat4(mat3(pushConsts.view));
-   mat4 viewNoTranslation = mat4(mat3(view.view_mat));
+   mat4 viewNoTranslation = mat4(mat3(view_ubo.view));
    gl_Position = ubo_constants.projection * viewNoTranslation * ubo_constants.world * vec4(pos.xyz, 1.0);
 }

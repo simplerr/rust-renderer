@@ -22,7 +22,7 @@ void main()
    vec3 normal = texture(sampler2D(in_gbuffer_normal, defaultSampler), inUV).xyz;
    origin.xyz = offsetRay(origin.xyz, normal.xyz);
 
-   vec3 light_dir = normalize(view.sun_dir);
+   vec3 light_dir = normalize(view_ubo.sun_dir);
 
    float tmin = 0.001;
    float tmax = 10000.0;

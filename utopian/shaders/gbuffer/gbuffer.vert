@@ -43,7 +43,7 @@ void main() {
     out_color = vertex.color;
     out_normal = mat3(transpose(inverse(pushConsts.world))) * vertex.normal.xyz;
     out_tangent = vertex.tangent;
-    gl_Position = view.projection * view.view_mat * pushConsts.world * vec4(vertex.pos.xyz, 1.0);
+    gl_Position = view_ubo.projection * view_ubo.view * pushConsts.world * vec4(vertex.pos.xyz, 1.0);
 #else
     vec3 bitangentL = cross(normal.xyz, tangent.xyz);
     vec3 T = normalize(mat3(pushConsts.world) * tangent.xyz);
@@ -56,7 +56,7 @@ void main() {
     out_color = color;
     out_normal = mat3(transpose(inverse(pushConsts.world))) * normal.xyz;
     out_tangent = tangent;
-    gl_Position = view.projection * view.view_mat * pushConsts.world * vec4(pos.xyz, 1.0);
+    gl_Position = view_ubo.projection * view_ubo.view * pushConsts.world * vec4(pos.xyz, 1.0);
 #endif
 
 }

@@ -16,15 +16,15 @@ layout (set = 3, binding = 0) uniform textureCube in_enviroment_map;
 void main()
 {
    //vec3 rayStart = sharedVariables.eyePos.xyz;
-   vec3 rayStart = extract_camera_position(view.view_mat);
+   vec3 rayStart = extract_camera_position(view_ubo.view);
    vec3 rayDir = normalize(in_pos_l);
    float rayLength = 999999999.0f;
-   vec3 sunDir = view.sun_dir;
+   vec3 sunDir = view_ubo.sun_dir;
    vec3 lightColor = vec3(1.0f);
 
    vec3 color = vec3(0.0);
 
-   if (view.cubemap_enabled == 1) {
+   if (view_ubo.cubemap_enabled == 1) {
       color = textureLod(samplerCube(in_enviroment_map, defaultSampler), rayDir * vec3(1, -1, 1), 2).rgb;
    }
    else {

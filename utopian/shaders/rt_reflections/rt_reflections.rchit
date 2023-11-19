@@ -47,7 +47,7 @@ void main()
    vec3 color = texture(sampler2D(samplerColor[material.diffuse_map], defaultSampler), uv).xyz;
    color *= material.base_color_factor.rgb;
 
-   if (view.ibl_enabled == 1)
+   if (view_ubo.ibl_enabled == 1)
    {
       PixelParams pixel;
       pixel.position = world_position;
@@ -57,7 +57,7 @@ void main()
       pixel.roughness = texture(sampler2D(samplerColor[material.metallic_roughness_map], defaultSampler), uv).g;
       pixel.occlusion = texture(sampler2D(samplerColor[material.occlusion_map], defaultSampler), uv).r;
 
-      rayPayload = imageBasedLighting(pixel, view.eye_pos.xyz, in_irradiance_map, in_specular_map, in_brdf_lut);
+      rayPayload = imageBasedLighting(pixel, view_ubo.eye_pos.xyz, in_irradiance_map, in_specular_map, in_brdf_lut);
    }
    else {
       rayPayload = vec3(0.1) * color;

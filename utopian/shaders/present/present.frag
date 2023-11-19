@@ -25,7 +25,7 @@ void main() {
 
     vec3 color = vec3(0.0);
 
-    if (view.fxaa_enabled == 1) {
+    if (view_ubo.fxaa_enabled == 1) {
         color = fxaa(in_color_texture, uv);
     }
     else {

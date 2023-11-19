@@ -27,7 +27,7 @@ void main()
    vec3 normal = texture(sampler2D(in_gbuffer_normal, defaultSampler), inUV).xyz;
    origin.xyz = offsetRay(origin.xyz, normal.xyz);
 
-   vec3 toEye = normalize(view.eye_pos - origin.xyz);
+   vec3 toEye = normalize(view_ubo.eye_pos - origin.xyz);
    vec3 reflectDir = reflect(-toEye, normal.xyz);
 
    uint material_index = uint(texture(sampler2D(in_gbuffer_pbr, defaultSampler), inUV).a);

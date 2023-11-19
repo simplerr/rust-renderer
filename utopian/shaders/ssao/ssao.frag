@@ -70,7 +70,7 @@ void main()
 
    // Get G-Buffer values
    vec3 positionWorld = texture(sampler2D(in_gbuffer_position, defaultSampler), uv).xyz;
-   vec3 fragPosView = (view.view_mat * vec4(positionWorld, 1.0f)).xyz;
+   vec3 fragPosView = (view_ubo.view * vec4(positionWorld, 1.0f)).xyz;
 
    // The position texture is cleared with 1 so this is a way to detect if we are in the skybox
    if (positionWorld == vec3(1.0)) {
@@ -78,7 +78,7 @@ void main()
       return;
    }
 
-   mat4 normalMatrix = transpose(inverse(view.view_mat));
+   mat4 normalMatrix = transpose(inverse(view_ubo.view));
    vec3 normalWorld = texture(sampler2D(in_gbuffer_normal, defaultSampler), uv).rgb;
    vec3 normalView = normalize((normalMatrix * vec4(normalWorld, 0.0)).xyz);
 
@@ -100,12 +100,12 @@ void main()
       
       // Project to NDC
       vec4 offset = vec4(samplePos, 1.0f);
-      offset = view.projection * offset;
+      offset = view_ubo.projection * offset;
       offset.xyz /= offset.w;
       offset.xyz = offset.xyz * 0.5f + 0.5f;
       offset.xy = FLIP_UV_Y(offset.xy);
 
-      float sampleDepth = (view.view_mat * vec4(texture(sampler2D(in_gbuffer_position, defaultSampler), offset.xy).xyz, 1.0f)).z;
+      float sampleDepth = (view_ubo.view * vec4(texture(sampler2D(in_gbuffer_position, defaultSampler), offset.xy).xyz, 1.0f)).z;
 
       float rangeCheck = smoothstep(0.0f, 1.0f, settings_ubo.radius / abs(fragPosView.z - sampleDepth));
       occlusion += (sampleDepth >= samplePos.z ? 1.0f : 0.0f) * rangeCheck;

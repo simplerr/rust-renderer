@@ -79,12 +79,12 @@ void main() {
     /* Direct lighting */
     vec3 Lo = vec3(0.0);
 
-    Light sun_light = Light(vec4(1.0f), vec3(0.0f), 0.0f, view.sun_dir * vec3(-1, 1, -1), 0.0f, vec3(1.0), 0.0f, vec3(0.0f), 0.0f, vec4(0.0f));
-    Lo += surfaceShading(pixel, sun_light, view.eye_pos.xyz, 1.0f);
+    Light sun_light = Light(vec4(1.0f), vec3(0.0f), 0.0f, view_ubo.sun_dir * vec3(-1, 1, -1), 0.0f, vec3(1.0), 0.0f, vec3(0.0f), 0.0f, vec4(0.0f));
+    Lo += surfaceShading(pixel, sun_light, view_ubo.eye_pos.xyz, 1.0f);
 
     for (int i = 0; i < numLights; i++)
     {
-       Lo += surfaceShading(pixel, lights[i], view.eye_pos.xyz, 1.0f);
+       Lo += surfaceShading(pixel, lights[i], view_ubo.eye_pos.xyz, 1.0f);
     }
 
     // Todo: IBL
@@ -92,7 +92,7 @@ void main() {
     vec3 color = ambient + Lo;
 
     // Shadow
-    if (view.shadows_enabled == 1) {
+    if (view_ubo.shadows_enabled == 1) {
         uint cascadeIndex = 0;
         float shadow = calculateShadow(in_pos, cascadeIndex);
         color = color * shadow;
