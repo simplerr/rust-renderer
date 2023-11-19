@@ -1,7 +1,7 @@
 
 layout (std140, set = 1, binding = 0) uniform UBO_view
 {
-    mat4 view;
+    mat4 view_mat;
     mat4 projection;
     mat4 inverse_view;
     mat4 inverse_projection;
@@ -17,7 +17,7 @@ layout (std140, set = 1, binding = 0) uniform UBO_view
     // render settings
     uint shadows_enabled;
     uint ssao_enabled;
-    uint fxaa_enabled;
+    int fxaa_enabled;
     uint cubemap_enabled;
     uint ibl_enabled;
     uint marching_cubes_enabled;

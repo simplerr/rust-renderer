@@ -16,7 +16,7 @@ layout (set = 3, binding = 0) uniform textureCube in_enviroment_map;
 void main()
 {
    //vec3 rayStart = sharedVariables.eyePos.xyz;
-   vec3 rayStart = extract_camera_position(view.view);
+   vec3 rayStart = extract_camera_position(view.view_mat);
    vec3 rayDir = normalize(in_pos_l);
    float rayLength = 999999999.0f;
    vec3 sunDir = view.sun_dir;

@@ -13,15 +13,15 @@ layout (location = 0) out vec4 out_color;
 
 layout (std140, set = 3, binding = 0) uniform UBO_parameters
 {
-   mat4 view;
+   mat4 view_mat;
    mat4 projection;
 } params;
 
 void main()
 {
-   vec3 worldDir = world_dir_from_uv(in_uv, params.view, params.projection);
+   vec3 worldDir = world_dir_from_uv(in_uv, params.view_mat, params.projection);
 
-   vec3 rayStart = extract_camera_position(view.view);
+   vec3 rayStart = extract_camera_position(view.view_mat);
    vec3 rayDir = worldDir;
    float rayLength = 999999999.0f;
    vec3 sunDir = view.sun_dir;

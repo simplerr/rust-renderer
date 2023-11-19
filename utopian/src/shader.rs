@@ -237,7 +237,7 @@ pub fn compile_glsl_shader_naga(path: &str) -> Option<naga::Module> {
 
     // println!("{}", preprocessed_source);
     // println!("-------------------------------");
-    // println!("-------------------------------");
+    // println!("");
 
     let mut frontend = naga::front::glsl::Frontend::default();
     let options = naga::front::glsl::Options::from(naga::ShaderStage::Vertex);
@@ -247,16 +247,15 @@ pub fn compile_glsl_shader_naga(path: &str) -> Option<naga::Module> {
 
     match result {
         Ok(module) => {
-            println!("Successfully compiled: '{}'", path);
+            println!("Naga successfully compiled: '{}'", path);
             Some(module)
         }
         Err(errors) => {
-            // If parsing failed, 'errors' is a Vec<Error>
             println!("Failed to parse '{}' GLSL shader. Errors:", path);
-            // for error in errors {
-            //     println!("{:#?}", error);
-            //     println!("{:#?}", error.meta.location(&preprocessed_source));
-            // }
+            for error in errors {
+                println!("{:#?}", error);
+                println!("{:#?}", error.meta.location(&preprocessed_source));
+            }
             None
         }
     }
@@ -314,7 +313,6 @@ pub fn create_layouts_from_reflection(
                                 .stage_flags(vk::ShaderStageFlags::ALL);
 
                         if descriptor_type == vk::DescriptorType::SAMPLER {
-                            println!("SAMPLER!");
                             descriptor_set_layout_binding_builder =
                                 descriptor_set_layout_binding_builder.immutable_samplers(
                                     std::slice::from_ref(&device.default_sampler),

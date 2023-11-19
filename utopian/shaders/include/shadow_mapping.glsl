@@ -8,7 +8,7 @@ float linearize_depth(float d, float zNear, float zFar)
 float calculateShadow(vec3 position, out uint cascadeIndex)
 {
 
-   vec3 viewPosition = (view.view * vec4(position, 1.0f)).xyz;
+   vec3 viewPosition = (view.view_mat * vec4(position, 1.0f)).xyz;
    cascadeIndex = 0;
    for(uint i = 0; i < SHADOW_MAP_CASCADE_COUNT - 1; ++i) {
       if(viewPosition.z < -shadowmapParams.cascade_splits[i]) {

@@ -200,8 +200,8 @@ impl Pipeline {
         ),
         shaderc::Error,
     > {
-        // let test = shader::compile_glsl_shader_naga(vertex_shader_path);
-        // let test2 = shader::compile_glsl_shader_naga(fragment_shader_path);
+        let test = shader::compile_glsl_shader_naga(vertex_shader_path);
+        let test2 = shader::compile_glsl_shader_naga(fragment_shader_path);
 
         println!("{}", vertex_shader_path);
 

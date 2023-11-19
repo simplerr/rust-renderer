@@ -1,5 +1,6 @@
 #extension GL_EXT_scalar_block_layout : enable
 #extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_ARB_shader_storage_buffer_object : require
 
 struct Vertex
 {
@@ -41,17 +42,17 @@ layout (std430, set = 0, binding = 1) readonly buffer VerticesSSBO
    Vertex vertices[];
 } verticesSSBO[];
 
-layout (scalar, set = 0, binding = 2) readonly buffer IndicesSSBO
+layout (std430, set = 0, binding = 2) readonly buffer IndicesSSBO
 {
    ivec3 indices[];
 } indicesSSBO[];
 
-layout (scalar, set = 0, binding = 3) readonly buffer MaterialsSSBO
+layout (std430, set = 0, binding = 3) readonly buffer MaterialsSSBO
 {
    Material materials[];
 } materialsSSBO;
 
-layout (scalar, set = 0, binding = 4) readonly buffer MeshesSSBO
+layout (std430, set = 0, binding = 4) readonly buffer MeshesSSBO
 {
    Mesh meshes[];
 } meshesSSBO;
