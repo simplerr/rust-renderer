@@ -1087,6 +1087,7 @@ dependencies = [
  "num-traits",
  "pp-rs",
  "rustc-hash",
+ "spirv",
  "termcolor",
  "thiserror",
 ]

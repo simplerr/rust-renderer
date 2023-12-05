@@ -231,13 +231,15 @@ fn preprocess_shader(shader_path: &str) -> String {
     processed_source
 }
 
-pub fn compile_glsl_shader_naga(path: &str) -> Option<naga::Module> {
+pub fn compile_glsl_shader_naga(path: &str) -> () {
     let source = &fs::read_to_string(path).expect("Error reading shader file")[..];
     let preprocessed_source = preprocess_shader(path);
 
-    // println!("{}", preprocessed_source);
-    // println!("-------------------------------");
-    // println!("");
+    println!("{}", preprocessed_source);
+    println!("-------------------------------");
+    println!("");
+    println!("");
+    println!("");
 
     let mut frontend = naga::front::glsl::Frontend::default();
     let options = naga::front::glsl::Options::from(naga::ShaderStage::Vertex);
@@ -245,7 +247,7 @@ pub fn compile_glsl_shader_naga(path: &str) -> Option<naga::Module> {
     //let result = frontend.parse(&options, source);
     let result = frontend.parse(&options, &preprocessed_source);
 
-    match result {
+    let module = match result {
         Ok(module) => {
             println!("Naga successfully compiled: '{}'", path);
             Some(module)
@@ -258,7 +260,32 @@ pub fn compile_glsl_shader_naga(path: &str) -> Option<naga::Module> {
             }
             None
         }
-    }
+    };
+
+    let module = if let Some(module) = module {
+        module
+    } else {
+        return ();
+    };
+
+    let validation_flags = naga::valid::ValidationFlags::all();
+    let capabilities = naga::valid::Capabilities::all();
+    let mut validator = naga::valid::Validator::new(validation_flags, capabilities);
+    let validation_result = validator.validate(&module);
+
+    match validation_result {
+        Ok(module) => {
+            println!("Naga successfully compiled: '{}'", path);
+        }
+        Err(error) => {
+            println!("{:#?}", error.location(&preprocessed_source));
+            println!("Failed to parse '{}' GLSL shader. Errors:", path);
+            println!("{:#?}", error);
+            //println!("{:#?}", error.meta.location(&preprocessed_source));
+        }
+    };
+
+    //     naga::back::spv::write_vec(module, info, options, pipeline_options)
 }
 
 pub fn create_layouts_from_reflection(
