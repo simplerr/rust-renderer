@@ -3,4 +3,5 @@ members = [
     "utopian",
     "prototype",
 ]
+resolver = "2"
 

@@ -34,6 +34,20 @@ struct Mesh
    uint material;
 };
 
+struct Light
+{
+   vec4 color;
+   vec3 pos;
+   float range;
+   vec3 dir;
+   float spot;
+   vec3 att;
+   float type;
+   vec3 intensity;
+   float id;
+   vec4 pad;
+};
+
 layout (set = 0, binding = 0) uniform sampler2D samplerColor[];
 
 layout (std430, set = 0, binding = 1) readonly buffer VerticesSSBO
@@ -55,4 +69,9 @@ layout (scalar, set = 0, binding = 4) readonly buffer MeshesSSBO
 {
    Mesh meshes[];
 } meshesSSBO;
+
+layout (scalar, set = 0, binding = 5) readonly buffer LightsSSBO
+{
+   Light lights[];
+} lightsSSBO;
 

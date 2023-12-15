@@ -1,3 +1,5 @@
+use glam::Vec3;
+
 pub fn create_scene(
     renderer: &mut utopian::Renderer,
     camera: &mut utopian::Camera,
@@ -11,10 +13,19 @@ pub fn create_scene(
         glam::Mat4::from_translation(glam::Vec3::new(f32::MAX, f32::MAX, f32::MAX)),
     );
 
+    for i in 0..10 {
+        renderer.add_light(
+            device,
+            Vec3::new(0.0, -2.0, (i * 10) as f32),
+            Vec3::new(1.0, 1.0, 1.0),
+            1.0,
+        );
+    }
+
     // create_cornell_box_scene(renderer, camera, device);
-    create_metal_rough_spheres(renderer, camera, device);
-    create_sponza_scene(renderer, camera, device);
-    // create_cube_scene(renderer, camera, device);
+    // create_metal_rough_spheres(renderer, camera, device);
+    // create_sponza_scene(renderer, camera, device);
+    create_cube_scene(renderer, camera, device);
 }
 
 pub fn create_metal_rough_spheres(

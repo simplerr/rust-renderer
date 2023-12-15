@@ -1,9 +1,10 @@
 use crate::*;
 use ash::vk;
-use glam::Vec4;
+use glam::{Vec3, Vec4};
 
 pub const MAX_NUM_GPU_MATERIALS: usize = 1024;
 pub const MAX_NUM_GPU_MESHES: usize = 1024;
+pub const MAX_NUM_GPU_LIGHTS: usize = 1024;
 
 /// All shaders share these common descriptor set indexes
 /// Every custom shader descriptor set needs to be starting from index 3
@@ -14,55 +15,6 @@ pub const DESCRIPTOR_SET_INDEX_INPUT_TEXTURES: u32 = 2;
 pub struct ModelInstance {
     pub model: Model,
     pub transform: glam::Mat4,
-}
-
-pub struct Renderer {
-    pub raytracing: Option<Raytracing>,
-    pub bindless_descriptor_set_layout: vk::DescriptorSetLayout,
-    pub bindless_descriptor_set: vk::DescriptorSet,
-    pub instances: Vec<ModelInstance>,
-    pub gpu_materials_buffer: Buffer,
-    pub gpu_meshes_buffer: Buffer,
-    gpu_materials: Vec<GpuMaterial>,
-    gpu_meshes: Vec<GpuMesh>,
-    default_diffuse_map_index: u32,
-    default_normal_map_index: u32,
-    default_occlusion_map_index: u32,
-    default_metallic_roughness_map_index: u32,
-    next_bindless_image_index: u32,
-    next_bindless_vertex_buffer_index: u32,
-    next_bindless_index_buffer_index: u32,
-
-    // This should probably be somewhere else
-    pub need_environment_map_update: bool,
-}
-
-#[allow(dead_code)]
-#[derive(Clone, Debug, Copy)]
-#[repr(C)]
-pub struct ViewUniformData {
-    pub view: glam::Mat4,
-    pub projection: glam::Mat4,
-    pub inverse_view: glam::Mat4,
-    pub inverse_projection: glam::Mat4,
-    pub eye_pos: glam::Vec3,
-    pub samples_per_frame: u32,
-    pub sun_dir: glam::Vec3,
-    pub total_samples: u32,
-    pub num_bounces: u32,
-    pub viewport_width: u32,
-    pub viewport_height: u32,
-    pub time: f32,
-
-    // render settings
-    pub shadows_enabled: u32,
-    pub ssao_enabled: u32,
-    pub fxaa_enabled: u32,
-    pub cubemap_enabled: u32,
-    pub ibl_enabled: u32,
-    pub marching_cubes_enabled: u32,
-    pub rebuild_tlas: u32,
-    pub raytracing_supported: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -91,6 +43,73 @@ struct GpuMesh {
     material: u32,
 }
 
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+struct GpuLight {
+    color: Vec4,
+    position: Vec3,
+    range: f32,
+    direction: Vec3,
+    spot: f32,
+    attenuation: Vec3,
+    light_type: f32,
+    intensity: Vec3,
+    id: f32,
+    paddding: Vec4,
+}
+
+pub struct Renderer {
+    pub raytracing: Option<Raytracing>,
+    pub bindless_descriptor_set_layout: vk::DescriptorSetLayout,
+    pub bindless_descriptor_set: vk::DescriptorSet,
+    pub instances: Vec<ModelInstance>,
+    gpu_materials_buffer: Buffer,
+    gpu_meshes_buffer: Buffer,
+    gpu_lights_buffer: Buffer,
+    gpu_materials: Vec<GpuMaterial>,
+    gpu_meshes: Vec<GpuMesh>,
+    gpu_lights: Vec<GpuLight>,
+    default_diffuse_map_index: u32,
+    default_normal_map_index: u32,
+    default_occlusion_map_index: u32,
+    default_metallic_roughness_map_index: u32,
+    next_bindless_image_index: u32,
+    next_bindless_vertex_buffer_index: u32,
+    next_bindless_index_buffer_index: u32,
+
+    // This should probably be somewhere else
+    pub need_environment_map_update: bool,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, Copy)]
+#[repr(C)]
+pub struct ViewUniformData {
+    pub view: glam::Mat4,
+    pub projection: glam::Mat4,
+    pub inverse_view: glam::Mat4,
+    pub inverse_projection: glam::Mat4,
+    pub eye_pos: glam::Vec3,
+    pub samples_per_frame: u32,
+    pub sun_dir: glam::Vec3,
+    pub total_samples: u32,
+    pub num_bounces: u32,
+    pub viewport_width: u32,
+    pub viewport_height: u32,
+    pub time: f32,
+    pub num_lights: u32,
+
+    // render settings
+    pub shadows_enabled: u32,
+    pub ssao_enabled: u32,
+    pub fxaa_enabled: u32,
+    pub cubemap_enabled: u32,
+    pub ibl_enabled: u32,
+    pub marching_cubes_enabled: u32,
+    pub rebuild_tlas: u32,
+    pub raytracing_supported: u32,
+}
+
 impl Renderer {
     pub fn new(device: &Device, width: u32, height: u32) -> Renderer {
         let bindless_descriptor_set_layout = create_bindless_descriptor_set_layout(device);
@@ -113,6 +132,14 @@ impl Renderer {
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
+        let gpu_lights_buffer = Buffer::new::<u8>(
+            device,
+            None,
+            (MAX_NUM_GPU_LIGHTS * std::mem::size_of::<GpuLight>()) as u64,
+            vk::BufferUsageFlags::STORAGE_BUFFER,
+            gpu_allocator::MemoryLocation::CpuToGpu,
+        );
+
         DescriptorSet::write_raw_storage_buffer(
             device,
             bindless_descriptor_set,
@@ -124,6 +151,12 @@ impl Renderer {
             bindless_descriptor_set,
             4,
             &gpu_meshes_buffer,
+        );
+        DescriptorSet::write_raw_storage_buffer(
+            device,
+            bindless_descriptor_set,
+            5,
+            &gpu_lights_buffer,
         );
 
         let raytracing = match device.raytracing_supported {
@@ -142,8 +175,10 @@ impl Renderer {
             instances: vec![],
             gpu_materials: vec![],
             gpu_meshes: vec![],
+            gpu_lights: vec![],
             gpu_meshes_buffer,
             gpu_materials_buffer,
+            gpu_lights_buffer,
             next_bindless_image_index: 0,
             next_bindless_vertex_buffer_index: 0,
             next_bindless_index_buffer_index: 0,
@@ -342,6 +377,31 @@ impl Renderer {
         self.gpu_meshes.push(gpu_mesh);
 
         gpu_index
+    }
+
+    pub fn add_light(&mut self, device: &Device, position: Vec3, color: Vec3, range: f32) -> u32 {
+        let light_index = self.gpu_lights.len() as u32;
+        self.gpu_lights.push(GpuLight {
+            color: Vec4::new(color.x, color.y, color.z, 0.0),
+            position,
+            range,
+            direction: Vec3::new(0.0, 0.0, 0.0),
+            spot: 0.0,
+            attenuation: Vec3::new(0.0, 0.0, 0.1),
+            light_type: 1.0,
+            intensity: Vec3::new(0.0, 0.0, 0.0),
+            id: 0.0,
+            paddding: Vec4::new(0.0, 0.0, 0.0, 0.0),
+        });
+
+        self.gpu_lights_buffer
+            .update_memory(device, self.gpu_lights.as_slice());
+
+        light_index
+    }
+
+    pub fn get_num_lights(&self) -> u32 {
+        self.gpu_lights.len() as u32
     }
 
     pub fn draw_meshes(

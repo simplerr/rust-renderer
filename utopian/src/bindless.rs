@@ -3,7 +3,7 @@ use ash::vk;
 
 // RTX 3070 device limit maxDescriptorSetUpdateAfterBindStorageBuffers is 512x512
 // so leave 1024 to be used for non-bindless descriptors
-pub const MAX_BINDLESS_DESCRIPTOR_COUNT: usize = 512 * 510;
+pub const MAX_BINDLESS_DESCRIPTOR_COUNT: usize = 512 * 400;
 
 pub fn create_bindless_descriptor_set_layout(device: &Device) -> vk::DescriptorSetLayout {
     let descriptor_set_layout_binding = vec![
@@ -42,9 +42,17 @@ pub fn create_bindless_descriptor_set_layout(device: &Device) -> vk::DescriptorS
             .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32) // Hack: actually 1
             .stage_flags(vk::ShaderStageFlags::ALL)
             .build(),
+        // Lights (not bindless)
+        vk::DescriptorSetLayoutBinding::builder()
+            .binding(5)
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .descriptor_count(MAX_BINDLESS_DESCRIPTOR_COUNT as u32) // Hack: actually 1
+            .stage_flags(vk::ShaderStageFlags::ALL)
+            .build(),
     ];
 
     let binding_flags: Vec<vk::DescriptorBindingFlags> = vec![
+        vk::DescriptorBindingFlags::PARTIALLY_BOUND,
         vk::DescriptorBindingFlags::PARTIALLY_BOUND,
         vk::DescriptorBindingFlags::PARTIALLY_BOUND,
         vk::DescriptorBindingFlags::PARTIALLY_BOUND,

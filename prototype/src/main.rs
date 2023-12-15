@@ -59,6 +59,7 @@ impl Application {
             viewport_width: width,
             viewport_height: height,
             time: 0.0,
+            num_lights: 0,
             sun_dir: Vec3::new(0.0, 0.9, 0.15).normalize(),
             shadows_enabled: 0,
             ssao_enabled: 1,
@@ -409,6 +410,8 @@ impl Application {
             if self.render_graph_mode == RenderGraphMode::PathTraced {
                 self.view_data.total_samples += self.view_data.samples_per_frame;
             }
+
+            self.view_data.num_lights = self.renderer.get_num_lights();
 
             Application::record_commands(
                 &self.base.device,
