@@ -58,34 +58,50 @@ void main()
          origin.xyz = offsetRay(origin.xyz, rayPayload.normal.xyz);
          direction = vec4(rayPayload.scatterDirection.xyz, 0.0);
 
-#if !SHADOW_RAY
-         vec3 light_dir = normalize(view.sun_dir);
+         // Optimize by only tracing shadow rays for the first bounce
+         // Todo: is this common to do? Any cleaner way to do this?
+         if (b == 0)
+         {
+// Some defines just for quick testing
+#define SUN_SHADOW_RAY 1
+#define POINT_LIGHT_SHADOW_RAYS 1
+#define COLOR_FROM_SUN_EXPERIMENT 1
 
-         // Directional light
-         // Todo: shall use gl_RayFlagsSkipClosestHitShaderEXT and gl_RayFlagsTerminateOnFirstHitEXT
-         traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT,
-                     0xff, 0, 0, 0, origin.xyz, tmin, light_dir, tmax, 1);
-         if (shadowRayPayload.colorDistance.w == -1) {
-#if !COLOR_FROM_SUN
-            radiance += throughput;
+#if SUN_SHADOW_RAY
+            vec3 sun_dir = normalize(view.sun_dir);
+
+            // Todo: shall use gl_RayFlagsSkipClosestHitShaderEXT and gl_RayFlagsTerminateOnFirstHitEXT
+            traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT,
+                        0xff, 0, 0, 0, origin.xyz, tmin, sun_dir, tmax, 1);
+            if (shadowRayPayload.colorDistance.w == -1) {
+#if COLOR_FROM_SUN_EXPERIMENT
+               // Experimentation using color from the sun
+               vec3 transmittance;
+               vec3 sky_color = IntegrateScattering(origin.xyz, -sun_dir, 999999999.0f, sun_dir, vec3(1.0), transmittance);
+               radiance += 0.2 * throughput * min(sky_color, vec3(1.0)); // 0.2 is a magic constant to not make it too bright
 #else
-            // Experimentation using color from the sun
-            vec3 transmittance;
-            vec3 sky_color = IntegrateScattering(origin.xyz, light_dir, 999999999.0f, light_dir, vec3(1.0), transmittance);
-            radiance += throughput * min(sky_color, vec3(1.0));
-#endif
+               radiance += throughput;
+#endif // COLOR_FROM_SUN_EXPERIMENT
          }
+#endif // SUN_SHADOW_RAY
 
-         // Point light
-         // vec3 light_pos = vec3(-7.0, 1.0, 0.0);
-         // light_dir = normalize(light_pos - origin.xyz);
-         // traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT,
-         //             0xff, 0, 0, 0, origin.xyz, tmin, light_dir, tmax, 1);
-         // if (shadowRayPayload.colorDistance.w > distance(light_pos, origin.xyz)
-         //     || shadowRayPayload.colorDistance.w == -1) {
-         //    radiance += throughput;
-         // }
-#endif
+#if POINT_LIGHT_SHADOW_RAYS
+            uint num_used_lights = 1;//view.num_lights;
+            int light_index = int(randomFloat(rngState) * float(num_used_lights));
+            vec3 light_pos = lightsSSBO.lights[light_index].pos;
+            vec3 light_dir = normalize(light_pos - origin.xyz);
+            float distance_to_light = distance(light_pos, origin.xyz);
+            traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT,
+                     0xff, 0, 0, 0, origin.xyz, tmin, light_dir, tmax, 1);
+
+            if(shadowRayPayload.colorDistance.w > distance_to_light
+               || shadowRayPayload.colorDistance.w == -1) {
+               const float intensity = 10.0;
+               const float weight = 1.0 / float(num_used_lights);
+               radiance += throughput * (1.0 / pow(distance_to_light, 2.0)) * intensity / weight;
+            }
+#endif // POINT_LIGHT_SHADOW_RAYS
+         }
       }
 
       pixelColor += radiance;
