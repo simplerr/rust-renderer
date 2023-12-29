@@ -77,6 +77,7 @@ impl Device {
                 vk::KhrMaintenance1Fn::name().as_ptr(),
                 vk::KhrMaintenance2Fn::name().as_ptr(),
                 vk::KhrMaintenance3Fn::name().as_ptr(),
+                vk::KhrShaderNonSemanticInfoFn::name().as_ptr(),
             ];
 
             let rt_extension_names_raw = vec![

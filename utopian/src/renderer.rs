@@ -105,8 +105,14 @@ pub struct ViewUniformData {
     pub fxaa_enabled: u32,
     pub cubemap_enabled: u32,
     pub ibl_enabled: u32,
+    pub sky_enabled: u32,
+    pub sun_shadow_enabled: u32,
+    pub lights_enabled: u32,
+    pub max_num_lights_used: u32,
     pub marching_cubes_enabled: u32,
     pub rebuild_tlas: u32,
+    pub accumulation_limit: u32,
+    pub use_ris_light_sampling: u32,
     pub raytracing_supported: u32,
 }
 
@@ -389,7 +395,7 @@ impl Renderer {
             spot: 0.0,
             attenuation: Vec3::new(0.0, 0.0, 0.1),
             light_type: 1.0,
-            intensity: Vec3::new(0.0, 0.0, 0.0),
+            intensity: Vec3::new(1.0, 1.0, 1.0),
             id: 0.0,
             paddding: Vec4::new(0.0, 0.0, 0.0, 0.0),
         });

@@ -13,10 +13,10 @@ pub fn create_scene(
         glam::Mat4::from_translation(glam::Vec3::new(f32::MAX, f32::MAX, f32::MAX)),
     );
 
-    for i in 0..10 {
+    for i in 0..1000 {
         renderer.add_light(
             device,
-            Vec3::new(0.0, -2.0, (i * 10) as f32),
+            Vec3::new(((i / 30) * 20) as f32, 3.5, ((i % 30) * 20) as f32),
             Vec3::new(1.0, 1.0, 1.0),
             1.0,
         );
@@ -24,8 +24,8 @@ pub fn create_scene(
 
     // create_cornell_box_scene(renderer, camera, device);
     // create_metal_rough_spheres(renderer, camera, device);
-    // create_sponza_scene(renderer, camera, device);
-    create_cube_scene(renderer, camera, device);
+    create_sponza_scene(renderer, camera, device);
+    // create_cube_scene(renderer, camera, device);
 }
 
 pub fn create_metal_rough_spheres(
@@ -164,13 +164,13 @@ pub fn create_cube_scene(
         device,
         model,
         glam::Mat4::from_scale_rotation_translation(
-            glam::Vec3::new(1000.0, 1.0, 1000.0),
+            glam::Vec3::new(10000.0, 0.1, 10000.0),
             glam::Quat::IDENTITY,
-            glam::Vec3::new(0.0, -5.0, 0.0),
+            glam::Vec3::new(0.0, 0.0, 0.0),
         ),
     );
 
-    for x in 0..10 {
+    for x in 0..30 {
         for z in 0..10 {
             let model = utopian::model_loader::ModelLoader::load_cube(device);
 
@@ -178,7 +178,7 @@ pub fn create_cube_scene(
                 device,
                 model,
                 glam::Mat4::from_scale_rotation_translation(
-                    glam::Vec3::new(1.0, 1.0, 1.0),
+                    glam::Vec3::new(1.0, 2.0, 1.0),
                     glam::Quat::IDENTITY,
                     glam::Vec3::new(x as f32 * 2.0, 0.0, z as f32 * 2.0),
                 ),

@@ -208,6 +208,139 @@ pub fn build_path_tracing_render_graph(
         ImageDesc::new_2d(width, height, vk::Format::R32G32B32A32_SFLOAT),
     );
 
+    let (gbuffer_position, gbuffer_normal, gbuffer_albedo, gbuffer_pbr) =
+        create_gbuffer_textures(graph, device, width, height);
+
+    struct Reservoir {
+        total_weight: f32,
+        sample_weight: f32,
+        light_index: u32,
+        M: u32,
+    }
+
+    let initial_ris_reservoirs = graph.create_buffer(
+        "initial_ris_reservoirs",
+        device,
+        (width * height * std::mem::size_of::<Reservoir>() as u32) as u64,
+        ash::vk::BufferUsageFlags::STORAGE_BUFFER,
+        gpu_allocator::MemoryLocation::GpuOnly,
+    );
+
+    let spatial_reuse_reservoirs = graph.create_buffer(
+        "spatial_reuse_reservoirs",
+        device,
+        (width * height * std::mem::size_of::<Reservoir>() as u32) as u64,
+        ash::vk::BufferUsageFlags::STORAGE_BUFFER,
+        gpu_allocator::MemoryLocation::GpuOnly,
+    );
+
+    let temporal_reuse_reservoirs = graph.create_buffer(
+        "temporal_reuse_reservoirs",
+        device,
+        (width * height * std::mem::size_of::<Reservoir>() as u32) as u64,
+        ash::vk::BufferUsageFlags::STORAGE_BUFFER,
+        gpu_allocator::MemoryLocation::GpuOnly,
+    );
+
+    crate::renderers::gbuffer::setup_gbuffer_pass(
+        device,
+        graph,
+        base,
+        gbuffer_position,
+        gbuffer_normal,
+        gbuffer_albedo,
+        gbuffer_pbr,
+    );
+
+    graph
+        .add_pass_from_desc(
+            "reset_reservoirs_pass",
+            crate::PipelineDesc::builder()
+                .compute_path("utopian/shaders/restir/reset_reservoirs.comp"),
+        )
+        .write_buffer(initial_ris_reservoirs)
+        .write_buffer(spatial_reuse_reservoirs)
+        .write_buffer(temporal_reuse_reservoirs)
+        .dispatch((width + 16 - 1) / 16, (height + 16 - 1) / 16, 1)
+        .build(device, graph);
+
+    graph
+        .add_pass_from_desc(
+            "initial_ris_pass",
+            crate::PipelineDesc::builder()
+                .raygen_path("utopian/shaders/restir/initial_ris.rgen")
+                .miss_path("utopian/shaders/restir/initial_ris.rmiss")
+                .hit_path("utopian/shaders/restir/initial_ris.rchit"),
+        )
+        .tlas(0)
+        .read(gbuffer_position)
+        .write_buffer(initial_ris_reservoirs)
+        .trace_rays(width, height, 1)
+        .build(device, graph);
+
+    graph
+        .add_pass_from_desc(
+            "temporal_reuse_pass",
+            crate::PipelineDesc::builder()
+                .raygen_path("utopian/shaders/restir/temporal_reuse.rgen")
+                .miss_path("utopian/shaders/restir/temporal_reuse.rmiss")
+                .hit_path("utopian/shaders/restir/temporal_reuse.rchit"),
+        )
+        .tlas(0)
+        .read(gbuffer_position)
+        .read(gbuffer_normal)
+        .read_buffer(initial_ris_reservoirs)
+        .read_buffer(spatial_reuse_reservoirs) // prev_frame_reservoirs
+        .write_buffer(temporal_reuse_reservoirs)
+        .trace_rays(width, height, 1)
+        .build(device, graph);
+
+    graph
+        .add_pass_from_desc(
+            "spatial_reuse_pass",
+            crate::PipelineDesc::builder()
+                .raygen_path("utopian/shaders/restir/spatial_reuse.rgen")
+                .miss_path("utopian/shaders/restir/spatial_reuse.rmiss")
+                .hit_path("utopian/shaders/restir/spatial_reuse.rchit"),
+        )
+        .tlas(0)
+        .read(gbuffer_position)
+        .read_buffer(temporal_reuse_reservoirs)
+        .write_buffer(spatial_reuse_reservoirs)
+        .trace_rays(width, height, 1)
+        .build(device, graph);
+
+    // It is possible to do the spatial resampling recursively to reduce noise
+    // graph
+    //     .add_pass_from_desc(
+    //         "spatial_reuse_pass_2",
+    //         crate::PipelineDesc::builder()
+    //             .raygen_path("utopian/shaders/restir/spatial_reuse.rgen")
+    //             .miss_path("utopian/shaders/restir/spatial_reuse.rmiss")
+    //             .hit_path("utopian/shaders/restir/spatial_reuse.rchit"),
+    //     )
+    //     .tlas(0)
+    //     .read(gbuffer_position)
+    //     .read_buffer(spatial_reuse_reservoirs)
+    //     .write_buffer(initial_ris_reservoirs)
+    //     .trace_rays(width, height, 1)
+    //     .build(device, graph);
+
+    // graph
+    //     .add_pass_from_desc(
+    //         "spatial_reuse_pass_3",
+    //         crate::PipelineDesc::builder()
+    //             .raygen_path("utopian/shaders/restir/spatial_reuse.rgen")
+    //             .miss_path("utopian/shaders/restir/spatial_reuse.rmiss")
+    //             .hit_path("utopian/shaders/restir/spatial_reuse.rchit"),
+    //     )
+    //     .tlas(0)
+    //     .read(gbuffer_position)
+    //     .read_buffer(initial_ris_reservoirs)
+    //     .write_buffer(spatial_reuse_reservoirs)
+    //     .trace_rays(width, height, 1)
+    //     .build(device, graph);
+
     graph
         .add_pass_from_desc(
             "reference_pt_pass",
@@ -217,6 +350,7 @@ pub fn build_path_tracing_render_graph(
                 .hit_path("utopian/shaders/pathtrace_reference/reference.rchit"),
         )
         .tlas(0)
+        .read_buffer(spatial_reuse_reservoirs)
         .image_write(output_image)
         .image_write(accumulation_image)
         .trace_rays(width, height, 1)

@@ -4,22 +4,24 @@
 #include "include/bindless.glsl"
 #include "include/view.glsl"
 #include "include/atmosphere.glsl"
+#include "include/random.glsl"
+#include "include/restir_sampling.glsl"
 #include "payload.glsl"
-#include "random.glsl"
 
 layout(set = 2, binding = 0) uniform accelerationStructureEXT topLevelAS;
-layout(set = 2, binding = 1, rgba8) uniform image2D output_image;
-layout(set = 2, binding = 2, rgba32f) uniform image2D accumulation_image;
+layout(std430, set = 2, binding = 1) buffer ReservoirSSBO
+{
+   Reservoir reservoirs[];
+} reservoirSSBO;
+layout(set = 2, binding = 2, rgba8) uniform image2D output_image;
+layout(set = 2, binding = 3, rgba32f) uniform image2D accumulation_image;
 
 layout(location = 0) rayPayloadEXT Payload rayPayload;
 layout(location = 1) rayPayloadEXT Payload shadowRayPayload;
 
 void main()
 {
-   uint rngState = gl_LaunchSizeEXT.x * gl_LaunchIDEXT.y + gl_LaunchIDEXT.x;
-
-   // To get different RNG for every sample
-   rngState *= view.total_samples;
+   uint rngState = initRNG(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy, view.total_samples);
 
    vec3 pixelColor = vec3(0.0);
 
@@ -58,49 +60,67 @@ void main()
          origin.xyz = offsetRay(origin.xyz, rayPayload.normal.xyz);
          direction = vec4(rayPayload.scatterDirection.xyz, 0.0);
 
-         // Optimize by only tracing shadow rays for the first bounce
-         // Todo: is this common to do? Any cleaner way to do this?
-         if (b == 0)
-         {
-// Some defines just for quick testing
-#define SUN_SHADOW_RAY 1
-#define POINT_LIGHT_SHADOW_RAYS 1
-#define COLOR_FROM_SUN_EXPERIMENT 1
-
-#if SUN_SHADOW_RAY
+         if (view.sun_shadow_enabled == 1) {
             vec3 sun_dir = normalize(view.sun_dir);
 
             // Todo: shall use gl_RayFlagsSkipClosestHitShaderEXT and gl_RayFlagsTerminateOnFirstHitEXT
             traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT,
                         0xff, 0, 0, 0, origin.xyz, tmin, sun_dir, tmax, 1);
             if (shadowRayPayload.colorDistance.w == -1) {
-#if COLOR_FROM_SUN_EXPERIMENT
-               // Experimentation using color from the sun
-               vec3 transmittance;
-               vec3 sky_color = IntegrateScattering(origin.xyz, -sun_dir, 999999999.0f, sun_dir, vec3(1.0), transmittance);
-               radiance += 0.2 * throughput * min(sky_color, vec3(1.0)); // 0.2 is a magic constant to not make it too bright
-#else
-               radiance += throughput;
-#endif // COLOR_FROM_SUN_EXPERIMENT
-         }
-#endif // SUN_SHADOW_RAY
-
-#if POINT_LIGHT_SHADOW_RAYS
-            uint num_used_lights = 1;//view.num_lights;
-            int light_index = int(randomFloat(rngState) * float(num_used_lights));
-            vec3 light_pos = lightsSSBO.lights[light_index].pos;
-            vec3 light_dir = normalize(light_pos - origin.xyz);
-            float distance_to_light = distance(light_pos, origin.xyz);
-            traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT,
-                     0xff, 0, 0, 0, origin.xyz, tmin, light_dir, tmax, 1);
-
-            if(shadowRayPayload.colorDistance.w > distance_to_light
-               || shadowRayPayload.colorDistance.w == -1) {
-               const float intensity = 10.0;
-               const float weight = 1.0 / float(num_used_lights);
-               radiance += throughput * (1.0 / pow(distance_to_light, 2.0)) * intensity / weight;
+               #ifdef COLOR_FROM_SUN_EXPERIMENT
+                  // Experimentation using color from the sun
+                  vec3 transmittance;
+                  vec3 sky_color = IntegrateScattering(origin.xyz, -sun_dir, 999999999.0f, sun_dir, vec3(1.0), transmittance);
+                  radiance += 0.2 * throughput * min(sky_color, vec3(1.0)); // 0.2 is a magic constant to not make it too bright
+               #else
+                  radiance += throughput;
+               #endif // COLOR_FROM_SUN_EXPERIMENT
             }
-#endif // POINT_LIGHT_SHADOW_RAYS
+         }
+
+         if (view.lights_enabled == 1) {
+            Light light;
+            int light_index = 0;
+            float light_sample_weight = 0.0;
+            float total_weights = 1.0;
+
+            if (gl_LaunchIDEXT.x > gl_LaunchSizeEXT.x / 2 && view.use_ris_light_sampling == 1)
+            {
+               // Reference that only uses RIS for light sampling to the left
+               if (gl_LaunchIDEXT.x < gl_LaunchSizeEXT.x / 2) {
+                  Reservoir reservoir = resample(rngState, origin.xyz);
+                  light = lightsSSBO.lights[reservoir.Y];
+                  light_sample_weight = reservoir.W_X;
+                  total_weights = reservoir.W_sum;
+                  light_index = reservoir.Y;
+               }
+               else {
+                  Reservoir reservoir = reservoirSSBO.reservoirs[gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x];
+                  light = lightsSSBO.lights[reservoir.Y];
+                  light_sample_weight = reservoir.W_X;
+                  total_weights = reservoir.W_sum;
+                  light_index = reservoir.Y;
+               }
+            }
+            else
+            {
+               sample_light_uniform(rngState, light_index, light_sample_weight);
+               light_sample_weight = 1.0 / light_sample_weight;
+               light = lightsSSBO.lights[light_index];
+            }
+
+            if (total_weights != 0.0) {
+               vec3 light_dir = normalize(light.pos - origin.xyz);
+               float distance_to_light = distance(light.pos, origin.xyz);
+               traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT,
+                        0xff, 0, 0, 0, origin.xyz, tmin, light_dir, tmax, 1);
+
+               if(shadowRayPayload.colorDistance.w > distance_to_light
+                  || shadowRayPayload.colorDistance.w == -1)
+               {
+                  radiance += throughput * target_function(light_index, origin.xyz) * light_sample_weight;
+               }
+            }
          }
       }
 
@@ -113,9 +133,11 @@ void main()
       accumulatedColor = imageLoad(accumulation_image, ivec2(gl_LaunchIDEXT.xy)).rgb;
    }
 
-   accumulatedColor += pixelColor;
+   if (view.total_samples <= view.accumulation_limit) {
+      accumulatedColor += pixelColor;
+   }
 
-   pixelColor = accumulatedColor / view.total_samples;
+   pixelColor = accumulatedColor / min(view.total_samples, view.accumulation_limit);
    pixelColor = linearToSrgb(pixelColor);
 
    imageStore(accumulation_image, ivec2(gl_LaunchIDEXT.xy), vec4(accumulatedColor, 0.0));

@@ -8,6 +8,7 @@ Developed to learn Rust and to have a framework for experimenting with modern re
 
 ## Features
 + GPU path tracer based on [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
++ ReSTIR to improve sampling of analytical point lights
 + Basic PBR rendering
 + Bindless GPU resources
 + Experimental high level render graph

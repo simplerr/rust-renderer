@@ -1,0 +1,44 @@
+#version 450
+#extension GL_GOOGLE_include_directive : enable
+
+#include "include/bindless.glsl"
+#include "include/view.glsl"
+#include "include/random.glsl"
+#include "include/restir_sampling.glsl"
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (std430, set = 2, binding = 0) buffer InitialRisReservoirSSBO
+{
+   Reservoir reservoirs[];
+} initialRisReservoirSSBO;
+layout (std430, set = 2, binding = 1) buffer SpatialReuseReservoirSSBO
+{
+   Reservoir reservoirs[];
+} spatialReuseReservoirSSBO;
+layout (std430, set = 2, binding = 2) buffer TemporalReuseReservoirSSBO
+{
+   Reservoir reservoirs[];
+} temporalReuseReservoirSSBO;
+
+void main(void)
+{
+   uint index = view.viewport_width * gl_GlobalInvocationID.y + gl_GlobalInvocationID.x;
+
+   initialRisReservoirSSBO.reservoirs[index].Y = -1;
+   initialRisReservoirSSBO.reservoirs[index].W_sum = 0.0;
+   initialRisReservoirSSBO.reservoirs[index].W_X = 0.0;
+   initialRisReservoirSSBO.reservoirs[index].M = 0;
+
+   if (view.total_samples == 1) {
+      spatialReuseReservoirSSBO.reservoirs[index].Y = -1;
+      spatialReuseReservoirSSBO.reservoirs[index].W_sum = 0.0;
+      spatialReuseReservoirSSBO.reservoirs[index].W_X = 0.0;
+      spatialReuseReservoirSSBO.reservoirs[index].M = 0;
+   }
+
+   temporalReuseReservoirSSBO.reservoirs[index].Y = -1;
+   temporalReuseReservoirSSBO.reservoirs[index].W_sum = 0.0;
+   temporalReuseReservoirSSBO.reservoirs[index].W_X = 0.0;
+   temporalReuseReservoirSSBO.reservoirs[index].M = 0;
+}

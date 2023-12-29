@@ -1,0 +1,77 @@
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+#include "include/bindless.glsl"
+#include "include/view.glsl"
+#include "include/atmosphere.glsl"
+#include "include/random.glsl"
+#include "include/restir_sampling.glsl"
+
+layout (set = 2, binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_position;
+layout (std430, set = 2, binding = 2) buffer TemporalReuseReservoirSSBO
+{
+   Reservoir reservoirs[];
+} temporalReuseReservoirSSBO;
+layout (std430, set = 2, binding = 3) buffer SpatialReuseReservoirSSBO
+{
+   Reservoir reservoirs[];
+} spatialReuseReservoirSSBO;
+
+layout (location = 0) rayPayloadEXT int rayPayload;
+
+void main()
+{
+   uint index = gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x;
+   uint rngState = initRNG(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy, view.total_samples);
+   vec2 uv = vec2(gl_LaunchIDEXT.xy) / vec2(gl_LaunchSizeEXT.xy);
+   vec3 hit_position = texture(in_gbuffer_position, uv).rgb;
+
+   // Todo: make setting
+#if 0
+   if (gl_LaunchIDEXT.x < gl_LaunchSizeEXT.x * 0.50) {
+      spatialReuseReservoirSSBO.reservoirs[index] = temporalReuseReservoirSSBO.reservoirs[index];
+      return;
+   }
+#endif
+
+   // This implements Algorithm 4 and parts of Algorithm 5 from [2] but uses the generalized
+   // formulation (from GRIS) that moves the 1/M (MIS) factor into the resampling weights w_i.
+
+   Reservoir new_reservoir;
+   new_reservoir.Y = -1;
+   new_reservoir.W_sum = 0.0;
+   new_reservoir.W_X = 0.0;
+   new_reservoir.M = 0;
+
+   // There should be no need to reweight with p_hat because we are using the same target
+   // distribution (p_hat) as the initial sample but for now we do it anyways to match Algorithm 4 in [2]
+   Reservoir temporal_reservoir = temporalReuseReservoirSSBO.reservoirs[index];
+   float p_hat = target_function(temporal_reservoir.Y, hit_position);
+   updateReservoir(rngState, new_reservoir, temporal_reservoir.Y, p_hat * temporal_reservoir.W_X * temporal_reservoir.M, temporal_reservoir.M);
+
+   const int radius = 30;
+   const int num_neighbours = 5;
+
+   for (int i = 0; i < num_neighbours; i++) {
+      vec2 offset = vec2(randomFloat(rngState), randomFloat(rngState)) * 2.0 - 1.0;
+      offset *= float(radius);
+      uvec2 neighbour_coord = gl_LaunchIDEXT.xy + uvec2(offset);
+      neighbour_coord = clamp(neighbour_coord, uvec2(0), gl_LaunchSizeEXT.xy - uvec2(1));
+      Reservoir neighbour_reservoir = temporalReuseReservoirSSBO.reservoirs[neighbour_coord.y * gl_LaunchSizeEXT.x + neighbour_coord.x];
+
+      // We cannot simply use the neighbours W_sum because it used a different target distribution (p_hat)
+      // than the current pixel. A concrete example where this problem is visible is for pixels close to
+      // an object in screenspace but far away in worldspace. The neighbour will have a high p_hat because
+      // it is close to the object, but the current pixel will have a low p_hat because it is far away.
+      float p_hat = target_function(neighbour_reservoir.Y, hit_position);
+      updateReservoir(rngState, new_reservoir, neighbour_reservoir.Y, p_hat * neighbour_reservoir.W_X * neighbour_reservoir.M, neighbour_reservoir.M);
+   }
+
+   if (new_reservoir.Y != -1) {
+      float p_hat = target_function(new_reservoir.Y, hit_position);
+      finalize_resampling(new_reservoir, p_hat);
+   }
+
+   spatialReuseReservoirSSBO.reservoirs[index] = new_reservoir;
+}

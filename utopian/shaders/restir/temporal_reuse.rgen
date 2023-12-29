@@ -1,0 +1,125 @@
+#version 460
+#extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_debug_printf : enable
+
+#include "include/bindless.glsl"
+#include "include/view.glsl"
+#include "include/atmosphere.glsl"
+#include "include/random.glsl"
+#include "include/restir_sampling.glsl"
+
+layout (set = 2, binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout (set = 2, binding = 1) uniform sampler2D in_gbuffer_position;
+layout (set = 2, binding = 2) uniform sampler2D in_gbuffer_normal;
+layout (std430, set = 2, binding = 3) buffer InitialRisReservoirSSBO
+{
+   Reservoir reservoirs[];
+} initialRisReservoirSSBO;
+layout (std430, set = 2, binding = 4) buffer PrevFrameReservoirSSBO
+{
+   Reservoir reservoirs[];
+} prevFrameReservoirSSBO;
+layout (std430, set = 2, binding = 5) buffer TemporalReuseReservoirSSBO
+{
+   Reservoir reservoirs[];
+} temporalReuseReservoirSSBO;
+
+layout (location = 0) rayPayloadEXT int rayPayload;
+
+bool debug()
+{
+   return false;
+   return gl_LaunchIDEXT.x == gl_LaunchSizeEXT.x / 2 && gl_LaunchIDEXT.y == gl_LaunchSizeEXT.y / 2;
+}
+
+void main()
+{
+   uint index = gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x;
+   uint rngState = initRNG(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy, view.total_samples);
+   vec2 uv = vec2(gl_LaunchIDEXT.xy) / vec2(gl_LaunchSizeEXT.xy);
+   vec3 hit_position = texture(in_gbuffer_position, uv).rgb;
+   vec3 hit_normal = texture(in_gbuffer_normal, uv).rgb;
+
+   // Todo: make setting
+#if 0
+   if (gl_LaunchIDEXT.x < gl_LaunchSizeEXT.x * 0.50) {
+      temporalReuseReservoirSSBO.reservoirs[index] = initialRisReservoirSSBO.reservoirs[index];
+      return;
+   }
+#endif
+
+   // This implements Algorithm 4 and parts of Algorithm 5 from [2] but uses the generalized
+   // formulation (from GRIS) that moves the 1/M (MIS) factor into the resampling weights w_i.
+
+   Reservoir new_reservoir;
+   new_reservoir.Y = -1;
+   new_reservoir.W_sum = 0.0;
+   new_reservoir.W_X = 0.0;
+   new_reservoir.M = 0;
+
+   // There should be no need to reweight with p_hat because we are using the same target
+   // distribution (p_hat) as the initial sample but for now we do it anyways to match Algorithm 4 in [2]
+   Reservoir initial_reservoir = initialRisReservoirSSBO.reservoirs[index];
+   float p_hat = target_function(initial_reservoir.Y, hit_position);
+   float initial_weight = p_hat * initial_reservoir.W_X * initial_reservoir.M;
+   updateReservoir(rngState,
+                   new_reservoir,
+                   initial_reservoir.Y,
+                   initial_weight,
+                   initial_reservoir.M);
+
+   // Visibility reuse, we don't want to include samples that are occluded
+   // Todo: does not work with spatial reuse
+#if 0
+   vec3 ray_origin = offsetRay(hit_position.xyz, hit_normal.xyz);
+   //ray_origin = hit_position.xyz;
+   vec3 light_dir = normalize(lightsSSBO.lights[initial_reservoir.Y].pos - ray_origin.xyz);
+   traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ray_origin, 0.001, light_dir, 10000.0, 0);
+
+   if(rayPayload == 1)// && gl_LaunchIDEXT.x < gl_LaunchSizeEXT.x * 0.75)
+   {
+      new_reservoir.W_sum = 0.0;
+      new_reservoir.W_X = 0.0;
+   }
+#endif
+
+   // Todo: use motion vectors to find the previous frame reservoir
+   uint temporal_index = index;
+   Reservoir prev_frame_reservoir = prevFrameReservoirSSBO.reservoirs[temporal_index];
+
+   // We cannot simply use the neighbours W_sum because it used a different target distribution (p_hat)
+   // than the current pixel. A concrete example where this problem is visible is for pixels close to
+   // an object in screenspace but far away in worldspace. The neighbour will have a high p_hat because
+   // it is close to the object, but the current pixel will have a low p_hat because it is far away.
+   p_hat = (view.total_samples > 1) ? target_function(prev_frame_reservoir.Y, hit_position) : 0.0;
+   prev_frame_reservoir.M = min(20 * initial_reservoir.M, prev_frame_reservoir.M);
+   float prev_frame_weight = p_hat * prev_frame_reservoir.W_X * prev_frame_reservoir.M;
+   updateReservoir(rngState,
+                   new_reservoir,
+                   prev_frame_reservoir.Y,
+                   prev_frame_weight,
+                   prev_frame_reservoir.M);
+
+   if (new_reservoir.Y != -1) {
+      p_hat = target_function(new_reservoir.Y, hit_position);
+      finalize_resampling(new_reservoir, p_hat);
+   }
+
+   temporalReuseReservoirSSBO.reservoirs[index] = new_reservoir;
+
+   // Debug prints
+   if (debug()) {
+      debugPrintfEXT("==\n");
+      debugPrintfEXT("c: %d, initial_reservoir Y: %d, weight: %f, W_sum: %f, W_X: %f M: %d p_hat: %f\n",
+                     view.total_samples, initial_reservoir.Y, initial_weight, initial_reservoir.W_sum,
+                     initial_reservoir.W_X, initial_reservoir.M, target_function(initial_reservoir.Y, hit_position));
+
+      debugPrintfEXT("c: %d, prev_frame_reservoir Y: %d, weight: %f, W_sum: %f, W_X: %f M: %d p_hat: %f\n",
+                     view.total_samples, prev_frame_reservoir.Y, prev_frame_weight, prev_frame_reservoir.W_sum,
+                     prev_frame_reservoir.W_X, prev_frame_reservoir.M, target_function(prev_frame_reservoir.Y, hit_position));
+
+      debugPrintfEXT("c: %d, new_reservoir Y: %d, W_sum: %f, W_X: %f M: %d p_hat: %f\n",
+                     view.total_samples, new_reservoir.Y, new_reservoir.W_sum,
+                     new_reservoir.W_X, new_reservoir.M, p_hat);
+   }
+}

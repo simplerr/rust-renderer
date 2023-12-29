@@ -21,8 +21,14 @@ layout (std140, set = 1, binding = 0) uniform UBO_view
     uint fxaa_enabled;
     uint cubemap_enabled;
     uint ibl_enabled;
+    uint sky_enabled;
+    uint sun_shadow_enabled;
+    uint lights_enabled;
+    uint max_num_lights_used;
     uint marching_cubes_enabled;
     uint rebuild_tlas;
+    uint accumulation_limit;
+    uint use_ris_light_sampling;
     uint raytracing_supported;
 } view;
 

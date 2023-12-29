@@ -66,8 +66,14 @@ impl Application {
             fxaa_enabled: 1,
             cubemap_enabled: 1,
             ibl_enabled: 1,
+            sky_enabled: 1,
+            sun_shadow_enabled: 1,
+            lights_enabled: 1,
+            max_num_lights_used: 10000,
             marching_cubes_enabled: 0,
             rebuild_tlas: 1,
+            accumulation_limit: 999999,
+            use_ris_light_sampling: 1,
             raytracing_supported: base.device.raytracing_supported as u32,
         };
 
@@ -188,10 +194,13 @@ impl Application {
         render_graph_mode: &mut RenderGraphMode,
     ) {
         egui::Window::new("rust-renderer")
-            .resizable(true)
-            .vscroll(true)
+            .auto_sized()
             .show(egui_context, |ui| {
                 ui.label(format!("FPS: {} ({} ms)", fps, 1000.0 / fps as f32));
+                ui.label(format!(
+                    "Accumulated frames: {}",
+                    view_data.total_samples.min(view_data.accumulation_limit)
+                ));
                 ui.label("Camera position");
                 ui.horizontal(|ui| {
                     ui.label("x:");
@@ -218,10 +227,30 @@ impl Application {
                     ));
                 });
                 ui.horizontal(|ui| {
+                    ui.label("Accumulation limit:");
+                    if view_data.accumulation_limit == 999999 {
+                        view_data.accumulation_limit = 0;
+                    }
+                    ui.add(egui::widgets::Slider::new(
+                        &mut view_data.accumulation_limit,
+                        0..=100,
+                    ));
+                    if view_data.accumulation_limit == 0 {
+                        view_data.accumulation_limit = 999999;
+                    }
+                });
+                ui.horizontal(|ui| {
                     ui.label("Num ray bounces:");
                     ui.add(egui::widgets::Slider::new(
                         &mut view_data.num_bounces,
                         0..=16,
+                    ));
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Max num lights used:");
+                    ui.add(egui::widgets::Slider::new(
+                        &mut view_data.max_num_lights_used,
+                        0..=2000,
                     ));
                 });
                 ui.label("Sun direction");
@@ -285,6 +314,12 @@ impl Application {
                         ui.add(U32Checkbox::new(&mut view_data.fxaa_enabled, "FXAA:"));
                         ui.add(U32Checkbox::new(&mut view_data.cubemap_enabled, "Cubemap:"));
                         ui.add(U32Checkbox::new(&mut view_data.ibl_enabled, "IBL:"));
+                        ui.add(U32Checkbox::new(&mut view_data.sky_enabled, "Sky:"));
+                        ui.add(U32Checkbox::new(&mut view_data.sun_shadow_enabled, "Sun:"));
+                        ui.add(U32Checkbox::new(
+                            &mut view_data.lights_enabled,
+                            "Point lights:",
+                        ));
                         ui.add(U32Checkbox::new(
                             &mut view_data.rebuild_tlas,
                             "Rebuild TLAS:",
@@ -293,7 +328,10 @@ impl Application {
                             &mut view_data.marching_cubes_enabled,
                             "Marching cubes:",
                         ));
-
+                        ui.add(U32Checkbox::new(
+                            &mut view_data.use_ris_light_sampling,
+                            "Use RIS light sampling:",
+                        ));
                         if ui.button("Generate environment map").clicked() {
                             *need_environment_map_update = true;
                         }
@@ -334,6 +372,12 @@ impl Application {
             let old_samples_per_frame = self.view_data.samples_per_frame;
             let old_num_bounces = self.view_data.num_bounces;
             let old_sun_dir = self.view_data.sun_dir;
+            let old_use_ris_light_sampling = self.view_data.use_ris_light_sampling;
+            let old_accumulation_limit = self.view_data.accumulation_limit;
+            let old_sky_enabled = self.view_data.sky_enabled;
+            let old_sun_shadow_enabled = self.view_data.sun_shadow_enabled;
+            let old_lights_enabled = self.view_data.lights_enabled;
+            let old_max_num_lights_used = self.view_data.max_num_lights_used;
             Application::update_ui(
                 &self.ui.egui_integration.context(),
                 &mut self.camera.get_position(),
@@ -351,6 +395,12 @@ impl Application {
             if self.view_data.samples_per_frame != old_samples_per_frame
                 || self.view_data.num_bounces != old_num_bounces
                 || self.view_data.sun_dir != old_sun_dir
+                || self.view_data.use_ris_light_sampling != old_use_ris_light_sampling
+                || self.view_data.accumulation_limit != old_accumulation_limit
+                || self.view_data.sky_enabled != old_sky_enabled
+                || self.view_data.sun_shadow_enabled != old_sun_shadow_enabled
+                || self.view_data.lights_enabled != old_lights_enabled
+                || self.view_data.max_num_lights_used != old_max_num_lights_used
             {
                 self.view_data.total_samples = 0;
             }

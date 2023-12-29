@@ -3,8 +3,8 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 #include "include/bindless.glsl"
+#include "include/random.glsl"
 #include "payload.glsl"
-#include "random.glsl"
 
 layout(location = 0) rayPayloadInEXT Payload rayPayload;
 hitAttributeEXT vec2 attribs;
