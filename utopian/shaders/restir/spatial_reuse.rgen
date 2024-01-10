@@ -23,7 +23,7 @@ layout (location = 0) rayPayloadEXT int rayPayload;
 void main()
 {
    uint index = gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x;
-   uint rngState = initRNG(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy, view.total_samples);
+   uint rngState = initRNG(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy, int(float(view.total_samples) + view.time * 10000.0));
    vec2 uv = vec2(gl_LaunchIDEXT.xy) / vec2(gl_LaunchSizeEXT.xy);
    vec3 hit_position = texture(in_gbuffer_position, uv).rgb;
 
