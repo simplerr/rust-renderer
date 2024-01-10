@@ -91,7 +91,7 @@ void main()
    // than the current pixel. A concrete example where this problem is visible is for pixels close to
    // an object in screenspace but far away in worldspace. The neighbour will have a high p_hat because
    // it is close to the object, but the current pixel will have a low p_hat because it is far away.
-   p_hat = (view.total_samples > 1) ? target_function(prev_frame_reservoir.Y, hit_position) : 0.0;
+   p_hat = prev_frame_reservoir.Y == -1 ? 0.0 : target_function(prev_frame_reservoir.Y, hit_position);
    prev_frame_reservoir.M = min(20 * initial_reservoir.M, prev_frame_reservoir.M);
    float prev_frame_weight = p_hat * prev_frame_reservoir.W_X * prev_frame_reservoir.M;
    updateReservoir(rngState,
