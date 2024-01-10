@@ -1,5 +1,5 @@
 use ash::vk;
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec3, Vec4};
 use prototype::ui::U32Checkbox;
 
 #[derive(Clone, Debug, Copy, PartialEq)]
@@ -52,6 +52,7 @@ impl Application {
             projection: camera.get_projection(),
             inverse_view: camera.get_view().inverse(),
             inverse_projection: camera.get_projection().inverse(),
+            prev_frame_projection_view: Mat4::from_diagonal(Vec4::new(-1.0, -1.0, -1.0, -1.0)),
             eye_pos: camera.get_position(),
             samples_per_frame: 1,
             total_samples: 0,
@@ -66,8 +67,8 @@ impl Application {
             fxaa_enabled: 1,
             cubemap_enabled: 1,
             ibl_enabled: 1,
-            sky_enabled: 1,
-            sun_shadow_enabled: 1,
+            sky_enabled: 0,
+            sun_shadow_enabled: 0,
             lights_enabled: 1,
             max_num_lights_used: 10000,
             marching_cubes_enabled: 0,
@@ -535,6 +536,9 @@ impl Application {
                         .end_frame(command_buffer, present_index as u32, &self.base.window);
                 },
             );
+
+            self.view_data.prev_frame_projection_view =
+                self.view_data.projection * self.view_data.view;
 
             self.base.submit_commands(self.current_frame);
             self.base.present_frame(present_index, self.current_frame);

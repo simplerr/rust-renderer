@@ -83,9 +83,23 @@ void main()
    }
 #endif
 
-   // Todo: use motion vectors to find the previous frame reservoir
-   uint temporal_index = index;
-   Reservoir prev_frame_reservoir = prevFrameReservoirSSBO.reservoirs[temporal_index];
+   Reservoir prev_frame_reservoir;
+   prev_frame_reservoir.Y = -1;
+   prev_frame_reservoir.W_sum = 0.0;
+   prev_frame_reservoir.W_X = 0.0;
+   prev_frame_reservoir.M = 0;
+
+   // Backproject this pixel to last frame
+   vec4 prev_frame_uv = view.prev_frame_projection_view * vec4(hit_position, 1.0);
+   prev_frame_uv.xy /= prev_frame_uv.w;
+   prev_frame_uv.xy = prev_frame_uv.xy * 0.5 + 0.5;
+   prev_frame_uv.y = 1.0 - prev_frame_uv.y;
+
+   if (prev_frame_uv.x >= 0.0 && prev_frame_uv.x <= 1.0 && prev_frame_uv.y >= 0.0 && prev_frame_uv.y <= 1.0) {
+      prev_frame_uv.xy *= gl_LaunchSizeEXT.xy;
+      uint temporal_index = uint(prev_frame_uv.y) * gl_LaunchSizeEXT.x + uint(prev_frame_uv.x);
+      prev_frame_reservoir = prevFrameReservoirSSBO.reservoirs[temporal_index];
+   }
 
    // We cannot simply use the neighbours W_sum because it used a different target distribution (p_hat)
    // than the current pixel. A concrete example where this problem is visible is for pixels close to

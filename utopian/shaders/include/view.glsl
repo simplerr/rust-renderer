@@ -5,6 +5,7 @@ layout (std140, set = 1, binding = 0) uniform UBO_view
     mat4 projection;
     mat4 inverse_view;
     mat4 inverse_projection;
+    mat4 prev_frame_projection_view;
     vec3 eye_pos;
     uint samples_per_frame;
     vec3 sun_dir;

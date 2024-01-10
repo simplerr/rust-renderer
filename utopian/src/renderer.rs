@@ -89,6 +89,7 @@ pub struct ViewUniformData {
     pub projection: glam::Mat4,
     pub inverse_view: glam::Mat4,
     pub inverse_projection: glam::Mat4,
+    pub prev_frame_projection_view: glam::Mat4,
     pub eye_pos: glam::Vec3,
     pub samples_per_frame: u32,
     pub sun_dir: glam::Vec3,
