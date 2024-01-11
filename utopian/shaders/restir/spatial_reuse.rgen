@@ -27,13 +27,10 @@ void main()
    vec2 uv = vec2(gl_LaunchIDEXT.xy) / vec2(gl_LaunchSizeEXT.xy);
    vec3 hit_position = texture(in_gbuffer_position, uv).rgb;
 
-   // Todo: make setting
-#if 0
-   if (gl_LaunchIDEXT.x < gl_LaunchSizeEXT.x * 0.50) {
+   if (view.spatial_reuse_enabled == 0) {
       spatialReuseReservoirSSBO.reservoirs[index] = temporalReuseReservoirSSBO.reservoirs[index];
       return;
    }
-#endif
 
    // This implements Algorithm 4 and parts of Algorithm 5 from [2] but uses the generalized
    // formulation (from GRIS) that moves the 1/M (MIS) factor into the resampling weights w_i.

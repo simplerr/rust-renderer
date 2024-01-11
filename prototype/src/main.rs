@@ -72,6 +72,8 @@ impl Application {
             lights_enabled: 1,
             max_num_lights_used: 10000,
             marching_cubes_enabled: 0,
+            temporal_reuse_enabled: 1,
+            spatial_reuse_enabled: 1,
             rebuild_tlas: 1,
             accumulation_limit: 999999,
             use_ris_light_sampling: 1,
@@ -333,6 +335,14 @@ impl Application {
                             &mut view_data.use_ris_light_sampling,
                             "Use RIS light sampling:",
                         ));
+                        ui.add(U32Checkbox::new(
+                            &mut view_data.temporal_reuse_enabled,
+                            "ReSTIR temporal reuse:",
+                        ));
+                        ui.add(U32Checkbox::new(
+                            &mut view_data.spatial_reuse_enabled,
+                            "ReSTIR spatial reuse:",
+                        ));
                         if ui.button("Generate environment map").clicked() {
                             *need_environment_map_update = true;
                         }
@@ -370,6 +380,7 @@ impl Application {
             self.ui.begin_frame();
 
             // Todo: refactor so not everything needs to be passed as argument
+            // Todo: really do something about this
             let old_samples_per_frame = self.view_data.samples_per_frame;
             let old_num_bounces = self.view_data.num_bounces;
             let old_sun_dir = self.view_data.sun_dir;
@@ -379,6 +390,8 @@ impl Application {
             let old_sun_shadow_enabled = self.view_data.sun_shadow_enabled;
             let old_lights_enabled = self.view_data.lights_enabled;
             let old_max_num_lights_used = self.view_data.max_num_lights_used;
+            let old_temporal_reuse_enabled = self.view_data.temporal_reuse_enabled;
+            let old_spatial_reuse_enabled = self.view_data.spatial_reuse_enabled;
             Application::update_ui(
                 &self.ui.egui_integration.context(),
                 &mut self.camera.get_position(),
@@ -402,6 +415,8 @@ impl Application {
                 || self.view_data.sun_shadow_enabled != old_sun_shadow_enabled
                 || self.view_data.lights_enabled != old_lights_enabled
                 || self.view_data.max_num_lights_used != old_max_num_lights_used
+                || self.view_data.temporal_reuse_enabled != old_temporal_reuse_enabled
+                || self.view_data.spatial_reuse_enabled != old_spatial_reuse_enabled
             {
                 self.view_data.total_samples = 0;
             }

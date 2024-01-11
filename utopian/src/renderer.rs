@@ -111,6 +111,8 @@ pub struct ViewUniformData {
     pub lights_enabled: u32,
     pub max_num_lights_used: u32,
     pub marching_cubes_enabled: u32,
+    pub temporal_reuse_enabled: u32,
+    pub spatial_reuse_enabled: u32,
     pub rebuild_tlas: u32,
     pub accumulation_limit: u32,
     pub use_ris_light_sampling: u32,

@@ -27,6 +27,8 @@ layout (std140, set = 1, binding = 0) uniform UBO_view
     uint lights_enabled;
     uint max_num_lights_used;
     uint marching_cubes_enabled;
+    uint temporal_reuse_enabled;
+    uint spatial_reuse_enabled;
     uint rebuild_tlas;
     uint accumulation_limit;
     uint use_ris_light_sampling;
