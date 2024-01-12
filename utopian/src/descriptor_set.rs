@@ -78,7 +78,7 @@ impl DescriptorSet {
             puffin::profile_scope!("allocate_descriptor_set");
             let descriptor_alloc_info = vk::DescriptorSetAllocateInfo::builder()
                 .descriptor_pool(descriptor_pool)
-                .set_layouts(&[layout])
+                .set_layouts(std::slice::from_ref(&layout))
                 .build();
 
             unsafe {
@@ -112,13 +112,13 @@ impl DescriptorSet {
             .dst_set(self.handle)
             .dst_binding(binding.binding)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER) // todo
-            .buffer_info(&[buffer_info])
+            .buffer_info(std::slice::from_ref(&buffer_info))
             .build();
 
         unsafe {
             device
                 .handle
-                .update_descriptor_sets(&[descriptor_writes], &[])
+                .update_descriptor_sets(std::slice::from_ref(&descriptor_writes), &[])
         };
     }
 
@@ -146,13 +146,13 @@ impl DescriptorSet {
             .dst_set(self.handle)
             .dst_binding(binding)
             .descriptor_type(vk::DescriptorType::STORAGE_BUFFER) // todo
-            .buffer_info(&[buffer_info])
+            .buffer_info(std::slice::from_ref(&buffer_info))
             .build();
 
         unsafe {
             device
                 .handle
-                .update_descriptor_sets(&[descriptor_writes], &[])
+                .update_descriptor_sets(std::slice::from_ref(&descriptor_writes), &[])
         };
     }
 
@@ -174,13 +174,13 @@ impl DescriptorSet {
             .dst_set(self.handle)
             .dst_binding(binding)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .image_info(&[texture.descriptor_info])
+            .image_info(std::slice::from_ref(&texture.descriptor_info))
             .build();
 
         unsafe {
             device
                 .handle
-                .update_descriptor_sets(&[descriptor_writes], &[])
+                .update_descriptor_sets(std::slice::from_ref(&descriptor_writes), &[])
         };
     }
 
@@ -203,13 +203,13 @@ impl DescriptorSet {
             .dst_set(self.handle)
             .dst_binding(binding)
             .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
-            .image_info(&[descriptor_info])
+            .image_info(std::slice::from_ref(&descriptor_info))
             .build();
 
         unsafe {
             device
                 .handle
-                .update_descriptor_sets(&[descriptor_writes], &[])
+                .update_descriptor_sets(std::slice::from_ref(&descriptor_writes), &[])
         };
     }
 
@@ -242,7 +242,7 @@ impl DescriptorSet {
         unsafe {
             device
                 .handle
-                .update_descriptor_sets(&[descriptor_writes], &[])
+                .update_descriptor_sets(std::slice::from_ref(&descriptor_writes), &[])
         };
     }
 

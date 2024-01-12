@@ -495,7 +495,7 @@ impl Graph {
             .build();
 
         let descriptor_sets_layout_info = vk::DescriptorSetLayoutCreateInfo::builder()
-            .bindings(&[descriptor_set_layout_binding])
+            .bindings(std::slice::from_ref(&descriptor_set_layout_binding))
             .build();
 
         let descriptor_set_layout = unsafe {

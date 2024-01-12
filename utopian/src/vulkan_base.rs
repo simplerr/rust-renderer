@@ -460,7 +460,9 @@ impl VulkanBase {
                 .wait_semaphores(&wait_semaphores)
                 .signal_semaphores(&signal_semaphores)
                 .command_buffers(&command_buffers)
-                .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT]);
+                .wait_dst_stage_mask(std::slice::from_ref(
+                    &vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                ));
 
             self.device
                 .handle

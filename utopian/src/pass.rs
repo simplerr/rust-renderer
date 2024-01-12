@@ -216,28 +216,30 @@ impl RenderPass {
             })
             .collect::<Vec<_>>();
 
+        let depth_attachment = if let Some(depth_attachment) = depth_attachment {
+            vk::RenderingAttachmentInfo::builder()
+                .image_view(match depth_attachment.1 {
+                    ViewType::Full() => depth_attachment.0.image_view,
+                    ViewType::Layer(layer) => depth_attachment.0.layer_view(layer),
+                })
+                .image_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+                .load_op(depth_attachment.2)
+                .store_op(vk::AttachmentStoreOp::STORE)
+                .clear_value(vk::ClearValue {
+                    depth_stencil: vk::ClearDepthStencilValue {
+                        depth: 1.0,
+                        stencil: 0,
+                    },
+                })
+                .build()
+        } else {
+            vk::RenderingAttachmentInfo::default()
+        };
+
         let rendering_info = vk::RenderingInfo::builder()
             .layer_count(1)
             .color_attachments(&color_attachments)
-            .depth_attachment(&if let Some(depth_attachment) = depth_attachment {
-                vk::RenderingAttachmentInfo::builder()
-                    .image_view(match depth_attachment.1 {
-                        ViewType::Full() => depth_attachment.0.image_view,
-                        ViewType::Layer(layer) => depth_attachment.0.layer_view(layer),
-                    })
-                    .image_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-                    .load_op(depth_attachment.2)
-                    .store_op(vk::AttachmentStoreOp::STORE)
-                    .clear_value(vk::ClearValue {
-                        depth_stencil: vk::ClearDepthStencilValue {
-                            depth: 1.0,
-                            stencil: 0,
-                        },
-                    })
-                    .build()
-            } else {
-                vk::RenderingAttachmentInfo::default()
-            })
+            .depth_attachment(&depth_attachment)
             .render_area(vk::Rect2D {
                 offset: vk::Offset2D { x: 0, y: 0 },
                 extent,
