@@ -252,14 +252,17 @@ impl VulkanBase {
             let surface_resolution = surface_capabilities.current_extent;
             let desired_transform = vk::SurfaceTransformFlagsKHR::IDENTITY;
 
+            let present_mode_preference =
+                [vk::PresentModeKHR::MAILBOX, vk::PresentModeKHR::IMMEDIATE];
+
             let present_modes = surface_loader
                 .get_physical_device_surface_present_modes(physical_device, surface)
                 .expect("Error getting present modes");
-            let present_mode = present_modes
-                .iter()
-                .cloned()
-                .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
-                .expect("Did not find expected present mode");
+            let present_mode = present_mode_preference
+                .into_iter()
+                .find(|mode| present_modes.contains(mode))
+                .unwrap_or(vk::PresentModeKHR::FIFO);
+            println!("Presentation mode: {:?}", present_mode);
 
             let swapchain_loader = Swapchain::new(instance, device);
 

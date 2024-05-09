@@ -4,7 +4,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 pub struct DirectoryWatcher {
-    _directory_watcher: notify::ReadDirectoryChangesWatcher,
+    _directory_watcher: RecommendedWatcher,
     watcher_rx: mpsc::Receiver<notify::DebouncedEvent>,
 }
 
