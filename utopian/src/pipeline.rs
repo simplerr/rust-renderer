@@ -320,7 +320,7 @@ impl Pipeline {
         let mut rendering_info = vk::PipelineRenderingCreateInfo::builder()
             .color_attachment_formats(color_attachment_formats)
             .depth_attachment_format(depth_stencil_attachment_format)
-            .stencil_attachment_format(depth_stencil_attachment_format)
+            .stencil_attachment_format(vk::Format::UNDEFINED)
             .build();
 
         let graphic_pipeline_info = vk::GraphicsPipelineCreateInfo::builder()

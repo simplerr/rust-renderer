@@ -62,7 +62,7 @@ impl Application {
             time: 0.0,
             num_lights: 0,
             sun_dir: Vec3::new(0.0, 0.9, 0.15).normalize(),
-            shadows_enabled: 0,
+            shadows_enabled: 1,
             ssao_enabled: 1,
             fxaa_enabled: 1,
             cubemap_enabled: 1,
