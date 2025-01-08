@@ -452,14 +452,14 @@ impl VulkanBase {
         unsafe {
             puffin::profile_scope!("queue_submit");
 
-            let command_buffers = [self.frames[frame_index].command_buffer];
-            let wait_semaphores = [self.frames[frame_index].image_available_semaphore];
-            let signal_semaphores = [self.frames[frame_index].render_finished_semaphore];
+            let command_buffers = self.frames[frame_index].command_buffer;
+            let wait_semaphores = self.frames[frame_index].image_available_semaphore;
+            let signal_semaphores = self.frames[frame_index].render_finished_semaphore;
 
             let submit_info = vk::SubmitInfo::builder()
-                .wait_semaphores(&wait_semaphores)
-                .signal_semaphores(&signal_semaphores)
-                .command_buffers(&command_buffers)
+                .wait_semaphores(std::slice::from_ref(&wait_semaphores))
+                .signal_semaphores(std::slice::from_ref(&signal_semaphores))
+                .command_buffers(std::slice::from_ref(&command_buffers))
                 .wait_dst_stage_mask(std::slice::from_ref(
                     &vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
                 ));

@@ -13,7 +13,8 @@ pub fn create_scene(
         glam::Mat4::from_translation(glam::Vec3::new(f32::MAX, f32::MAX, f32::MAX)),
     );
 
-    for i in 0..1000 {
+    let num_lights = 10;
+    for i in 0..num_lights {
         renderer.add_light(
             device,
             Vec3::new(((i / 30) * 20) as f32, 3.5, ((i % 30) * 20) as f32),
