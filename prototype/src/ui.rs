@@ -85,7 +85,7 @@ impl<'a> U32Checkbox<'a> {
     }
 }
 
-impl<'a> egui::Widget for U32Checkbox<'a> {
+impl egui::Widget for U32Checkbox<'_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         let mut bool_value = *self.value == 1;
         ui.label(self.text);

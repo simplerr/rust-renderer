@@ -1,5 +1,4 @@
 use ash::vk;
-use std::ffi::CStr;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 
@@ -220,7 +219,7 @@ impl Pipeline {
         let vertex_shader_module = shader::create_shader_module(vertex_spv_file, device);
         let fragment_shader_module = shader::create_shader_module(fragment_spv_file, device);
 
-        let shader_entry_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
+        let shader_entry_name = c"main";
         let shader_stage_create_infos = vec![
             vk::PipelineShaderStageCreateInfo {
                 module: vertex_shader_module,
@@ -378,7 +377,7 @@ impl Pipeline {
 
         let compute_shader_module = shader::create_shader_module(compute_spv_file, device);
 
-        let shader_entry_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
+        let shader_entry_name = c"main";
         let shader_stage_create_infos = vec![vk::PipelineShaderStageCreateInfo {
             module: compute_shader_module,
             p_name: shader_entry_name.as_ptr(),
@@ -453,7 +452,7 @@ impl Pipeline {
         let closest_hit_shader_module =
             crate::shader::create_shader_module(closest_hit_spv_file, device);
 
-        let shader_entry_name = CStr::from_bytes_with_nul(b"main\0").unwrap();
+        let shader_entry_name = c"main";
         let shader_stage_create_infos = vec![
             vk::PipelineShaderStageCreateInfo {
                 module: raygen_shader_module,

@@ -336,7 +336,7 @@ impl Device {
             .build();
         unsafe {
             self.debug_utils
-                .debug_utils_set_object_name(self.handle.handle(), &name_info)
+                .set_debug_utils_object_name(self.handle.handle(), &name_info)
                 .expect("Error setting debug name for buffer")
         };
     }

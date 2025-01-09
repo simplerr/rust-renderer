@@ -89,7 +89,7 @@ impl Buffer {
     pub fn update_memory<T: Copy>(&mut self, device: &Device, data: &[T]) {
         unsafe {
             let src = data.as_ptr() as *const u8;
-            let src_bytes = data.len() * std::mem::size_of::<T>();
+            let src_bytes = std::mem::size_of_val(data);
 
             if self.memory_location != gpu_allocator::MemoryLocation::GpuOnly {
                 let dst = self.allocation.mapped_ptr().unwrap().as_ptr() as *mut u8;

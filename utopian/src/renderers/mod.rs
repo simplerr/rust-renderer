@@ -211,11 +211,12 @@ pub fn build_path_tracing_render_graph(
     let (gbuffer_position, gbuffer_normal, gbuffer_albedo, gbuffer_pbr) =
         create_gbuffer_textures(graph, device, width, height);
 
+    #[allow(dead_code)]
     struct Reservoir {
         total_weight: f32,
         sample_weight: f32,
         light_index: u32,
-        M: u32,
+        m: u32,
     }
 
     let initial_ris_reservoirs = graph.create_buffer(
@@ -261,7 +262,7 @@ pub fn build_path_tracing_render_graph(
         .write_buffer(initial_ris_reservoirs)
         .write_buffer(spatial_reuse_reservoirs)
         .write_buffer(temporal_reuse_reservoirs)
-        .dispatch((width + 16 - 1) / 16, (height + 16 - 1) / 16, 1)
+        .dispatch(width.div_ceil(16), height.div_ceil(16), 1)
         .build(device, graph);
 
     graph

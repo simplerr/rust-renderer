@@ -26,7 +26,7 @@ impl<'device, 'alloc> ProfilerBackend<'device, 'alloc> {
     }
 }
 
-impl<'dev, 'alloc> gpu_profiler::backend::ash::VulkanBackend for ProfilerBackend<'dev, 'alloc> {
+impl gpu_profiler::backend::ash::VulkanBackend for ProfilerBackend<'_, '_> {
     type Buffer = ProfilerBuffer;
 
     fn create_query_result_buffer(&mut self, bytes: usize) -> Self::Buffer {

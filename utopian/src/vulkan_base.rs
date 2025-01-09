@@ -156,8 +156,8 @@ impl VulkanBase {
     }
 
     fn create_instance(entry: &ash::Entry, window: &winit::window::Window) -> ash::Instance {
-        let app_name = CStr::from_bytes_with_nul(b"rust-renderer\0").unwrap();
-        let layer_names = [CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap()];
+        let app_name = c"rust-renderer";
+        let layer_names = [c"VK_LAYER_KHRONOS_validation"];
         let layer_names_raw: Vec<*const c_char> = layer_names
             .iter()
             .map(|raw_name| raw_name.as_ptr())
@@ -418,7 +418,7 @@ impl VulkanBase {
                 .swapchain_loader
                 .acquire_next_image(
                     self.swapchain,
-                    std::u64::MAX,
+                    u64::MAX,
                     self.frames[current_frame].image_available_semaphore,
                     vk::Fence::null(),
                 )

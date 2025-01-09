@@ -67,8 +67,8 @@ impl Application {
             fxaa_enabled: 1,
             cubemap_enabled: 1,
             ibl_enabled: 1,
-            sky_enabled: 0,
-            sun_shadow_enabled: 0,
+            sky_enabled: 1,
+            sun_shadow_enabled: 1,
             lights_enabled: 1,
             max_num_lights_used: 10000,
             marching_cubes_enabled: 0,
@@ -140,7 +140,7 @@ impl Application {
                 puffin::profile_scope!("wait_for_fences");
                 device
                     .handle
-                    .wait_for_fences(&[wait_fence], true, std::u64::MAX)
+                    .wait_for_fences(&[wait_fence], true, u64::MAX)
                     .expect("Wait for fence failed.");
 
                 device
@@ -281,7 +281,7 @@ impl Application {
                 ui.horizontal(|ui| {
                     egui::Grid::new("settings_grid").show(ui, |ui| {
                         let render_graph_mode_options =
-                            vec!["PathTraced", "Hybrid", "Rasterized", "Minimal"];
+                            ["PathTraced", "Hybrid", "Rasterized", "Minimal"];
                         let current_mode = format!("{:?}", *render_graph_mode);
                         ui.label("Render Graph Mode:");
                         egui::ComboBox::from_id_source("render_graph_mode_dropdown")
@@ -300,7 +300,7 @@ impl Application {
                                 }
                             });
                         ui.end_row();
-                        let options = vec!["1", "2", "3"];
+                        let options = ["1", "2", "3"];
                         ui.label("Frames in flight:");
                         egui::ComboBox::from_id_source("dropdown")
                             .selected_text(options[(*num_frames_in_flight - 1) as usize])

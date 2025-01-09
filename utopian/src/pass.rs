@@ -9,6 +9,8 @@ use crate::image::*;
 use crate::pipeline::*;
 use crate::Renderer;
 
+type RenderFunc = Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>;
+
 pub struct RenderPass {
     pub pipeline_handle: PipelineId,
     #[allow(clippy::type_complexity)]
@@ -35,9 +37,7 @@ impl RenderPass {
         presentation_pass: bool,
         depth_attachment: Option<DepthAttachment>,
         uniforms: HashMap<String, (String, UniformData)>,
-        #[allow(clippy::type_complexity)] render_func: Option<
-            Box<dyn Fn(&Device, vk::CommandBuffer, &Renderer, &RenderPass, &GraphResources)>,
-        >,
+        render_func: Option<RenderFunc>,
         copy_command: Option<TextureCopy>,
         extra_barriers: Option<Vec<(BufferId, vk_sync::AccessType)>>,
     ) -> RenderPass {
