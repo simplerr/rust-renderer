@@ -132,23 +132,9 @@ impl Application {
     fn record_commands<F: FnOnce(&utopian::Device, vk::CommandBuffer)>(
         device: &utopian::Device,
         command_buffer: vk::CommandBuffer,
-        wait_fence: vk::Fence,
         render_commands: F,
     ) {
         unsafe {
-            {
-                puffin::profile_scope!("wait_for_fences");
-                device
-                    .handle
-                    .wait_for_fences(&[wait_fence], true, u64::MAX)
-                    .expect("Wait for fence failed.");
-
-                device
-                    .handle
-                    .reset_fences(&[wait_fence])
-                    .expect("Reset fences failed.");
-            }
-
             device
                 .handle
                 .reset_command_buffer(
@@ -482,7 +468,6 @@ impl Application {
             Application::record_commands(
                 &self.base.device,
                 self.base.frames[self.current_frame].command_buffer,
-                self.base.frames[self.current_frame].command_buffer_reuse_fence,
                 |device, command_buffer| {
                     self.camera_ubo[self.current_frame]
                         .update_memory(&self.base.device, std::slice::from_ref(&self.view_data));

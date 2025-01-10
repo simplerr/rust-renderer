@@ -415,6 +415,23 @@ impl VulkanBase {
 
     pub fn prepare_frame(&self, current_frame: usize) -> usize {
         unsafe {
+            {
+                puffin::profile_scope!("wait_for_fences");
+                self.device
+                    .handle
+                    .wait_for_fences(
+                        &[self.frames[current_frame].command_buffer_reuse_fence],
+                        true,
+                        u64::MAX,
+                    )
+                    .expect("Wait for fence failed.");
+
+                self.device
+                    .handle
+                    .reset_fences(&[self.frames[current_frame].command_buffer_reuse_fence])
+                    .expect("Reset fences failed.");
+            }
+
             puffin::profile_scope!("acquire_next_image");
 
             let (present_index, _) = self
