@@ -32,7 +32,7 @@ impl DirectoryWatcher {
                         return Some(path);
                     }
                 }
-                Err(e) => println!("recv Err {:?}", e),
+                Err(e) => log::error!("recv Err {:?}", e),
             }
         }
 

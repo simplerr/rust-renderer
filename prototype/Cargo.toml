@@ -22,3 +22,5 @@ egui-gizmo = { git = "https://github.com/simplerr/egui-gizmo.git" }
 rspirv-reflect = { git = "https://github.com/simplerr/rspirv-reflect.git" } # "0.6.0"
 puffin = { git = "https://github.com/simplerr/puffin.git" }
 puffin_egui = { git = "https://github.com/simplerr/puffin.git" }
+log = "0.4"
+simple_logger = "5.0.0"

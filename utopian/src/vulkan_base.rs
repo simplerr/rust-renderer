@@ -52,6 +52,16 @@ unsafe extern "system" fn vulkan_debug_callback(
         CStr::from_ptr(callback_data.p_message).to_string_lossy()
     };
 
+    // Ignore error about not setting VK_DYNAMIC_STATE_VIEWPORT|VK_DYNAMIC_STATE_SCISSOR for raytrace pipeline
+    if message_id_number == 688222058 {
+        return vk::FALSE;
+    }
+
+    // Ignore info messages
+    if message_severity == vk::DebugUtilsMessageSeverityFlagsEXT::INFO {
+        return vk::FALSE;
+    }
+
     println!(
         "{:?}:\n{:?} [{} ({})] : {}\n",
         message_severity,
@@ -194,8 +204,7 @@ impl VulkanBase {
             .message_severity(
                 vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
                     | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
-                    | vk::DebugUtilsMessageSeverityFlagsEXT::INFO
-                    | vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE,
+                    | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
             )
             .message_type(
                 vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
@@ -262,7 +271,8 @@ impl VulkanBase {
                 .into_iter()
                 .find(|mode| present_modes.contains(mode))
                 .unwrap_or(vk::PresentModeKHR::FIFO);
-            println!("Presentation mode: {:?}", present_mode);
+
+            log::info!("Presentation mode: {:?}", present_mode);
 
             let swapchain_loader = Swapchain::new(instance, device);
 

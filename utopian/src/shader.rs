@@ -54,7 +54,7 @@ impl Reflection {
                             );
                         } else {
                             existing_descriptor_set.insert(binding, descriptor);
-                            println!("Set: {} binding: {} does not exist, adding!", set, binding);
+                            log::info!("Set: {} binding: {} does not exist, adding!", set, binding);
                         }
                     }
                 } else {

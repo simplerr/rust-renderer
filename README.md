@@ -27,8 +27,6 @@ Build and run the project with `cargo run --release`
 
 **Note**: requires a GPU with raytracing support, e.g Nvidia RTX series
 
-**Note**: only tested on Windows
-
 ## Controls
 
 - `1`, `2` - toggle between path tracing and rasterization

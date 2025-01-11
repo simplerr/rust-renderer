@@ -31,6 +31,11 @@ impl Application {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame();
 
+        simple_logger::SimpleLogger::new()
+            .with_level(log::LevelFilter::Info)
+            .init()
+            .unwrap();
+
         let (width, height) = (2000, 1100);
         let base = utopian::VulkanBase::new(width, height);
 

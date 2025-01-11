@@ -114,7 +114,7 @@ impl Pipeline {
         // Todo: cleanup old resources
 
         if Self::create_pipeline(self, device, bindless_descriptor_set_layout).is_ok() {
-            println!("Successfully recompiled shader");
+            log::info!("Successfully recompiled shader");
             return true;
         }
         false
@@ -148,7 +148,7 @@ impl Pipeline {
                 ),
             }
             .map_err(|error| {
-                println!("Failed to compile shader: {:#?}", error);
+                log::error!("Failed to compile shader: {:#?}", error);
             })?;
 
         let new_handle = match pipeline.pipeline_type {

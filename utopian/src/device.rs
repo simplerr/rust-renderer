@@ -189,6 +189,11 @@ impl Device {
                 ),
             );
 
+            log::info!(
+                "GPU: {:?}",
+                std::ffi::CStr::from_ptr(properties.device_name.as_ptr()).to_string_lossy()
+            );
+
             Device {
                 handle: device,
                 physical_device,
