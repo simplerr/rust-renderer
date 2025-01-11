@@ -168,7 +168,7 @@ impl Device {
                 device: device.clone(),
                 physical_device,
                 debug_settings: AllocatorDebugSettings {
-                    log_leaks_on_shutdown: true,
+                    log_leaks_on_shutdown: false,
                     log_memory_information: true,
                     log_allocations: true,
                     log_stack_traces: true,
