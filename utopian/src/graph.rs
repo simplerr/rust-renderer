@@ -688,12 +688,12 @@ impl Graph {
     ) {
         for pipeline in &mut self.resources.pipelines {
             let desc = &pipeline.pipeline_desc;
-            if desc.compute_path.map_or(false, |p| path.ends_with(p))
-                || desc.vertex_path.map_or(false, |p| path.ends_with(p))
-                || desc.fragment_path.map_or(false, |p| path.ends_with(p))
-                || desc.raygen_path.map_or(false, |p| path.ends_with(p))
-                || desc.miss_path.map_or(false, |p| path.ends_with(p))
-                || desc.hit_path.map_or(false, |p| path.ends_with(p))
+            if desc.compute_path.is_some_and(|p| path.ends_with(p))
+                || desc.vertex_path.is_some_and(|p| path.ends_with(p))
+                || desc.fragment_path.is_some_and(|p| path.ends_with(p))
+                || desc.raygen_path.is_some_and(|p| path.ends_with(p))
+                || desc.miss_path.is_some_and(|p| path.ends_with(p))
+                || desc.hit_path.is_some_and(|p| path.ends_with(p))
             {
                 pipeline.recreate_pipeline(device, bindless_descriptor_set_layout);
             }
