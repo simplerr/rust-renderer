@@ -104,8 +104,9 @@ impl VulkanBase {
         let entry = ash::Entry::linked();
 
         let (window, event_loop) = VulkanBase::create_window(width, height);
-        let instance = VulkanBase::create_instance(&entry, &window);
-        let (debug_utils, debug_callback) = VulkanBase::create_debug_utils(&entry, &instance);
+        let (instance, debug_utils_enabled) = VulkanBase::create_instance(&entry, &window);
+        let (debug_utils, debug_callback) =
+            VulkanBase::create_debug_utils(&entry, &instance, debug_utils_enabled);
         let (surface, surface_loader) = VulkanBase::create_surface(&entry, &instance, &window);
         let device = Device::new(&instance, surface, &surface_loader, debug_utils);
 
@@ -165,17 +166,43 @@ impl VulkanBase {
         (window, event_loop)
     }
 
-    fn create_instance(entry: &ash::Entry, window: &winit::window::Window) -> ash::Instance {
+    fn create_instance(
+        entry: &ash::Entry,
+        window: &winit::window::Window,
+    ) -> (ash::Instance, bool) {
         let app_name = c"rust-renderer";
-        let layer_names = [c"VK_LAYER_KHRONOS_validation"];
-        let layer_names_raw: Vec<*const c_char> = layer_names
-            .iter()
-            .map(|raw_name| raw_name.as_ptr())
-            .collect();
+
+        let validation_layer_name = c"VK_LAYER_KHRONOS_validation";
+        let available_layers = entry
+            .enumerate_instance_layer_properties()
+            .unwrap_or_default();
+        let validation_available = available_layers.iter().any(|layer| {
+            (unsafe { CStr::from_ptr(layer.layer_name.as_ptr()) }) == validation_layer_name
+        });
+
+        let mut layer_names_raw: Vec<*const c_char> = Vec::new();
+        if validation_available {
+            layer_names_raw.push(validation_layer_name.as_ptr());
+        } else {
+            log::warn!(
+                "VK_LAYER_KHRONOS_validation not available; continuing without validation layer"
+            );
+        }
 
         let surface_extensions = ash_window::enumerate_required_extensions(&window).unwrap();
         let mut extension_names_raw: Vec<*const i8> = Vec::from(surface_extensions);
-        extension_names_raw.push(DebugUtils::name().as_ptr());
+
+        let available_extensions = entry
+            .enumerate_instance_extension_properties(None)
+            .unwrap_or_default();
+        let debug_utils_available = available_extensions.iter().any(|ext| {
+            (unsafe { CStr::from_ptr(ext.extension_name.as_ptr()) }) == DebugUtils::name()
+        });
+        if debug_utils_available {
+            extension_names_raw.push(DebugUtils::name().as_ptr());
+        } else {
+            log::warn!("VK_EXT_debug_utils not available; debug messenger disabled");
+        }
 
         let app_info = vk::ApplicationInfo::builder()
             .application_name(app_name)
@@ -189,36 +216,42 @@ impl VulkanBase {
             .enabled_layer_names(&layer_names_raw)
             .enabled_extension_names(&extension_names_raw);
 
-        unsafe {
+        let instance = unsafe {
             entry
                 .create_instance(&create_info, None)
                 .expect("Failed to create Vulkan instance")
-        }
+        };
+        (instance, debug_utils_available)
     }
 
     fn create_debug_utils(
         entry: &ash::Entry,
         instance: &ash::Instance,
+        enable_messenger: bool,
     ) -> (DebugUtils, vk::DebugUtilsMessengerEXT) {
-        let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
-            .message_severity(
-                vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
-                    | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
-                    | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
-            )
-            .message_type(
-                vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
-                    | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
-                    | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
-            )
-            .pfn_user_callback(Some(vulkan_debug_callback));
-
         let debug_utils_loader = DebugUtils::new(entry, instance);
 
-        let debug_utils_messenger = unsafe {
-            debug_utils_loader
-                .create_debug_utils_messenger(&debug_info, None)
-                .unwrap()
+        let debug_utils_messenger = if enable_messenger {
+            let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+                .message_severity(
+                    vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
+                        | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+                        | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
+                )
+                .message_type(
+                    vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                        | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                        | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+                )
+                .pfn_user_callback(Some(vulkan_debug_callback));
+
+            unsafe {
+                debug_utils_loader
+                    .create_debug_utils_messenger(&debug_info, None)
+                    .unwrap()
+            }
+        } else {
+            vk::DebugUtilsMessengerEXT::null()
         };
 
         (debug_utils_loader, debug_utils_messenger)
