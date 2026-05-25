@@ -24,6 +24,9 @@ struct Application {
     current_frame: usize,      // Should be in VulkanBase
     num_frames_in_flight: u32, // Should be in VulkanBase
     render_graph_mode: RenderGraphMode,
+    time_paused: bool,
+    display_time: f32,
+    last_real_time: f32,
 }
 
 impl Application {
@@ -132,6 +135,9 @@ impl Application {
             } else {
                 RenderGraphMode::Rasterized
             },
+            time_paused: false,
+            display_time: 0.0,
+            last_real_time: 0.0,
         }
     }
 
@@ -456,6 +462,10 @@ impl Application {
                 puffin::set_scopes_on(self.graph.profiling_enabled);
             }
 
+            if input.key_pressed(winit::event::VirtualKeyCode::T) {
+                self.time_paused = !self.time_paused;
+            }
+
             if self.camera.update(input) {
                 self.view_data.total_samples = 0;
             }
@@ -466,7 +476,12 @@ impl Application {
             self.view_data.inverse_view = self.camera.get_view().inverse();
             self.view_data.inverse_projection = self.camera.get_projection().inverse();
             self.view_data.eye_pos = self.camera.get_position();
-            self.view_data.time = self.fps_timer.elapsed_seconds_from_start();
+            let real_time = self.fps_timer.elapsed_seconds_from_start();
+            if !self.time_paused {
+                self.display_time += real_time - self.last_real_time;
+            }
+            self.last_real_time = real_time;
+            self.view_data.time = self.display_time;
 
             if self.render_graph_mode == RenderGraphMode::PathTraced {
                 self.view_data.total_samples += self.view_data.samples_per_frame;
