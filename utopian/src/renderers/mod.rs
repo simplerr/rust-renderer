@@ -183,7 +183,7 @@ pub fn build_render_graph(
         true,
     );
 
-    crate::renderers::present::setup_present_pass(device, graph, deferred_output);
+    crate::renderers::present::setup_present_pass(device, graph, base, deferred_output);
 }
 
 pub fn build_path_tracing_render_graph(
@@ -362,7 +362,8 @@ pub fn build_path_tracing_render_graph(
             "reference_pt_present_pass",
             crate::PipelineDesc::builder()
                 .vertex_path("utopian/shaders/common/fullscreen.vert")
-                .fragment_path("utopian/shaders/blit/blit.frag"),
+                .fragment_path("utopian/shaders/blit/blit.frag")
+                .color_attachment_formats(vec![base.present_images[0].format()]),
         )
         .read(output_image)
         .presentation_pass(true)
@@ -429,5 +430,5 @@ pub fn build_minimal_forward_render_graph(
         (cascade_matrices, cascade_depths),
     );
 
-    crate::renderers::present::setup_present_pass(device, graph, forward_output);
+    crate::renderers::present::setup_present_pass(device, graph, base, forward_output);
 }

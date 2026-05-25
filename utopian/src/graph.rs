@@ -361,19 +361,23 @@ impl PassBuilder {
             pass.writes.push(*write);
         }
 
-        // Update attachment formats now that all writes are known
-        graph.pipeline_descs[pass.pipeline_handle].color_attachment_formats = pass
-            .writes
-            .iter()
-            .map(|write| {
-                graph
-                    .resources
-                    .texture(write.texture)
-                    .texture
-                    .image
-                    .format()
-            })
-            .collect();
+        // Update attachment formats now that all writes are known.
+        // Presentation passes attach the swapchain image directly and have no
+        // writes, so their color formats are set on the PipelineDesc builder.
+        if !pass.presentation_pass {
+            graph.pipeline_descs[pass.pipeline_handle].color_attachment_formats = pass
+                .writes
+                .iter()
+                .map(|write| {
+                    graph
+                        .resources
+                        .texture(write.texture)
+                        .texture
+                        .image
+                        .format()
+                })
+                .collect();
+        }
 
         if let Some(depth) = &pass.depth_attachment {
             match depth {

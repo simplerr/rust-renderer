@@ -3,6 +3,7 @@ use crate::PipelineDesc;
 pub fn setup_present_pass(
     device: &crate::Device,
     graph: &mut crate::Graph,
+    base: &crate::VulkanBase,
     color_output: crate::TextureId,
 ) {
     puffin::profile_function!();
@@ -14,7 +15,8 @@ pub fn setup_present_pass(
             "present_pass",
             PipelineDesc::builder()
                 .vertex_path("utopian/shaders/common/fullscreen.vert")
-                .fragment_path("utopian/shaders/present/present.frag"),
+                .fragment_path("utopian/shaders/present/present.frag")
+                .color_attachment_formats(vec![base.present_images[0].format()]),
         )
         .read(color_output)
         .uniforms(
