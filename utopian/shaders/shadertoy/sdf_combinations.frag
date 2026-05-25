@@ -136,6 +136,46 @@ float map(in vec3 pos)
     d = min( d, dt );
     }
 
+    // blend tests
+    vec3 box_a = vec3(2.0,0.2,0.7);
+    vec3 box_b = vec3(1.6,0.2,0.7);
+    float blend_zone = 1.0;
+
+    // linear blend
+    {
+    float blend_start = 4.0;
+    vec3 q = pos - vec3(4.0,0.0,1.0);
+    float a = sdRoundBox(q, box_a, 0.1);
+    float b = sdRoundBox(q-vec3(2.0,0.5+0.3*an,0.0), box_b, 0.1);
+
+
+    // Cheap, popular on shadertoy, but not a valid SDF inside the blend
+    // band -> the ray marcher can overshoot and produce surface artefacts
+    // at glancing angles.
+    float blended = mix(a, b, smoothstep(blend_start, blend_start + blend_zone, pos.x));
+
+    d = min( d, blended );
+    }
+
+    // smin carve
+    {
+    float blend_start = 10.0;
+    vec3 q = pos - vec3(10.0,0.0,1.0);
+    float a = sdRoundBox(q, box_a, 0.1);
+    float b = sdRoundBox(q-vec3(2.0,0.5+0.3*an,0.0), box_b, 0.1);
+
+
+    // Half-plane carving + smooth union in the overlap. Stays a valid SDF
+    // so no marching artefacts.
+    float left_half  = pos.x - (blend_start + blend_zone);   // <= 0 on the left
+    float right_half =  blend_start            - pos.x;      // <= 0 on the right
+    float a_clipped = max(a, left_half);                     // a lives for x < blend_end
+    float b_clipped = max(b, right_half);                    // b lives for x > blend_start
+    float blended = opSmoothUnion(a_clipped, b_clipped, 0.10);
+
+    d = min( d, blended );
+    }
+
     return d;
 }
 
@@ -183,21 +223,21 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         vec2 p = (-iResolution.xy + 2.0*fragCoord)/iResolution.y;
         #endif
  
-        vec3 ro = vec3(0.0,4.0,8.0);
-        vec3 rd = normalize(vec3(p-vec2(0.0,1.8),-3.5));
+        vec3 ro = vec3(2.0,4.0,10.0);
+        vec3 rd = normalize(vec3(p-vec2(-2.5,1.8),-3.5));
 
         float t = 7.0;
         for( int i=0; i<64; i++ )
         {
             vec3 p = ro + t*rd;
             float h = map(p);
-            if( h<0.001 || t>11.0 ) break;
+            if( h<0.001 || t>21.0 ) break;
             t += h;
         }
 
         vec3 col = vec3(0.0);
 
-        if( t<11.0 )
+        if( t<21.0 )
         {
             vec3 pos = ro + t*rd;
             vec3 nor = calcNormal(pos);

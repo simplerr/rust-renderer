@@ -434,7 +434,6 @@ pub fn build_minimal_forward_render_graph(
     crate::renderers::present::setup_present_pass(device, graph, base, forward_output);
 }
 
-
 pub fn build_shadertoy_render_graph(
     graph: &mut crate::Graph,
     device: &crate::Device,
