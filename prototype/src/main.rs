@@ -8,6 +8,7 @@ enum RenderGraphMode {
     Hybrid,
     Rasterized,
     Minimal,
+    Shadertoy,
 }
 
 struct Application {
@@ -272,7 +273,7 @@ impl Application {
                 ui.horizontal(|ui| {
                     egui::Grid::new("settings_grid").show(ui, |ui| {
                         let render_graph_mode_options =
-                            ["PathTraced", "Hybrid", "Rasterized", "Minimal"];
+                            ["PathTraced", "Hybrid", "Rasterized", "Minimal", "Shadertoy"];
                         let current_mode = format!("{:?}", *render_graph_mode);
                         ui.label("Render Graph Mode:");
                         egui::ComboBox::from_id_source("render_graph_mode_dropdown")
@@ -285,6 +286,7 @@ impl Application {
                                             1 => RenderGraphMode::Hybrid,
                                             2 => RenderGraphMode::Rasterized,
                                             3 => RenderGraphMode::Minimal,
+                                            4 => RenderGraphMode::Shadertoy,
                                             _ => panic!("Invalid render graph mode option index."),
                                         };
                                     }
@@ -294,7 +296,7 @@ impl Application {
                         let options = ["1", "2", "3"];
                         ui.label("Frames in flight:");
                         egui::ComboBox::from_id_source("dropdown")
-                            .selected_text(options[(*num_frames_in_flight - 1) as usize])
+                            .selected_text("2") // options[(*num_frames_in_flight - 1) as usize])
                             .show_ui(ui, |ui| {
                                 for (i, option) in options.iter().enumerate() {
                                     if ui.selectable_label(false, *option).clicked() {
@@ -425,6 +427,8 @@ impl Application {
                 self.render_graph_mode = RenderGraphMode::Minimal;
             } else if input.key_pressed(winit::event::VirtualKeyCode::Key4) {
                 self.render_graph_mode = RenderGraphMode::Hybrid;
+            } else if input.key_pressed(winit::event::VirtualKeyCode::Key5) {
+                self.render_graph_mode = RenderGraphMode::Shadertoy;
             }
 
             if let Some(path) = self.shader_watcher.check_if_modification() {
@@ -513,6 +517,13 @@ impl Application {
                             &self.base,
                             &self.view_data,
                             &self.camera,
+                        );
+                    } else if self.render_graph_mode == RenderGraphMode::Shadertoy {
+                        utopian::renderers::build_shadertoy_render_graph(
+                            &mut self.graph,
+                            &self.base.device,
+                            &self.base,
+                            &self.view_data,
                         );
                     }
 

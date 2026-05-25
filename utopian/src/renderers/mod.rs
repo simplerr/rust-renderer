@@ -11,6 +11,7 @@ pub mod marching_cubes;
 pub mod present;
 pub mod rt_reflections;
 pub mod rt_shadows;
+pub mod shadertoy;
 pub mod shadow;
 pub mod ssao;
 
@@ -431,4 +432,34 @@ pub fn build_minimal_forward_render_graph(
     );
 
     crate::renderers::present::setup_present_pass(device, graph, base, forward_output);
+}
+
+
+pub fn build_shadertoy_render_graph(
+    graph: &mut crate::Graph,
+    device: &crate::Device,
+    base: &crate::VulkanBase,
+    view_data: &crate::ViewUniformData,
+) {
+    puffin::profile_function!();
+
+    let width = base.surface_resolution.width;
+    let height = base.surface_resolution.height;
+
+    let shadertoy_output = graph.create_texture(
+        "shadertoy_output",
+        device,
+        ImageDesc::new_2d(width, height, vk::Format::R8G8B8A8_UNORM),
+    );
+
+    crate::renderers::shadertoy::setup_shadertoy_pass(
+        device,
+        graph,
+        base,
+        "utopian/shaders/shadertoy/sdf_combinations.frag",
+        shadertoy_output,
+        view_data.time,
+    );
+
+    crate::renderers::present::setup_present_pass(device, graph, base, shadertoy_output);
 }
