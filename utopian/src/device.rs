@@ -70,15 +70,36 @@ impl Device {
                 })
                 .collect();
 
-            let mut device_extension_names_raw = vec![
-                Swapchain::name().as_ptr(),
+            let is_extension_supported = |name_ptr: *const std::os::raw::c_char| -> bool {
+                let name = std::ffi::CStr::from_ptr(name_ptr).to_string_lossy();
+                supported_extension_names.contains(&name.as_ref().to_owned())
+            };
+
+            // The swapchain extension is always required. The remaining extensions are
+            // promoted to Vulkan 1.1-1.3 core; a conformant driver (e.g. KosmicKrisp) may
+            // not advertise the extension string even though the functionality is available
+            // through the features2 chain below. Only request the ones actually advertised
+            // so device creation does not fail on such drivers.
+            let mut device_extension_names_raw = vec![Swapchain::name().as_ptr()];
+
+            for optional_ext in [
                 vk::ExtDescriptorIndexingFn::name().as_ptr(),
                 vk::KhrDynamicRenderingFn::name().as_ptr(),
                 vk::KhrMaintenance1Fn::name().as_ptr(),
                 vk::KhrMaintenance2Fn::name().as_ptr(),
                 vk::KhrMaintenance3Fn::name().as_ptr(),
                 vk::KhrShaderNonSemanticInfoFn::name().as_ptr(),
-            ];
+            ] {
+                if is_extension_supported(optional_ext) {
+                    device_extension_names_raw.push(optional_ext);
+                } else {
+                    let name = std::ffi::CStr::from_ptr(optional_ext).to_string_lossy();
+                    log::info!(
+                        "Device extension not advertised, relying on core promotion: {}",
+                        name
+                    );
+                }
+            }
 
             let rt_extension_names_raw = vec![
                 vk::KhrRayTracingPipelineFn::name().as_ptr(),
@@ -90,17 +111,13 @@ impl Device {
                 vk::ExtScalarBlockLayoutFn::name().as_ptr(),
             ];
 
-            let raytracing_supported = rt_extension_names_raw.iter().all(|name| {
-                let name = std::ffi::CStr::from_ptr(*name).to_string_lossy();
-                let supported = supported_extension_names.contains(&name.as_ref().to_owned());
+            let raytracing_supported = rt_extension_names_raw
+                .iter()
+                .all(|&name| is_extension_supported(name));
 
-                if !supported {
-                    println!("Ray tracing extension not supported: {}", name);
-                    std::thread::sleep(std::time::Duration::from_millis(5000));
-                }
-
-                supported
-            });
+            if !raytracing_supported {
+                log::info!("Ray tracing extensions not available; ray tracing disabled");
+            }
 
             let mut descriptor_indexing_features =
                 vk::PhysicalDeviceDescriptorIndexingFeaturesEXT::default();

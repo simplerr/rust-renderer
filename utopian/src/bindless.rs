@@ -82,10 +82,20 @@ pub fn create_bindless_descriptor_set(
     device: &Device,
     layout: vk::DescriptorSetLayout,
 ) -> vk::DescriptorSet {
-    let descriptor_sizes = [vk::DescriptorPoolSize {
-        ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-        descriptor_count: MAX_BINDLESS_DESCRIPTOR_COUNT as u32,
-    }];
+    let descriptor_sizes = [
+        vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            descriptor_count: MAX_BINDLESS_DESCRIPTOR_COUNT as u32,
+        },
+        // Bindings 1-5 in the layout are all STORAGE_BUFFER, each declared with
+        // MAX_BINDLESS_DESCRIPTOR_COUNT. The pool must declare matching capacity or a
+        // strict driver (e.g. KosmicKrisp) rejects set allocation with
+        // ERROR_OUT_OF_POOL_MEMORY. Lenient drivers tolerate the missing pool size.
+        vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::STORAGE_BUFFER,
+            descriptor_count: (5 * MAX_BINDLESS_DESCRIPTOR_COUNT) as u32,
+        },
+    ];
 
     let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
         .pool_sizes(&descriptor_sizes)

@@ -217,9 +217,25 @@ impl VulkanBase {
             .enabled_extension_names(&extension_names_raw);
 
         let instance = unsafe {
-            entry
-                .create_instance(&create_info, None)
-                .expect("Failed to create Vulkan instance")
+            match entry.create_instance(&create_info, None) {
+                Ok(instance) => instance,
+                // A layer can be enumerated yet still fail to load (e.g. the validation
+                // layer's library is not on the dynamic linker's search path). Fall back to
+                // creating the instance without explicit layers instead of aborting.
+                Err(vk::Result::ERROR_LAYER_NOT_PRESENT) if !layer_names_raw.is_empty() => {
+                    log::warn!(
+                        "Instance creation failed with ERROR_LAYER_NOT_PRESENT; \
+                         retrying without explicit layers"
+                    );
+                    let create_info = vk::InstanceCreateInfo::builder()
+                        .application_info(&app_info)
+                        .enabled_extension_names(&extension_names_raw);
+                    entry
+                        .create_instance(&create_info, None)
+                        .expect("Failed to create Vulkan instance")
+                }
+                Err(e) => panic!("Failed to create Vulkan instance: {:?}", e),
+            }
         };
         (instance, debug_utils_available)
     }
@@ -282,9 +298,12 @@ impl VulkanBase {
         u32,
     ) {
         unsafe {
-            let surface_format = surface_loader
+            let available_surface_formats = surface_loader
                 .get_physical_device_surface_formats(physical_device, surface)
-                .expect("Error getting device surface formats")[0];
+                .expect("Error getting device surface formats");
+            log::info!("Available surface formats: {:?}", available_surface_formats);
+            let surface_format = available_surface_formats[0];
+            log::info!("Chosen surface format: {:?}", surface_format);
 
             let surface_capabilities = surface_loader
                 .get_physical_device_surface_capabilities(physical_device, surface)

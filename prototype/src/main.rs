@@ -193,6 +193,7 @@ impl Application {
         need_environment_map_update: &mut bool,
         num_frames_in_flight: &mut u32,
         render_graph_mode: &mut RenderGraphMode,
+        raytracing_supported: bool,
     ) {
         egui::Window::new("rust-renderer")
             .auto_sized()
@@ -278,23 +279,26 @@ impl Application {
                 });
                 ui.horizontal(|ui| {
                     egui::Grid::new("settings_grid").show(ui, |ui| {
-                        let render_graph_mode_options =
-                            ["PathTraced", "Hybrid", "Rasterized", "Minimal", "Shadertoy"];
+                        let render_graph_mode_options = [
+                            ("PathTraced", RenderGraphMode::PathTraced),
+                            ("Hybrid", RenderGraphMode::Hybrid),
+                            ("Rasterized", RenderGraphMode::Rasterized),
+                            ("Minimal", RenderGraphMode::Minimal),
+                            ("Shadertoy", RenderGraphMode::Shadertoy),
+                        ];
                         let current_mode = format!("{:?}", *render_graph_mode);
                         ui.label("Render Graph Mode:");
                         egui::ComboBox::from_id_source("render_graph_mode_dropdown")
                             .selected_text(current_mode)
                             .show_ui(ui, |ui| {
-                                for (i, option) in render_graph_mode_options.iter().enumerate() {
-                                    if ui.selectable_label(false, *option).clicked() {
-                                        *render_graph_mode = match i {
-                                            0 => RenderGraphMode::PathTraced,
-                                            1 => RenderGraphMode::Hybrid,
-                                            2 => RenderGraphMode::Rasterized,
-                                            3 => RenderGraphMode::Minimal,
-                                            4 => RenderGraphMode::Shadertoy,
-                                            _ => panic!("Invalid render graph mode option index."),
-                                        };
+                                for (label, mode) in render_graph_mode_options {
+                                    // PathTraced needs a ray tracing graph, which cannot be
+                                    // built on devices without RT support (e.g. KosmicKrisp).
+                                    if mode == RenderGraphMode::PathTraced && !raytracing_supported {
+                                        continue;
+                                    }
+                                    if ui.selectable_label(false, label).clicked() {
+                                        *render_graph_mode = mode;
                                     }
                                 }
                             });
@@ -401,6 +405,7 @@ impl Application {
                 &mut self.renderer.need_environment_map_update,
                 &mut self.num_frames_in_flight,
                 &mut self.render_graph_mode,
+                self.base.device.raytracing_supported,
             );
 
             self.view_data.sun_dir = self.view_data.sun_dir.normalize();
@@ -435,6 +440,15 @@ impl Application {
                 self.render_graph_mode = RenderGraphMode::Hybrid;
             } else if input.key_pressed(winit::event::VirtualKeyCode::Key5) {
                 self.render_graph_mode = RenderGraphMode::Shadertoy;
+            }
+
+            // The path tracing graph builds ray tracing pipelines, which cannot be created
+            // on devices without RT support (e.g. KosmicKrisp/Metal). Coerce to rasterization
+            // so an errant selection degrades gracefully instead of aborting in the driver.
+            if self.render_graph_mode == RenderGraphMode::PathTraced
+                && !self.base.device.raytracing_supported
+            {
+                self.render_graph_mode = RenderGraphMode::Rasterized;
             }
 
             if let Some(path) = self.shader_watcher.check_if_modification() {

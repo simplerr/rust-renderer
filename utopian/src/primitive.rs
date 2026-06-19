@@ -37,14 +37,21 @@ impl Vertex {
 
 impl Primitive {
     pub fn new(device: &Device, indices: Vec<u32>, vertices: Vec<Vertex>) -> Primitive {
+        // Device address + acceleration-structure build-input usage are only needed for
+        // ray tracing. The AS usage bit is invalid without VK_KHR_acceleration_structure,
+        // so omit both on devices without RT support (e.g. KosmicKrisp/Metal).
+        let rt_usage = if device.raytracing_supported {
+            vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
+        } else {
+            vk::BufferUsageFlags::empty()
+        };
+
         let index_buffer = Buffer::new(
             device,
             Some(indices.as_slice()),
             std::mem::size_of_val(&*indices) as u64,
-            vk::BufferUsageFlags::INDEX_BUFFER
-                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
-                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
-                | vk::BufferUsageFlags::STORAGE_BUFFER,
+            vk::BufferUsageFlags::INDEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER | rt_usage,
             gpu_allocator::MemoryLocation::GpuOnly,
         );
 
@@ -52,10 +59,7 @@ impl Primitive {
             device,
             Some(vertices.as_slice()),
             std::mem::size_of_val(&*vertices) as u64,
-            vk::BufferUsageFlags::VERTEX_BUFFER
-                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
-                | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
-                | vk::BufferUsageFlags::STORAGE_BUFFER,
+            vk::BufferUsageFlags::VERTEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER | rt_usage,
             gpu_allocator::MemoryLocation::GpuOnly,
         );
 
